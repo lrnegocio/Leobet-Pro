@@ -1,124 +1,97 @@
 "use client"
 
-import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, User, Store, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/store/use-auth-store';
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-export default function RegisterContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const role = searchParams.get('role') || 'cliente';
-  const { toast } = useToast();
-  const setUser = useAuthStore((state) => state.setUser);
+export function RegisterContent() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    password: '',
-    cpf: '',
-    pixKey: '',
-    phone: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
 
     try {
-      const userProfile = {
-        id: Date.now().toString(),
-        nome: formData.nome,
-        email: formData.email,
-        role: role as any,
-        balance: 0,
-        status: role === 'cambista' ? 'pending' : 'approved',
-        cpf: formData.cpf,
-        pixKey: formData.pixKey,
-        phone: formData.phone,
-        createdAt: new Date().toISOString(),
-      };
-
-      setUser(userProfile);
-
-      toast({
-        title: "Cadastro Realizado",
-        description: "Sua conta foi criada com sucesso!",
-      });
-
-      router.push(`/login?role=${role}`);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
+      // Simula registro
+      localStorage.setItem('user_email', email)
+      localStorage.setItem('user_name', name)
+      router.push('/cliente/dashboard')
+    } catch (err) {
+      setError('Erro ao registrar')
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.id]: e.target.value });
-  };
+    setLoading(false)
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 py-12">
-      <Link href={`/login?role=${role}`} className="mb-8 flex items-center gap-2 text-muted-foreground hover:text-primary">
-        <ArrowLeft className="w-4 h-4" /> Voltar
-      </Link>
-
-      <Card className="w-full max-w-2xl shadow-2xl border-t-4 border-t-accent">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-accent/10 p-4 rounded-full w-fit mb-4">
-            {role === 'cambista' ? <Store className="w-8 h-8 text-accent" /> : <User className="w-8 h-8 text-accent" />}
-          </div>
-          <CardTitle className="text-2xl font-bold">Cadastro</CardTitle>
-          <CardDescription>Crie sua conta</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-black">Cadastro</CardTitle>
+          <CardDescription>Crie sua conta LEOBET</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome</Label>
-                <Input id="nome" placeholder="Seu nome" required onChange={handleChange} disabled={loading} />
+          <form onSubmit={handleRegister} className="space-y-4">
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded">
+                {error}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="seu@email.com" required onChange={handleChange} disabled={loading} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cpf">CPF</Label>
-                <Input id="cpf" placeholder="000.000.000-00" required onChange={handleChange} disabled={loading} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input id="phone" placeholder="(00) 00000-0000" required onChange={handleChange} disabled={loading} />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="pixKey">Chave PIX</Label>
-                <Input id="pixKey" placeholder="CPF ou Email" required onChange={handleChange} disabled={loading} />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input id="password" type="password" required onChange={handleChange} disabled={loading} />
-              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-bold mb-2">Nome</label>
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome"
+                required
+              />
             </div>
-            
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-12" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin mr-2" /> : null}
-              Cadastrar
+
+            <div>
+              <label className="block text-sm font-bold mb-2">Email</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-2">Senha</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Registrando...' : 'Registrar'}
             </Button>
           </form>
+
+          <p className="text-center text-sm mt-4">
+            Já tem conta?{' '}
+            <Link href="/auth/login" className="text-primary hover:underline font-bold">
+              Entrar
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
