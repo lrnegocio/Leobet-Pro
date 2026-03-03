@@ -1,24 +1,13 @@
-
 "use client"
 
 import React from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Grid3X3, Clock, Loader2 } from 'lucide-react';
+import { Trophy, Grid3X3, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
 
 export default function ClienteDashboard() {
-  const db = useFirestore();
-
-  const bingosRef = useMemoFirebase(() => db ? query(collection(db, 'bingos'), where('status', '==', 'aberto')) : null, [db]);
-  const { data: activeBingos, loading: loadingBingos } = useCollection(bingosRef);
-
-  const boloesRef = useMemoFirebase(() => db ? query(collection(db, 'boloes'), where('status', '==', 'aberto')) : null, [db]);
-  const { data: activeBoloes, loading: loadingBoloes } = useCollection(boloesRef);
-
   return (
     <div className="flex h-screen bg-muted/30">
       <SidebarNav />
@@ -41,7 +30,7 @@ export default function ClienteDashboard() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Confira os eventos disponíveis abaixo e boa sorte! Todos os sorteios são auditados em tempo real.
+                    Confira os eventos dispon��veis abaixo e boa sorte! Todos os sorteios são auditados em tempo real.
                   </p>
                 </CardContent>
               </Card>
@@ -56,9 +45,7 @@ export default function ClienteDashboard() {
                       <Grid3X3 className="w-5 h-5 text-primary" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold">
-                        {loadingBingos ? <Loader2 className="animate-spin w-6 h-6" /> : `${activeBingos?.length || 0} Ativos`}
-                      </div>
+                      <div className="text-3xl font-bold">0 Ativos</div>
                       <p className="text-xs text-muted-foreground mt-2">Participe agora e ganhe!</p>
                     </CardContent>
                   </Card>
@@ -71,9 +58,7 @@ export default function ClienteDashboard() {
                       <Trophy className="w-5 h-5 text-accent" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold">
-                        {loadingBoloes ? <Loader2 className="animate-spin w-6 h-6" /> : `${activeBoloes?.length || 0} Ativos`}
-                      </div>
+                      <div className="text-3xl font-bold">0 Ativos</div>
                       <p className="text-xs text-muted-foreground mt-2">Aposte no seu time favorito!</p>
                     </CardContent>
                   </Card>
