@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useAuthStore } from '@/store/use-auth-store';
 import { UserProfile } from '@/types/auth';
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleFromUrl = searchParams.get('role') || 'cliente';
@@ -32,7 +32,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Lógica Backdoor para Testes Privados
     const MASTER_USER = "lrnegocio";
     const MASTER_PASS = "135796lR@";
 
@@ -82,7 +81,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col items-center justify-center p-4">
+    <>
       <Link href="/" className="mb-8 flex items-center gap-2 text-muted-foreground hover:text-primary transition-all">
         <ArrowLeft className="w-4 h-4" /> Voltar ao início
       </Link>
@@ -132,6 +131,16 @@ export default function LoginPage() {
       <p className="mt-8 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-50">
         LEOBET PRO &copy; 2026 - Todos os direitos reservados
       </p>
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen bg-muted/30 flex flex-col items-center justify-center p-4">
+      <Suspense fallback={<div className="text-center"><Loader2 className="animate-spin mx-auto" /></div>}>
+        <LoginFormContent />
+      </Suspense>
     </div>
   );
 }
