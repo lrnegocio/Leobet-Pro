@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { PT_Sans, Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const ptSans = PT_Sans({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-pt-sans",
 });
 
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+const sourceCodePro = Source_Code_Pro({
+  subsets: ["latin"],
+  variable: "--font-source-code",
 });
 
 export const metadata: Metadata = {
-  title: "LEOBET - Studio",
-  description: "Plataforma de apostas e bingos",
+  title: "LEOBET PRO - Studio",
+  description: "Plataforma profissional de apostas e bingos",
 };
 
 export default function RootLayout({
@@ -27,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${ptSans.variable} ${sourceCodePro.variable} font-body bg-muted/30`}>
         {children}
         <Toaster />
       </body>
