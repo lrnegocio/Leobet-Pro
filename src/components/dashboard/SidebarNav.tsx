@@ -12,7 +12,8 @@ import {
   LogOut,
   Wallet,
   QrCode,
-  ShoppingCart
+  ShoppingCart,
+  Users
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 
@@ -25,14 +26,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Painel', href: '/cliente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cliente'] },
+  { label: 'Meu Painel', href: '/gerente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Vendas', href: '/cambista/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cambista'] },
-  { label: 'Realizar Venda', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin'] },
+  { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
+  { label: 'Terminal Vendas', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente'] },
   { label: 'Bingo', href: '/admin/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Bolão', href: '/admin/bolao', icon: <Trophy className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Baixar Prêmio', href: '/cambista/resgate', icon: <QrCode className="w-5 h-5" />, roles: ['cambista', 'admin'] },
-  { label: 'Apostar Bingo', href: '/cliente/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['cliente', 'cambista'] },
-  { label: 'Apostar Bolão', href: '/cliente/bolao', icon: <Trophy className="w-5 h-5" />, roles: ['cliente', 'cambista'] },
+  { label: 'Baixar Bilhete', href: '/cambista/resgate', icon: <QrCode className="w-5 h-5" />, roles: ['cambista', 'admin'] },
   { label: 'Financeiro', href: '/admin/financeiro', icon: <Wallet className="w-5 h-5" />, roles: ['admin'] },
 ];
 
@@ -81,7 +81,7 @@ export function SidebarNav() {
           className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
         >
           <LogOut className="w-5 h-5" />
-          Sair do Sistema
+          Sair
         </button>
       </div>
     </div>
