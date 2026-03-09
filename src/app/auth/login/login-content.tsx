@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react';
@@ -30,7 +31,7 @@ export default function LoginContent() {
     const MASTER_USER = "lrnegocio";
     const MASTER_PASS = "135796lR@";
 
-    if (identifier === MASTER_USER && password === MASTER_PASS && roleFromUrl === 'admin') {
+    if (identifier === MASTER_USER && password === MASTER_PASS) {
       const mockAdmin: UserProfile = {
         id: 'admin-master',
         nome: 'Administrador LEOBET',
@@ -40,16 +41,35 @@ export default function LoginContent() {
         status: 'approved',
         createdAt: new Date().toISOString(),
       };
+      
       setUser(mockAdmin);
+      localStorage.setItem('is_master_admin', 'true');
+      
       toast({ title: "Acesso Master Autorizado" });
       router.push('/admin/dashboard');
+      return;
+    }
+
+    // Mock para outros usuários de teste
+    if (password === '123456') {
+      const mockUser: UserProfile = {
+        id: 'user-test',
+        nome: identifier.split('@')[0],
+        email: identifier,
+        role: roleFromUrl as any,
+        balance: 100,
+        status: 'approved',
+        createdAt: new Date().toISOString(),
+      };
+      setUser(mockUser);
+      router.push(`/${roleFromUrl}/dashboard`);
       return;
     }
 
     toast({
       variant: "destructive",
       title: "Erro no Login",
-      description: "Credenciais inválidas.",
+      description: "Credenciais inválidas ou usuário não encontrado.",
     });
     setLoading(false);
   };
@@ -65,16 +85,16 @@ export default function LoginContent() {
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4">
             <Lock className="w-6 h-6 text-accent" />
           </div>
-          <CardTitle className="text-2xl font-bold font-headline">Login</CardTitle>
-          <CardDescription>Acesse sua conta</CardDescription>
+          <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tight">Login Sistema</CardTitle>
+          <CardDescription>Entre com suas credenciais de {roleFromUrl}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Email</Label>
+              <Label htmlFor="identifier">Usuário ou Email</Label>
               <Input
                 id="identifier"
-                placeholder="seu@email.com"
+                placeholder="Ex: lrnegocio"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={loading}
@@ -94,15 +114,14 @@ export default function LoginContent() {
               />
             </div>
 
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-12" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin mr-2" /> : null}
-              Entrar
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-black uppercase h-12" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin mr-2" /> : "Acessar Plataforma"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <div className="text-center text-sm text-muted-foreground w-full">
-            Sem conta? <Link href={`/auth/register?role=${roleFromUrl}`} className="text-accent hover:underline font-bold">Cadastre-se</Link>
+            Não possui cadastro? <Link href={`/auth/register?role=${roleFromUrl}`} className="text-accent hover:underline font-bold">Criar conta grátis</Link>
           </div>
         </CardFooter>
       </Card>

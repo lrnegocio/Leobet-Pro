@@ -1,44 +1,40 @@
+
 "use client"
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-const ADMIN_EMAIL = 'seu@email.com'; // MUDE PARA SEU EMAIL
+import { useAuthStore } from '@/store/use-auth-store';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
+  const { user } = useAuthStore();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verifica se o usuário é admin (você implementaria com JWT/session)
-    // Por enquanto, apenas check se tem um token admin no localStorage
-    const adminToken = localStorage.getItem('admin_token');
-    const adminEmail = localStorage.getItem('admin_email');
-
-    if (adminToken && adminEmail === ADMIN_EMAIL) {
-      setIsAuthorized(true);
+    // Verifica se o usuário na store é admin
+    if (!user || user.role !== 'admin') {
+      // Se não estiver na store, verifica o master login no localStorage como fallback de sessão
+      const isMaster = localStorage.getItem('is_master_admin') === 'true';
+      if (!isMaster) {
+        router.push('/auth/login?role=admin');
+      } else {
+        setLoading(false);
+      }
     } else {
-      // Redireciona para login
-      router.push('/admin/login');
+      setLoading(false);
     }
-    setLoading(false);
-  }, [router]);
+  }, [user, router]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-muted-foreground">Verificando acesso...</p>
+      <div className="flex items-center justify-center h-screen bg-primary">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="font-black uppercase tracking-widest text-xs">Autenticando LEOBET PRO...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthorized) {
-    return null; // Será redirecionado
-  }
-
   return <>{children}</>;
 }
-
