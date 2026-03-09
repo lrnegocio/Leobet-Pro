@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -9,14 +8,9 @@ import Link from 'next/link';
 import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-const MOCK_BOLOES = [
-  { id: '1', nome: 'Rodada Brasileirão #10', valor: 5, status: 'aberto', partidas: 8, vendidas: 120, dataFim: '2026-03-01T15:00' },
-  { id: '2', nome: 'Final Champions 2026', valor: 50, status: 'aberto', partidas: 1, vendidas: 500, dataFim: '2026-05-30T16:00' },
-  { id: '3', nome: 'Clássicos Estaduais', valor: 10, status: 'encerrado', partidas: 4, vendidas: 240, dataFim: '2026-02-20T18:00' },
-];
-
 export default function BolaoPage() {
-  const [boloes, setBoloes] = useState(MOCK_BOLOES);
+  // Removido MOCK_BOLOES para começar limpo
+  const [boloes, setBoloes] = useState<any[]>([]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -55,14 +49,14 @@ export default function BolaoPage() {
                         </div>
                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                           <Trophy className="w-3.5 h-3.5 text-accent" />
-                          <span>{bolao.partidas} Partidas</span>
+                          <span>{bolao.partidas || 0} Partidas</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                           <Users className="w-3.5 h-3.5 text-accent" />
-                          <span>{bolao.vendidas} Vendidos</span>
+                          <span>{bolao.vendidas || 0} Vendidos</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-black uppercase text-primary">
-                          <span className="bg-primary/10 px-2 py-1 rounded">R$ {bolao.valor.toFixed(2)}</span>
+                          <span className="bg-primary/10 px-2 py-1 rounded">R$ {(bolao.valor || 0).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -92,6 +86,9 @@ export default function BolaoPage() {
                 <CardContent className="py-20 text-center text-muted-foreground">
                   <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
                   <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo no momento</p>
+                  <Link href="/admin/bolao/novo" className="mt-4 block">
+                    <Button variant="link" className="text-accent font-black uppercase text-xs">Clique aqui para criar o primeiro</Button>
+                  </Link>
                 </CardContent>
               </Card>
             )}

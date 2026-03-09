@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -9,15 +8,9 @@ import Link from 'next/link';
 import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-// Mock data ampliado para demonstrar status
-const INITIAL_BINGOS = [
-  { id: '1', nome: 'Bingo Inaugural #01', preco: 10, status: 'aberto', dataSorteio: '2026-03-01T20:00', vendidas: 45 },
-  { id: '2', nome: 'Bingo Especial Sábado', preco: 25, status: 'encerrado', dataSorteio: '2026-02-25T19:00', vendidas: 150 },
-  { id: '3', nome: 'Sorteio da Madrugada', preco: 5, status: 'aberto', dataSorteio: '2026-02-28T23:30', vendidas: 12 },
-];
-
 export default function BingoPage() {
-  const [bingos, setBingos] = useState(INITIAL_BINGOS);
+  // Removido INITIAL_BINGOS para começar limpo
+  const [bingos, setBingos] = useState<any[]>([]);
 
   const toggleStatus = (id: string) => {
     setBingos(prev => prev.map(b => 
@@ -48,6 +41,7 @@ export default function BingoPage() {
               const drawDate = new Date(bingo.dataSorteio);
               const isTimeReady = drawDate <= now;
               const isSalesClosed = bingo.status === 'encerrado';
+              // Regra: Só libera se vendas fechadas OU horário atingido
               const canStartDraw = isSalesClosed || isTimeReady;
               
               return (
@@ -63,8 +57,8 @@ export default function BingoPage() {
                         </div>
                         <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground uppercase">
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {drawDate.toLocaleString('pt-BR')}</span>
-                          <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> {bingo.vendidas} Cartelas</span>
-                          <span className="text-accent">R$ {bingo.preco.toFixed(2)} / Cartela</span>
+                          <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> {bingo.vendidas || 0} Cartelas</span>
+                          <span className="text-accent">R$ {(bingo.preco || 0).toFixed(2)} / Cartela</span>
                         </div>
                       </div>
 
@@ -108,6 +102,18 @@ export default function BingoPage() {
                 </Card>
               );
             })}
+
+            {bingos.length === 0 && (
+              <Card>
+                <CardContent className="py-20 text-center text-muted-foreground">
+                  <PlayCircle className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum concurso de bingo cadastrado</p>
+                  <Link href="/admin/bingo/novo" className="mt-4 block">
+                    <Button variant="link" className="text-primary font-black uppercase text-xs">Clique aqui para criar o primeiro</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, User, Ticket, Smartphone, Printer, Send, Search, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Ticket, Printer, Send, Search, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -20,7 +19,7 @@ export default function VendaPage() {
     evento: '',
     tipo: 'bingo',
     valor: 10,
-    palpite: '', // Usado para Bolão
+    palpite: '', 
   });
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
@@ -28,7 +27,6 @@ export default function VendaPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Simulação de registro de venda
     setTimeout(() => {
       const receipt = {
         id: "LB-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
@@ -42,6 +40,7 @@ export default function VendaPage() {
   };
 
   const shareWhatsApp = () => {
+    if (!vendaRealizada) return;
     const text = `*LEOBET PRO - COMPROVANTE DE APOSTA*\n\n` +
       `🎟️ *BILHETE:* ${vendaRealizada.id}\n` +
       `👤 *CLIENTE:* ${vendaRealizada.cliente}\n` +
@@ -66,8 +65,8 @@ export default function VendaPage() {
             </div>
             <div className="bg-white px-4 py-2 rounded-xl shadow-sm border flex items-center gap-3">
               <div className="text-right">
-                <p className="text-[9px] font-black uppercase text-muted-foreground">Caixa Aberto</p>
-                <p className="text-sm font-black text-green-600">R$ 1.250,00</p>
+                <p className="text-[9px] font-black uppercase text-muted-foreground">Caixa Diário</p>
+                <p className="text-sm font-black text-green-600">R$ 0,00</p>
               </div>
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
@@ -126,7 +125,7 @@ export default function VendaPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase">Evento Disponível</Label>
+                    <Label className="text-xs font-black uppercase">Evento Ativo</Label>
                     <select 
                       className="w-full h-10 px-3 border rounded-md text-sm font-medium"
                       value={formData.evento}
@@ -134,8 +133,7 @@ export default function VendaPage() {
                       required
                     >
                       <option value="">Selecione um concurso...</option>
-                      <option value="Bingo Especial 01">Bingo Especial 01 (R$ 10,00)</option>
-                      <option value="Rodada Brasileirão">Rodada Brasileirão (R$ 5,00)</option>
+                      {/* Aqui os eventos cadastrados apareceriam dinamicamente */}
                     </select>
                   </div>
 
@@ -143,7 +141,7 @@ export default function VendaPage() {
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                       <Label className="text-xs font-black uppercase text-accent">Palpite (1, X ou 2)</Label>
                       <Input 
-                        placeholder="Ex: 1 - X - 2 - 1..." 
+                        placeholder="Ex: 1 - X - 2..." 
                         value={formData.palpite}
                         onChange={e => setFormData({...formData, palpite: e.target.value})}
                         required 
@@ -194,16 +192,9 @@ export default function VendaPage() {
                              <span className="text-xs font-black">VALOR TOTAL:</span> 
                              <span className="text-xs font-black">R$ {vendaRealizada.valor.toFixed(2)}</span>
                           </p>
-                          {vendaRealizada.tipo === 'bolao' && (
-                            <div className="mt-4 pt-4 border-t border-dotted">
-                              <p className="font-black uppercase mb-1">Palpites:</p>
-                              <p className="bg-muted p-2 rounded text-center font-black tracking-widest">{vendaRealizada.palpite}</p>
-                            </div>
-                          )}
                        </div>
                        <div className="text-center mt-6 pt-4 border-t opacity-40">
                           <p>Verifique seus bilhetes em leobet.pro</p>
-                          <p>Obrigado e boa sorte!</p>
                        </div>
                     </div>
                     <div className="flex flex-col gap-3">
@@ -226,7 +217,7 @@ export default function VendaPage() {
                       <Search className="w-8 h-8" />
                     </div>
                     <p className="text-muted-foreground text-sm font-medium italic">
-                      Aguardando preenchimento dos dados ao lado para gerar o comprovante oficial.
+                      Aguardando preenchimento dos dados para gerar o comprovante.
                     </p>
                   </div>
                 )}
