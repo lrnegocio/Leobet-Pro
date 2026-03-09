@@ -1,44 +1,106 @@
+
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SorteioPage({ params }: { params: { id: string } }) {
-  const [bingoName, setBingoName] = useState('BINGO ESPECIAL #001');
+  const { toast } = useToast();
+  const [bingo, setBingo] = useState<any>(null);
+  const [tickets, setTickets] = useState<any[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
   const [lastNumber, setLastNumber] = useState<number | null>(null);
   const [isAuto, setIsAuto] = useState(false);
+  
+  const [winners, setWinners] = useState<{
+    quadra: any[],
+    quina: any[],
+    bingo: any[]
+  }>({ quadra: [], quina: [], bingo: [] });
 
-  // Simula busca do nome do bingo
+  const [currentPrizeLevel, setCurrentPrizeLevel] = useState<'quadra' | 'quina' | 'bingo'>('quadra');
+
   useEffect(() => {
-    // Aqui viria a busca no Firebase
-    setBingoName(`CONCURSO: ${params.id === '1' ? 'Bingo de Inauguração' : 'Sorteio de Sábado'}`);
+    const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+    const current = allBingos.find((b: any) => b.id === params.id);
+    setBingo(current);
+
+    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const eventTickets = allTickets.filter((t: any) => t.eventoId === params.id);
+    setTickets(eventTickets);
   }, [params.id]);
 
+  const checkWinners = useCallback((drawn: number[]) => {
+    const newWinners = { ...winners };
+    let found = false;
+
+    tickets.forEach(receipt => {
+      receipt.tickets.forEach((t: any) => {
+        const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
+        
+        if (hits >= 4 && !newWinners.quadra.some(w => w.id === t.id)) {
+          newWinners.quadra.push({ id: t.id, cliente: receipt.cliente });
+          if (currentPrizeLevel === 'quadra') found = true;
+        }
+        if (hits >= 5 && !newWinners.quina.some(w => w.id === t.id)) {
+          newWinners.quina.push({ id: t.id, cliente: receipt.cliente });
+          if (currentPrizeLevel === 'quina') found = true;
+        }
+        if (hits === 15 && !newWinners.bingo.some(w => w.id === t.id)) {
+          newWinners.bingo.push({ id: t.id, cliente: receipt.cliente });
+          found = true;
+        }
+      });
+    });
+
+    if (found) {
+      setIsAuto(false);
+      setWinners(newWinners);
+      toast({
+        title: "🔥 GANHADOR IDENTIFICADO!",
+        description: "O sorteio foi pausado para verificação.",
+        duration: 10000,
+      });
+    }
+  }, [tickets, winners, currentPrizeLevel, toast]);
+
   const drawNumber = () => {
-    if (drawnNumbers.length >= 75) return;
+    if (drawnNumbers.length >= 90) return;
     
     let num;
     do {
-      num = Math.floor(Math.random() * 75) + 1;
+      num = Math.floor(Math.random() * 90) + 1;
     } while (drawnNumbers.includes(num));
     
-    setDrawnNumbers(prev => [num, ...prev]);
+    const newDrawn = [num, ...drawnNumbers];
+    setDrawnNumbers(newDrawn);
     setLastNumber(num);
+    
+    // Falar o número
+    if ('speechSynthesis' in window) {
+      const msg = new SpeechSynthesisUtterance(`Bola número ${num}`);
+      msg.lang = 'pt-BR';
+      window.speechSynthesis.speak(msg);
+    }
+
+    checkWinners(newDrawn);
   };
 
   useEffect(() => {
     let interval: any;
-    if (isAuto && drawnNumbers.length < 75) {
-      interval = setInterval(drawNumber, 3000);
+    if (isAuto && drawnNumbers.length < 90) {
+      interval = setInterval(drawNumber, 3500);
     }
     return () => clearInterval(interval);
   }, [isAuto, drawnNumbers]);
+
+  if (!bingo) return null;
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -51,17 +113,18 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
 
           <div className="flex justify-between items-end bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-accent">
             <div>
-              <p className="text-[10px] font-black uppercase text-accent tracking-widest">Painel de Sorteio</p>
-              <h1 className="text-3xl font-black font-headline uppercase text-primary">{bingoName}</h1>
+              <p className="text-[10px] font-black uppercase text-accent tracking-widest">Painel de Sorteio Oficial</p>
+              <h1 className="text-3xl font-black font-headline uppercase text-primary">{bingo.nome}</h1>
+              <p className="text-xs font-bold text-muted-foreground">{new Date(bingo.dataSorteio).toLocaleString('pt-BR')}</p>
             </div>
             <div className="text-right space-y-2">
-              <Badge variant="outline" className="text-lg py-1 px-4">{drawnNumbers.length} / 75 Bolas</Badge>
+              <Badge variant="outline" className="text-lg py-1 px-4">{drawnNumbers.length} / 90 Bolas</Badge>
               <div className="flex gap-2">
-                <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"}>
+                <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"} className="h-12 uppercase font-black">
                   {isAuto ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                  {isAuto ? "Pausar Automático" : "Sorteio Automático"}
+                  {isAuto ? "Pausar" : "Automático"}
                 </Button>
-                <Button onClick={drawNumber} variant="secondary" disabled={isAuto}>
+                <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-12 uppercase font-black">
                   Sortear Próxima
                 </Button>
               </div>
@@ -79,40 +142,90 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="text-center">
                   <p className="text-accent font-black text-xl uppercase tracking-tighter">
-                    {lastNumber ? `BOLA NÚMERO ${lastNumber}` : 'AGUARDANDO INÍCIO'}
+                    {lastNumber ? `BOLA NÚMERO ${lastNumber}` : 'AGUARDANDO'}
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2 bg-white">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-black uppercase">Painel Geral</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => { setDrawnNumbers([]); setLastNumber(null); }} className="text-muted-foreground">
-                  <RotateCcw className="w-3 h-3 mr-1" /> Reiniciar
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-10 gap-2">
-                  {Array.from({ length: 75 }).map((_, i) => {
-                    const num = i + 1;
-                    const isDrawn = drawnNumbers.includes(num);
-                    return (
-                      <div
-                        key={num}
-                        className={`aspect-square flex items-center justify-center rounded-full text-xs font-bold transition-all ${
-                          isDrawn 
-                            ? "bg-accent text-white scale-110 shadow-md ring-2 ring-accent ring-offset-2" 
-                            : "bg-muted text-muted-foreground/40"
-                        }`}
-                      >
-                        {num}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="bg-white">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-black uppercase">Painel Geral (1-90)</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => { setDrawnNumbers([]); setLastNumber(null); setWinners({ quadra: [], quina: [], bingo: [] }); }} className="text-muted-foreground">
+                    <RotateCcw className="w-3 h-3 mr-1" /> Reiniciar
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-10 gap-1.5">
+                    {Array.from({ length: 90 }).map((_, i) => {
+                      const num = i + 1;
+                      const isDrawn = drawnNumbers.includes(num);
+                      return (
+                        <div
+                          key={num}
+                          className={`aspect-square flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${
+                            isDrawn 
+                              ? "bg-accent text-white scale-110 shadow-md ring-2 ring-accent ring-offset-1" 
+                              : "bg-muted text-muted-foreground/30"
+                          }`}
+                        >
+                          {num}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className={currentPrizeLevel === 'quadra' ? "border-2 border-accent" : ""}>
+                  <CardHeader className="p-4"><CardTitle className="text-xs font-black uppercase text-center">Quadra (20%)</CardTitle></CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="space-y-2">
+                      {winners.quadra.map((w, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-green-50 p-2 rounded text-[10px] font-black uppercase text-green-700 animate-bounce">
+                          <Trophy className="w-3 h-3" /> {w.cliente}
+                        </div>
+                      ))}
+                      {winners.quadra.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className={currentPrizeLevel === 'quina' ? "border-2 border-accent" : ""}>
+                  <CardHeader className="p-4"><CardTitle className="text-xs font-black uppercase text-center">Quina (30%)</CardTitle></CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="space-y-2">
+                      {winners.quina.map((w, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-green-50 p-2 rounded text-[10px] font-black uppercase text-green-700 animate-bounce">
+                          <Trophy className="w-3 h-3" /> {w.cliente}
+                        </div>
+                      ))}
+                      {winners.quina.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className={currentPrizeLevel === 'bingo' ? "border-2 border-accent" : ""}>
+                  <CardHeader className="p-4"><CardTitle className="text-xs font-black uppercase text-center">Bingo (50%)</CardTitle></CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="space-y-2">
+                      {winners.bingo.map((w, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-green-50 p-2 rounded text-[10px] font-black uppercase text-green-700 animate-bounce">
+                          <Trophy className="w-3 h-3" /> {w.cliente}
+                        </div>
+                      ))}
+                      {winners.bingo.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <div className="flex justify-center gap-4">
+                 <Button variant={currentPrizeLevel === 'quadra' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quadra')} className="font-black uppercase text-xs">Focar Quadra</Button>
+                 <Button variant={currentPrizeLevel === 'quina' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quina')} className="font-black uppercase text-xs">Focar Quina</Button>
+                 <Button variant={currentPrizeLevel === 'bingo' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('bingo')} className="font-black uppercase text-xs">Focar Bingo</Button>
+              </div>
+            </div>
           </div>
         </div>
       </main>

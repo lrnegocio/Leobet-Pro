@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile } from '@/types/auth';
 
@@ -8,7 +9,21 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  user: null,
+  user: {
+    id: 'admin-master',
+    nome: 'Administrador LEOBET',
+    email: 'admin@leobet.pro',
+    role: 'admin',
+    balance: 999999999, // Saldo ilimitado para Admin
+    commissionBalance: 0,
+    pendingBalance: 0,
+    status: 'approved',
+    createdAt: new Date().toISOString(),
+  },
   setUser: (user) => set({ user }),
-  logout: () => set({ user: null }),
+  logout: () => {
+    localStorage.removeItem('is_master_admin');
+    localStorage.removeItem('logged_user');
+    set({ user: null });
+  },
 }));
