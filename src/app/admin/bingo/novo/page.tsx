@@ -1,10 +1,10 @@
-
 "use client"
 
 import React, { useState } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,7 @@ export default function NovoBingoPage() {
     e.preventDefault();
     setSaving(true);
     
+    // Simulação de salvamento no Firebase
     setTimeout(() => {
       router.push('/admin/bingo');
     }, 800);
@@ -37,7 +38,7 @@ export default function NovoBingoPage() {
 
           <div>
             <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Novo Concurso Bingo</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Premiação automática baseada em vendas</p>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Premiação automática baseada em vendas (65% líquido)</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -67,7 +68,7 @@ export default function NovoBingoPage() {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ex: Bingo Beneficente"
+                    placeholder="Ex: Bingo Especial da Sorte"
                     className="h-12 border-2 rounded-xl font-bold"
                     required
                   />
@@ -90,7 +91,7 @@ export default function NovoBingoPage() {
                       type="number"
                       value={quantity}
                       onChange={(e) => setQuantity(Number(e.target.value))}
-                      placeholder="0"
+                      placeholder="Sem limite"
                       className="h-12 border-2 rounded-xl font-bold"
                       required
                     />
@@ -114,7 +115,7 @@ export default function NovoBingoPage() {
                 <div className="p-4 bg-muted rounded-xl">
                    <h4 className="text-[10px] font-black uppercase text-primary mb-2">Resumo Financeiro (Padrão 20/10/5)</h4>
                    <ul className="text-xs space-y-1 font-bold text-muted-foreground">
-                      <li className="flex justify-between"><span>Prêmio Líquido aos Ganhadores:</span> <span className="text-green-600">65%</span></li>
+                      <li className="flex justify-between"><span>Prêmio Líquido aos Ganhadores:</span> <span className="text-green-600 font-black">65%</span></li>
                       <li className="flex justify-between"><span>Sua Taxa Administrativa:</span> <span>20%</span></li>
                       <li className="flex justify-between"><span>Comissão Cambista:</span> <span>10%</span></li>
                       <li className="flex justify-between"><span>Comissão Gerente:</span> <span>5%</span></li>

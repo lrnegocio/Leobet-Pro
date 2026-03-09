@@ -1,14 +1,15 @@
-
 "use client"
 
 import React, { useState } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Info, Plus, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Trophy, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
 
 export default function NovoBolaoPage() {
   const router = useRouter();
@@ -46,13 +47,13 @@ export default function NovoBolaoPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase">Criar Bolão Esportivo</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Rateio total de 65% para os vencedores</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Prêmio Líquido de 65% Acumulado</p>
             </div>
             <Trophy className="w-12 h-12 text-accent opacity-20" />
           </div>
 
           <form onSubmit={handleSave} className="space-y-8">
-            <Card className="border-t-4 border-t-primary">
+            <Card className="border-t-4 border-t-primary shadow-lg">
               <CardHeader><CardTitle className="text-sm font-black uppercase">Informações do Bolão</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -72,7 +73,7 @@ export default function NovoBolaoPage() {
 
             <div className="space-y-4">
                <h3 className="text-sm font-black uppercase flex items-center gap-2">
-                 <Plus className="w-4 h-4 text-primary" /> Definir Jogos (Mínimo 10 recomendados)
+                 <Plus className="w-4 h-4 text-primary" /> Definir Jogos
                </h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {partidas.map((_, i) => (
