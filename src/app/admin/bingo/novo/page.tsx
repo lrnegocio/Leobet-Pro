@@ -18,14 +18,28 @@ export default function NovoBingoPage() {
   const [drawDate, setDrawDate] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     
-    // Salvar no Firebase logic aqui
+    const newBingo = {
+      id: Math.random().toString(36).substring(7),
+      nome: title,
+      preco: price,
+      totalCartelas: quantity === 0 ? 'Ilimitado' : quantity,
+      vendidas: 0,
+      dataSorteio: drawDate,
+      status: 'aberto',
+      tipo: 'bingo',
+      createdAt: new Date().toISOString()
+    };
+
+    const existing = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+    localStorage.setItem('leobet_bingos', JSON.stringify([...existing, newBingo]));
+
     setTimeout(() => {
       router.push('/admin/bingo');
-    }, 800);
+    }, 500);
   };
 
   return (
@@ -38,23 +52,23 @@ export default function NovoBingoPage() {
           </Link>
 
           <div>
-            <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Criar Concurso de Bingo</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Defina o nome e a data/hora do sorteio</p>
+            <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Novo Bingo</h1>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Configure o nome e horário do sorteio</p>
           </div>
 
           <Card className="border-t-4 border-t-accent shadow-xl">
             <CardHeader>
-              <CardTitle className="text-lg font-black uppercase">Dados do Concurso</CardTitle>
+              <CardTitle className="text-lg font-black uppercase">Configurações</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSave} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-muted-foreground">Nome do Bingo</label>
+                  <label className="text-xs font-black uppercase text-muted-foreground">Nome do Concurso</label>
                   <Input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ex: Concurso Especial #01"
+                    placeholder="Ex: Concurso #001"
                     className="h-12 border-2 rounded-xl font-bold"
                     required
                   />
@@ -62,7 +76,7 @@ export default function NovoBingoPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-muted-foreground">Preço da Cartela (R$)</label>
+                    <label className="text-xs font-black uppercase text-muted-foreground">Preço (R$)</label>
                     <Input
                       type="number"
                       value={price}
@@ -72,7 +86,7 @@ export default function NovoBingoPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-muted-foreground">Total de Cartelas (0 = Ilimitado)</label>
+                    <label className="text-xs font-black uppercase text-muted-foreground">Quantidade de Cartelas (0 = Ilimitado)</label>
                     <Input
                       type="number"
                       value={quantity}
@@ -93,13 +107,13 @@ export default function NovoBingoPage() {
                     required
                   />
                   <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1">
-                    <Info className="w-3 h-3" /> As vendas serão bloqueadas 1 minuto antes do horário marcado.
+                    <Info className="w-3 h-3" /> As vendas encerram 1 minuto antes do sorteio.
                   </p>
                 </div>
 
                 <div className="flex gap-4 pt-4 border-t">
                   <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 h-14 font-black uppercase" disabled={saving}>
-                    {saving ? 'Publicando...' : 'Publicar Agora'}
+                    {saving ? 'Salvando...' : 'Criar Concurso'}
                   </Button>
                   <Link href="/admin/bingo" className="flex-1">
                     <Button type="button" variant="outline" className="w-full h-14 font-black uppercase">Cancelar</Button>

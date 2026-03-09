@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,18 @@ import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle } from '
 import { Badge } from '@/components/ui/badge';
 
 export default function BolaoPage() {
-  // Removido MOCK_BOLOES para começar limpo
   const [boloes, setBoloes] = useState<any[]>([]);
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+    setBoloes(stored);
+  }, []);
+
+  const deleteBolao = (id: string) => {
+    const updated = boloes.filter(b => b.id !== id);
+    setBoloes(updated);
+    localStorage.setItem('leobet_boloes', JSON.stringify(updated));
+  };
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -19,8 +30,8 @@ export default function BolaoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Bolões Esportivos</h1>
-              <p className="text-muted-foreground">Gerencie palpites (1, X, 2) e resultados de partidas</p>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bolões</h1>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Controle de palpites 1-X-2</p>
             </div>
             <Link href="/admin/bolao/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase">
@@ -45,7 +56,7 @@ export default function BolaoPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                           <Calendar className="w-3.5 h-3.5 text-accent" />
-                          <span>Fim: {new Date(bolao.dataFim).toLocaleDateString('pt-BR')}</span>
+                          <span>Início: {new Date(bolao.dataFim).toLocaleDateString('pt-BR')}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                           <Trophy className="w-3.5 h-3.5 text-accent" />
@@ -53,10 +64,10 @@ export default function BolaoPage() {
                         </div>
                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                           <Users className="w-3.5 h-3.5 text-accent" />
-                          <span>{bolao.vendidas || 0} Vendidos</span>
+                          <span>{bolao.vendidas || 0} Apostas</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-black uppercase text-primary">
-                          <span className="bg-primary/10 px-2 py-1 rounded">R$ {(bolao.valor || 0).toFixed(2)}</span>
+                          <span className="bg-primary/10 px-2 py-1 rounded">R$ {(bolao.preco || 0).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -68,14 +79,10 @@ export default function BolaoPage() {
                       <Button variant="outline" size="icon" title="Editar" className="hover:border-primary">
                         <Settings2 className="w-4 h-4 text-primary" />
                       </Button>
-                      <Button variant="ghost" size="icon" title="Excluir" className="text-destructive hover:bg-destructive/10">
+                      <Button variant="ghost" size="icon" title="Excluir" className="text-destructive hover:bg-destructive/10" onClick={() => deleteBolao(bolao.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                  </div>
-                  
-                  <div className="mt-4 pt-4 border-t flex items-center gap-2 text-[10px] font-bold uppercase opacity-60">
-                    <span className="flex items-center gap-1"><XCircle className="w-3 h-3" /> Suporte a Empate (X) Habilitado</span>
                   </div>
                 </CardContent>
               </Card>
@@ -87,7 +94,7 @@ export default function BolaoPage() {
                   <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
                   <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo no momento</p>
                   <Link href="/admin/bolao/novo" className="mt-4 block">
-                    <Button variant="link" className="text-accent font-black uppercase text-xs">Clique aqui para criar o primeiro</Button>
+                    <Button variant="link" className="text-accent font-black uppercase text-xs">Criar Primeiro Bolão</Button>
                   </Link>
                 </CardContent>
               </Card>

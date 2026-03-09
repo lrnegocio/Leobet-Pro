@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react';
@@ -18,7 +19,6 @@ export default function NovoBolaoPage() {
   const [drawDate, setDrawDate] = useState('');
   const [saving, setSaving] = useState(false);
   
-  // 10 jogos padrão
   const [partidas, setPartidas] = useState(Array(10).fill({ time1: '', time2: '', data: '' }));
 
   const handleUpdatePartida = (index: number, field: string, value: string) => {
@@ -27,12 +27,28 @@ export default function NovoBolaoPage() {
     setPartidas(newPartidas);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    
+    const newBolao = {
+      id: Math.random().toString(36).substring(7),
+      nome: title,
+      preco: price,
+      dataFim: drawDate,
+      partidas: partidas.length,
+      vendidas: 0,
+      status: 'aberto',
+      tipo: 'bolao',
+      createdAt: new Date().toISOString()
+    };
+
+    const existing = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+    localStorage.setItem('leobet_boloes', JSON.stringify([...existing, newBolao]));
+
     setTimeout(() => {
       router.push('/admin/bolao');
-    }, 800);
+    }, 500);
   };
 
   return (
@@ -44,28 +60,25 @@ export default function NovoBolaoPage() {
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Link>
 
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-black font-headline uppercase">Criar Bolão Esportivo</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Prêmio Líquido de 65% Acumulado</p>
-            </div>
-            <Trophy className="w-12 h-12 text-accent opacity-20" />
+          <div>
+            <h1 className="text-3xl font-black font-headline uppercase">Novo Bolão</h1>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Defina os 10 jogos da rodada</p>
           </div>
 
           <form onSubmit={handleSave} className="space-y-8">
             <Card className="border-t-4 border-t-primary shadow-lg">
-              <CardHeader><CardTitle className="text-sm font-black uppercase">Informações do Bolão</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm font-black uppercase">Informações Gerais</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase">Título do Bolão</Label>
-                  <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Brasileirão Rodada 10" required />
+                  <Label className="text-[10px] font-black uppercase">Nome do Bolão</Label>
+                  <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Rodada Brasileirão" required />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase">Valor Aposta (R$)</Label>
+                  <Label className="text-[10px] font-black uppercase">Preço Aposta (R$)</Label>
                   <Input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} required />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase">Data 1º Jogo (Encerramento)</Label>
+                  <Label className="text-[10px] font-black uppercase">Data de Início (1º Jogo)</Label>
                   <Input type="datetime-local" value={drawDate} onChange={e => setDrawDate(e.target.value)} required />
                 </div>
               </CardContent>
@@ -73,7 +86,7 @@ export default function NovoBolaoPage() {
 
             <div className="space-y-4">
                <h3 className="text-sm font-black uppercase flex items-center gap-2">
-                 <Plus className="w-4 h-4 text-primary" /> Definir Jogos
+                 <Plus className="w-4 h-4 text-primary" /> Lista de Partidas
                </h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {partidas.map((_, i) => (
@@ -83,11 +96,11 @@ export default function NovoBolaoPage() {
                           <Input type="datetime-local" className="w-32 h-7 text-[10px] font-bold" />
                        </div>
                        <div className="grid grid-cols-3 items-center gap-2">
-                          <Input placeholder="Time Casa" className="text-center font-bold h-9" onChange={(e) => handleUpdatePartida(i, 'time1', e.target.value)} />
+                          <Input placeholder="Casa" className="text-center font-bold h-9" onChange={(e) => handleUpdatePartida(i, 'time1', e.target.value)} />
                           <span className="text-center font-black text-primary">VS</span>
-                          <Input placeholder="Time Fora" className="text-center font-bold h-9" onChange={(e) => handleUpdatePartida(i, 'time2', e.target.value)} />
+                          <Input placeholder="Fora" className="text-center font-bold h-9" onChange={(e) => handleUpdatePartida(i, 'time2', e.target.value)} />
                        </div>
-                       <p className="text-[8px] font-black uppercase text-center mt-3 text-muted-foreground">Palpites aceitos: 1 - X - 2</p>
+                       <p className="text-[8px] font-black uppercase text-center mt-3 text-muted-foreground">Opções: 1 (Casa) - X (Empate) - 2 (Fora)</p>
                     </Card>
                   ))}
                </div>
@@ -95,7 +108,7 @@ export default function NovoBolaoPage() {
 
             <div className="flex gap-4 p-6 bg-white rounded-xl shadow-lg border-2 border-primary sticky bottom-8">
                <Button type="submit" className="flex-1 bg-primary h-14 font-black uppercase text-lg shadow-md" disabled={saving}>
-                 {saving ? 'Processando...' : 'Publicar Bolão Agora'}
+                 {saving ? 'Criando...' : 'Publicar Bolão'}
                </Button>
                <Link href="/admin/bolao" className="flex-1">
                  <Button type="button" variant="outline" className="w-full h-14 font-black uppercase">Descartar</Button>
