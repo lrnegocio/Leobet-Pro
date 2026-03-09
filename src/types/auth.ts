@@ -1,5 +1,5 @@
 
-export type UserRole = 'admin' | 'cambista' | 'cliente';
+export type UserRole = 'admin' | 'gerente' | 'cambista' | 'cliente';
 
 export interface UserProfile {
   id: string;
@@ -12,6 +12,9 @@ export interface UserProfile {
   pixKey?: string;
   phone?: string;
   balance: number;
+  commissionBalance: number; // Saldo de comissões disponíveis
+  pendingBalance: number;    // Saldo pendente de aprovação
+  gerenteId?: string;        // Se for cambista, aponta para o gerente
   status: 'pending' | 'approved';
   createdAt: string;
 }

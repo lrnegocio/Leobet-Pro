@@ -1,15 +1,15 @@
+
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2 } from 'lucide-react';
+import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function BingoPage() {
-  // Removido INITIAL_BINGOS para começar limpo
   const [bingos, setBingos] = useState<any[]>([]);
 
   const toggleStatus = (id: string) => {
@@ -25,11 +25,11 @@ export default function BingoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Gerenciar Bingos</h1>
-              <p className="text-muted-foreground">Controle de sorteios, vendas e globos virtuais</p>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gerenciamento de Bingos</h1>
+              <p className="text-muted-foreground">Arrecadação em tempo real e fechamento automático</p>
             </div>
             <Link href="/admin/bingo/novo">
-              <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase">
+              <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12">
                 <Plus className="w-4 h-4" /> Novo Concurso
               </Button>
             </Link>
@@ -39,64 +39,88 @@ export default function BingoPage() {
             {bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.dataSorteio);
-              const isTimeReady = drawDate <= now;
+              // Trava: 1 minuto antes do horário marcado
+              const closeTime = new Date(drawDate.getTime() - 60000);
+              const isTimeReady = now >= closeTime;
               const isSalesClosed = bingo.status === 'encerrado';
-              // Regra: Só libera se vendas fechadas OU horário atingido
               const canStartDraw = isSalesClosed || isTimeReady;
               
+              const totalArrecadado = (bingo.vendidas || 0) * (bingo.preco || 0);
+              const premioLiquido = totalArrecadado * 0.65;
+              
               return (
-                <Card key={bingo.id} className="hover:shadow-md transition-all border-l-4 border-l-primary">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-black uppercase text-primary">{bingo.nome}</h3>
-                          <Badge variant={bingo.status === 'aberto' ? 'default' : 'secondary'} className="font-black">
-                            {bingo.status === 'aberto' ? 'VENDAS ABERTAS' : 'VENDAS ENCERRADAS'}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground uppercase">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {drawDate.toLocaleString('pt-BR')}</span>
-                          <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> {bingo.vendidas || 0} Cartelas</span>
-                          <span className="text-accent">R$ {(bingo.preco || 0).toFixed(2)} / Cartela</span>
-                        </div>
-                      </div>
+                <Card key={bingo.id} className="hover:shadow-md transition-all border-l-4 border-l-primary overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row items-stretch">
+                       <div className="p-6 flex-1 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-2xl font-black uppercase text-primary leading-none">{bingo.nome}</h3>
+                            <Badge variant={isSalesClosed ? 'secondary' : 'default'} className="font-black text-[9px] uppercase">
+                              {isSalesClosed ? 'Vendas Encerradas' : 'Vendas Abertas'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="space-y-1">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">Sorteio</p>
+                               <p className="text-xs font-bold flex items-center gap-1"><Clock className="w-3 h-3 text-accent" /> {drawDate.toLocaleString('pt-BR')}</p>
+                            </div>
+                            <div className="space-y-1">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">Arrecadado</p>
+                               <p className="text-xs font-black text-primary">R$ {totalArrecadado.toFixed(2)}</p>
+                            </div>
+                            <div className="space-y-1">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">Prêmio Rateio (65%)</p>
+                               <p className="text-xs font-black text-green-600">R$ {premioLiquido.toFixed(2)}</p>
+                            </div>
+                            <div className="space-y-1">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">Vendas</p>
+                               <p className="text-xs font-black">{bingo.vendidas || 0} Cartelas</p>
+                            </div>
+                          </div>
+                       </div>
 
-                      <div className="flex items-center gap-2 w-full md:w-auto">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="font-black text-[10px] uppercase gap-1"
-                          onClick={() => toggleStatus(bingo.id)}
-                        >
-                          {bingo.status === 'aberto' ? <Lock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                          {bingo.status === 'aberto' ? "Fechar Vendas" : "Abrir Vendas"}
-                        </Button>
-                        
-                        <Link href={`/admin/bingo/sorteio/${bingo.id}`} className="flex-1 md:flex-none">
-                          <Button 
-                            className="w-full gap-2 font-black uppercase text-xs h-9" 
-                            variant={canStartDraw ? 'default' : 'secondary'}
-                            disabled={!canStartDraw}
-                          >
-                            {canStartDraw ? <PlayCircle className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                            Iniciar Sorteio
-                          </Button>
-                        </Link>
-                        
-                        <Button variant="ghost" size="icon" title="Editar">
-                          <Settings2 className="w-4 h-4 text-primary" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Excluir" className="text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                       <div className="bg-muted/50 p-6 flex items-center gap-3 border-l shrink-0">
+                          <div className="flex flex-col gap-2">
+                             <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="font-black text-[10px] uppercase gap-2 h-9 border-primary/20"
+                                onClick={() => toggleStatus(bingo.id)}
+                             >
+                                {isSalesClosed ? <CheckCircle2 className="w-3 h-3" /> : <Lock className="w-3 h-3 text-orange-600" />}
+                                {isSalesClosed ? "Reabrir Vendas" : "Encerrar Agora"}
+                             </Button>
+                             
+                             <Link href={`/admin/bingo/sorteio/${bingo.id}`}>
+                               <Button 
+                                 className="w-full gap-2 font-black uppercase text-xs h-10 shadow-sm" 
+                                 variant={canStartDraw ? 'default' : 'secondary'}
+                                 disabled={!canStartDraw}
+                               >
+                                 {canStartDraw ? <PlayCircle className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                                 Iniciar Globo
+                                </Button>
+                             </Link>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                             <Button variant="secondary" size="icon" className="h-9 w-9" title="Editar">
+                               <Settings2 className="w-4 h-4 text-primary" />
+                             </Button>
+                             <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" title="Excluir">
+                               <Trash2 className="w-4 h-4" />
+                             </Button>
+                          </div>
+                       </div>
                     </div>
-                    
                     {!canStartDraw && (
-                      <p className="text-[9px] text-orange-600 font-black uppercase mt-3 flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> O sorteio está bloqueado até o fechamento das vendas ou horário marcado.
-                      </p>
+                      <div className="bg-orange-50 px-6 py-1 border-t flex items-center gap-2">
+                         <span className="relative flex h-2 w-2">
+                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                           <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                         </span>
+                         <p className="text-[8px] font-black uppercase text-orange-700">O globo virtual será liberado 1 minuto antes do sorteio ou no encerramento manual.</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -105,11 +129,14 @@ export default function BingoPage() {
 
             {bingos.length === 0 && (
               <Card>
-                <CardContent className="py-20 text-center text-muted-foreground">
-                  <PlayCircle className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum concurso de bingo cadastrado</p>
-                  <Link href="/admin/bingo/novo" className="mt-4 block">
-                    <Button variant="link" className="text-primary font-black uppercase text-xs">Clique aqui para criar o primeiro</Button>
+                <CardContent className="py-24 text-center">
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 opacity-20">
+                    <TrendingUp className="w-8 h-8" />
+                  </div>
+                  <h3 className="font-black uppercase text-muted-foreground tracking-widest text-xs">Nenhum concurso ativo</h3>
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">Crie bingos com prêmios automáticos baseados no volume de vendas.</p>
+                  <Link href="/admin/bingo/novo" className="mt-6 block">
+                    <Button variant="link" className="text-primary font-black uppercase text-xs">Começar Agora</Button>
                   </Link>
                 </CardContent>
               </Card>
