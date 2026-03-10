@@ -28,10 +28,14 @@ export default function VendaPage() {
   });
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
-  useEffect(() => {
+  const loadEventos = () => {
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => b.status === 'aberto');
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => b.status === 'aberto');
     setEventosAtivos([...bingos.map(b => ({...b, tipo: 'bingo'})), ...boloes.map(b => ({...b, tipo: 'bolao'}))]);
+  };
+
+  useEffect(() => {
+    loadEventos();
   }, []);
 
   const generateBingoTicket = () => {
@@ -75,7 +79,7 @@ export default function VendaPage() {
           numeros: formData.tipo === 'bingo' ? generateBingoTicket() : null,
           palpite: formData.tipo === 'bolao' ? formData.palpite : null,
           status: 'aberto', // Status do bilhete para o concurso
-          eventoId: formData.eventoId // VINCULADO AO CONCURSO ESPECÍFICO
+          eventoId: formData.eventoId 
         });
       }
       
@@ -83,6 +87,7 @@ export default function VendaPage() {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         data: new Date().toISOString(),
         status: statusVenda,
+        tipo: formData.tipo,
         qtd,
         tickets,
         vendedorId: user?.id,
@@ -109,6 +114,8 @@ export default function VendaPage() {
           ev.id === formData.eventoId ? { ...ev, vendidas: (ev.vendidas || 0) + qtd } : ev
         );
         localStorage.setItem(storageKey, JSON.stringify(updatedEventos));
+        // Atualiza a lista local de eventos para refletir as vendas no terminal
+        loadEventos();
       }
       
       setVendaRealizada(receipt);
@@ -130,9 +137,18 @@ export default function VendaPage() {
   const shareWhatsApp = () => {
     if (!vendaRealizada) return;
     
-    const evento = eventosAtivos.find(ev => ev.id === vendaRealizada.eventoId);
+    // Busca dados atualizados do concurso para cálculo real de prêmio
+    const storageKey = vendaRealizada.tipo === 'bingo' ? 'leobet_bingos' : 'leobet_boloes';
+    const todosEventos = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const evento = todosEventos.find((ev: any) => ev.id === vendaRealizada.eventoId);
+    
     const totalBruto = (evento?.vendidas || 0) * (evento?.preco || 0);
     const premioLiquido = totalBruto * 0.65;
+    
+    // Rateio do Bingo
+    const quadraPremio = premioLiquido * 0.20;
+    const quinaPremio = premioLiquido * 0.30;
+    const bingoPremio = premioLiquido * 0.50;
     
     let ticketInfo = "";
     vendaRealizada.tickets.forEach((t: any, i: number) => {
@@ -140,13 +156,20 @@ export default function VendaPage() {
                    (t.numeros ? `🔢 *B-I-N-G-O:* ${t.numeros.join('-')}\n` : `⚽ *PALPITE:* ${t.palpite}\n`);
     });
 
+    let premiosMsg = `🏆 *PRÊMIO LÍQUIDO ATUAL: R$ ${premioLiquido.toFixed(2)}*\n`;
+    if (vendaRealizada.tipo === 'bingo') {
+      premiosMsg += `├─ Quadra (20%): R$ ${quadraPremio.toFixed(2)}\n` +
+                    `├─ Quina (30%): R$ ${quinaPremio.toFixed(2)}\n` +
+                    `└─ Bingo (50%): R$ ${bingoPremio.toFixed(2)}\n`;
+    }
+
     const text = `*LEOBET PRO - RECIBO OFICIAL*\n` +
       `👤 *CLIENTE:* ${vendaRealizada.cliente}\n` +
       `🎯 *CONCURSO:* ${vendaRealizada.eventoNome}\n` +
       `💰 *VALOR TOTAL:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
       `📌 *STATUS:* ${vendaRealizada.status.toUpperCase()}\n` +
       `--------------------------\n` +
-      (vendaRealizada.status === 'pendente' ? `⚠️ *AGUARDANDO APROVAÇÃO FINANCEIRA*\n` : `🏆 *PRÊMIO LÍQUIDO ATUAL: R$ ${premioLiquido.toFixed(2)}*\n`) +
+      (vendaRealizada.status === 'pendente' ? `⚠️ *AGUARDANDO APROVAÇÃO FINANCEIRA*\n` : premiosMsg) +
       `--------------------------\n` +
       ticketInfo +
       `\n🔗 *Conferir Resultado:* ${window.location.origin}/resultados\n` +
