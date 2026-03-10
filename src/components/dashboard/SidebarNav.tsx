@@ -14,7 +14,8 @@ import {
   Search,
   ShoppingCart,
   Users,
-  UserCircle
+  UserCircle,
+  FileText
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 
@@ -28,10 +29,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Meu Painel', href: '/gerente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['gerente'] },
-  { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
+  { label: 'Minha Rede', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Meu Painel', href: '/cambista/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cambista'] },
   { label: 'Área do Apostador', href: '/cliente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cliente'] },
   { label: 'Terminal Vendas', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente'] },
+  { label: 'Relatórios', href: '/relatorios', icon: <FileText className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: <Search className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Meu Perfil', href: '/perfil', icon: <UserCircle className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Gestão Bingos', href: '/admin/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['admin'] },
