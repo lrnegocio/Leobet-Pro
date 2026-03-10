@@ -174,7 +174,7 @@ function ResultadosContent() {
                                      {isWinner ? (
                                        <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 VOCÊ GANHOU!</Badge>
                                      ) : isPaid ? (
-                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ PRÊMIO JÁ PAGO</Badge>
+                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ BILHETE JÁ PAGO</Badge>
                                      ) : isPending ? (
                                        <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE PENDENTE</Badge>
                                      ) : isLost ? (
@@ -238,7 +238,7 @@ function ResultadosContent() {
                                     ) : isPaid ? (
                                       <>
                                         <CheckCircle2 className="w-10 h-10 mb-2" />
-                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">PRÊMIO PAGO<br/>COM SUCESSO!</p>
+                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">BILHETE JÁ PAGO<br/>COM SUCESSO!</p>
                                       </>
                                     ) : (
                                       <>

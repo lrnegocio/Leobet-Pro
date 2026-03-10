@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export function BalanceCard() {
-  const user = useAuthStore(state => state.user);
+  const { user, setUser } = useAuthStore();
   const { toast } = useToast();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export function BalanceCard() {
     }
 
     if (amount > user.balance) {
-      toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: `Seu saldo atual é R$ ${user.balance.toFixed(2)}` });
       return;
     }
 

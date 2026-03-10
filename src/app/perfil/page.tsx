@@ -88,7 +88,7 @@ export default function PerfilPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground">Status da Conta</Label>
-                      <Badge className="bg-green-600 font-black h-11 w-full justify-center uppercase flex items-center">{user.status}</Badge>
+                      <Badge className="bg-green-600 font-black h-11 w-full justify-center uppercase">{user.status}</Badge>
                     </div>
                   </div>
 

@@ -21,7 +21,8 @@ import {
   PlusCircle,
   Search,
   DollarSign,
-  Wallet
+  Wallet,
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -147,14 +148,16 @@ export default function FinanceiroPage() {
     
     if (!withdraw) return;
 
-    // Deduz do saldo do usuário agora que foi aprovado
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const user = users.find((u: any) => u.id === withdraw.userId);
+
+    if (user && user.balance < withdraw.amount) {
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "O usuário não possui mais saldo para este saque." });
+      return;
+    }
+
     const updatedUsers = users.map((u: any) => {
       if (u.id === withdraw.userId) {
-        if (u.balance < withdraw.amount) {
-           toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "O usuário não possui mais saldo para este saque." });
-           return u;
-        }
         return { ...u, balance: u.balance - withdraw.amount };
       }
       return u;
@@ -170,12 +173,16 @@ export default function FinanceiroPage() {
     toast({ title: "SAQUE APROVADO!", description: "Valor deduzido do saldo e marcado como pago." });
   };
 
-  const approveSale = (saleData: string) => {
+  const approveSale = (receiptId: string) => {
     const updated = tickets.map((t: any) => {
-      if (t.data === saleData) return { ...t, status: 'pago' };
+      if (t.id === receiptId) return { ...t, status: 'pago' };
       return t;
     });
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
+    
+    // Após aprovar venda, se o vendedor for cambista/gerente, a comissão já é calculada no financeiro geral.
+    // O sistema de saldo deles é independente. Se venderam pendente, não houve desconto no saldo local.
+    
     loadData();
     toast({ title: "Venda Aprovada!" });
   };
@@ -305,37 +312,6 @@ export default function FinanceiroPage() {
                )}
             </TabsContent>
 
-            <TabsContent value="rede" className="mt-6">
-              <div className="grid grid-cols-1 gap-4">
-                {allUsers.filter(u => u.role === 'cambista').map(c => (
-                  <Card key={c.id} className="p-6 flex justify-between items-center bg-white rounded-2xl shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-blue-100 p-3 rounded-full"><Users className="w-6 h-6 text-blue-600" /></div>
-                      <div>
-                        <p className="font-black uppercase">{c.nome}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                          Gerente Atual: {allUsers.find(u => u.id === c.gerenteId)?.nome || 'Admin Master'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select 
-                        className="h-10 border rounded-xl px-3 text-xs font-bold bg-muted"
-                        onChange={(e) => transferCambista(c.id, e.target.value)}
-                        value={c.gerenteId || 'admin-master'}
-                      >
-                        <option value="admin-master">ADMIN MASTER</option>
-                        {allUsers.filter(u => u.role === 'gerente').map(g => (
-                          <option key={g.id} value={g.id}>GERENTE: {g.nome}</option>
-                        ))}
-                      </select>
-                      <Button variant="outline" size="sm" className="font-black uppercase text-[10px]">Alterar Gerente</Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
             <TabsContent value="pendentes" className="mt-6 space-y-4">
                {pendingSales.length === 0 ? (
                  <Card className="py-20 text-center border-dashed rounded-3xl"><CardContent className="opacity-30 font-black uppercase text-xs">Sem vendas aguardando liberação</CardContent></Card>
@@ -345,9 +321,12 @@ export default function FinanceiroPage() {
                      <div>
                        <p className="font-black uppercase text-lg">{t.cliente}</p>
                        <p className="text-xs font-bold text-orange-700/70 uppercase">{t.eventoNome} • R$ {t.valorTotal.toFixed(2)}</p>
-                       <Badge className="bg-orange-600 font-black text-[9px] uppercase mt-2">Vendedor: {t.vendedorNome}</Badge>
+                       <div className="flex items-center gap-2 mt-2">
+                         <Badge className="bg-orange-600 font-black text-[9px] uppercase">Vendedor: {t.vendedorNome}</Badge>
+                         <span className="text-[10px] font-bold text-muted-foreground">{new Date(t.data).toLocaleString()}</span>
+                       </div>
                      </div>
-                     <Button onClick={() => approveSale(t.data)} className="bg-orange-600 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Liberar Bilhete</Button>
+                     <Button onClick={() => approveSale(t.id)} className="bg-orange-600 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Liberar Bilhete</Button>
                    </Card>
                  ))
                )}

@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/use-auth-store';
 
 export default function VendaPage() {
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -37,7 +37,7 @@ export default function VendaPage() {
       return b.status === 'aberto' && now < limit;
     });
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      const startDate = new Date(b.dataFim); // dataFim é o início do 1º jogo
+      const startDate = new Date(b.dataFim); 
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     });
@@ -86,14 +86,15 @@ export default function VendaPage() {
     }
 
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
+    // Se não for admin e não tiver saldo, o status é pendente
     const hasEnoughBalance = user?.role === 'admin' || (user?.balance || 0) >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
     setLoading(true);
     setTimeout(() => {
-      const tickets: any[] = [];
+      const ticketsGenerated: any[] = [];
       for(let i=0; i<qtd; i++) {
-        tickets.push({
+        ticketsGenerated.push({
           id: Math.random().toString().substring(2, 13),
           numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
           palpite: formData.tipo === 'bolao' ? formData.palpite : null,
@@ -111,23 +112,35 @@ export default function VendaPage() {
         gerenteId: user?.gerenteId || (user?.role === 'cambista' ? 'admin-master' : undefined),
         ...formData,
         whatsapp: cleanPhone,
-        tickets,
+        tickets: ticketsGenerated,
         qtd
       };
 
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
-      if (hasEnoughBalance && user?.role !== 'admin') {
+      if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-        localStorage.setItem('leobet_users', JSON.stringify(allUsers.map((u: any) => 
+        const updatedUsers = allUsers.map((u: any) => 
           u.id === user?.id ? { ...u, balance: u.balance - formData.valorTotal } : u
-        )));
+        );
+        localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+        const updatedMe = updatedUsers.find((u: any) => u.id === user?.id);
+        setUser(updatedMe);
       }
 
       setVendaRealizada(receipt);
       setLoading(false);
-      toast({ title: statusVenda === 'pago' ? "VENDA REALIZADA!" : "AGUARDANDO APROVAÇÃO" });
+      
+      if (statusVenda === 'pendente') {
+        toast({ 
+          variant: "destructive",
+          title: "AGUARDANDO APROVAÇÃO", 
+          description: "Você não possui saldo. O bilhete só será válido após aprovação do Administrador." 
+        });
+      } else {
+        toast({ title: "VENDA REALIZADA COM SUCESSO!" });
+      }
     }, 800);
   };
 
@@ -141,7 +154,7 @@ export default function VendaPage() {
     message += `👤 *CLIENTE:* ${vendaRealizada.cliente.toUpperCase()}%0A`;
     message += `🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A`;
     message += `💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A`;
-    message += `✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}%0A`;
+    message += `✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'CONFIRMADO' : 'PENDENTE (Aguardando Aprovação)'}%0A`;
     message += `--------------------------%0A`;
     message += `📊 *ACOMPANHAR EM TEMPO REAL:*%0A${link}%0A`;
     message += `--------------------------%0A`;

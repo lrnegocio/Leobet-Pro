@@ -66,8 +66,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     });
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
 
-    // Se for usuário registrado, credita no saldo agora
-    if (clienteId) {
+    if (clienteId && clienteId !== 'vendedor-direto') {
       const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
       const updatedUsers = allUsers.map((u: any) => {
         if (u.id === clienteId || u.email === clienteId) {
@@ -89,18 +88,17 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       receipt.tickets.forEach((t: any) => {
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        // LÓGICA SEQUENCIAL RESTRITA - Ganhadores de níveis passados não contam novamente no nível atual
         if (level === 'bingo' && hits === 15) {
           if (!winners.bingo.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorRole === 'cliente' ? receipt.vendedorId : 'vendedor-direto' });
           }
         } else if (level === 'quina' && hits === 5) {
           if (!winners.quina.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorRole === 'cliente' ? receipt.vendedorId : 'vendedor-direto' });
           }
         } else if (level === 'quadra' && hits === 4) {
           if (!winners.quadra.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorRole === 'cliente' ? receipt.vendedorId : 'vendedor-direto' });
           }
         }
       });
