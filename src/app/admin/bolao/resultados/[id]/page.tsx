@@ -37,7 +37,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     return tickets.reduce((acc, t) => acc + (t.valorTotal || 0), 0);
   }, [tickets]);
 
-  const premioLiquidoTotal = totalArrecadadoPaga * 0.65;
+  // LÓGICA EXATA: 65% para prêmios
+  const premioLiquidoTotal = Math.round(totalArrecadadoPaga * 0.65 * 100) / 100;
 
   const handleUpdateResult = (index: number, val: string) => {
     const newResults = [...results];
@@ -71,6 +72,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         });
       });
 
+      // Ganhador é quem tem o maior número de acertos (Top Scorer)
       const topScorers = participantsData.filter(p => p.hits === maxHitsFound && p.hits > 0);
       const premioIndividual = topScorers.length > 0 ? premioLiquidoTotal / topScorers.length : 0;
 

@@ -36,14 +36,14 @@ export default function VendaPage() {
   const loadEventos = () => {
     const now = new Date();
     
-    // Carrega Bingos
+    // Carrega Bingos Ativos
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       const limit = new Date(drawDate.getTime() - 60000); 
       return b.status === 'aberto' && now < limit;
     }).map((b: any) => ({ ...b, tipo: 'bingo' }));
 
-    // Carrega Bolões
+    // Carrega Bolões Ativos
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
       const startDate = new Date(b.dataFim || b.createdAt); 
       const limit = new Date(startDate.getTime() - 60000);
@@ -147,6 +147,7 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
+      // Se for pago na hora, atualiza saldos e comissões do vendedor
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -155,6 +156,7 @@ export default function VendaPage() {
             let newComm = u.commissionBalance || 0;
             let newBal = u.balance || 0;
 
+            // Prioriza pagar com comissão acumulada
             if (newComm >= remaining) {
               newComm -= remaining;
               remaining = 0;
@@ -164,11 +166,13 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
+            // Atribui comissão pela venda
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.15 : 0;
             newComm += (formData.valorTotal * myCommRate);
 
             return { ...u, balance: newBal, commissionBalance: newComm };
           }
+          // Comissão do Gerente da rede (5%)
           if (user?.role === 'cambista' && user?.gerenteId && u.id === user.gerenteId) {
              return { ...u, commissionBalance: (u.commissionBalance || 0) + (formData.valorTotal * 0.05) };
           }

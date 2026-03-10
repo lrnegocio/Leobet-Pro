@@ -45,6 +45,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
 import { useAuthStore } from '@/store/use-auth-store';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -200,22 +201,29 @@ function FinanceiroContent() {
 
     filteredTickets.forEach(t => {
       brutoRaw += t.valorTotal;
+      
+      // LÓGICA DE MARGEM: TOTAL DA BANCA É 35% (Admin + Cambista + Gerente)
       if (t.vendedorRole === 'admin') {
+        // Admin direto leva os 35% de margem total
         orgRaw += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
+        // Gerente vende direto: 15% pra ele (10 vendedor + 5 rede), 20% pro Admin
         orgRaw += t.valorTotal * 0.20; 
         gerenteRaw += t.valorTotal * 0.15; 
       } else if (t.vendedorRole === 'cambista') {
+        // Cambista vende: 10% pra ele, 5% pro gerente dele, 20% pro Admin
         orgRaw += t.valorTotal * 0.20; 
         cambistaRaw += t.valorTotal * 0.10; 
         if (t.gerenteId && t.gerenteId !== 'admin-master') {
           gerenteRaw += t.valorTotal * 0.05; 
         } else {
+          // Se não tem gerente, o Admin pega os 5% da rede
           orgRaw += t.valorTotal * 0.05; 
         }
       }
     });
 
+    // LÓGICA RESIDUAL: O PRÊMIO É O QUE SOBRA (Sempre exatamente 65%)
     const dBruto = Number(brutoRaw.toFixed(2));
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
