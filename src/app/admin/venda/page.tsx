@@ -85,7 +85,6 @@ export default function VendaPage() {
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
     
-    // CRITICAL: SE NAO TIVER SALDO, O STATUS EH PENDENTE
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -118,7 +117,6 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
-      // Somente deduz saldo e gera comissao se for PAGO
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -136,11 +134,18 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
-            const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0;
+            // Precisão Decimal: Admin 20%, Cambista 10%, Gerente 5%.
+            // Se gerente vende: 10% (seller) + 5% (manager) = 15%.
+            const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.15 : 0;
             const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;
 
             return { ...u, balance: newBal, commissionBalance: newComm };
+          }
+          // Se cambista vende, o gerente dele ganha 5%
+          if (user?.role === 'cambista' && user?.gerenteId && u.id === user.gerenteId) {
+             const mgrComm = formData.valorTotal * 0.05;
+             return { ...u, commissionBalance: (u.commissionBalance || 0) + mgrComm };
           }
           return u;
         });

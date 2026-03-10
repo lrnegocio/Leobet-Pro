@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,7 +65,7 @@ function FinanceiroContent() {
       toast({ variant: "destructive", title: "ACESSO NEGADO", description: "Área exclusiva para Administradores Master." });
       router.push('/' + currentUser.role + '/dashboard');
     }
-  }, [currentUser, router]);
+  }, [currentUser, router, toast]);
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -136,14 +136,15 @@ function FinanceiroContent() {
     const receipt = tickets.find(t => t.id === receiptId);
     if (!receipt) return;
 
-    // A comissao so entra na conta agora que a venda foi aprovada
     const allUsersList = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     const updatedUsers = allUsersList.map((u: any) => {
       if (u.id === receipt.vendedorId) {
-        const commRate = receipt.vendedorRole === 'cambista' ? 0.10 : receipt.vendedorRole === 'gerente' ? 0.05 : 0;
+        // Se gerente vende, ganha 10% (seller) + 5% (manager) = 15%
+        const commRate = receipt.vendedorRole === 'cambista' ? 0.10 : receipt.vendedorRole === 'gerente' ? 0.15 : 0;
         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
         return { ...u, commissionBalance: newComm };
       }
+      // Se cambista vende, o gerente dele ganha 5%
       if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
          const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
          return { ...u, commissionBalance: newComm };
@@ -162,11 +163,11 @@ function FinanceiroContent() {
     toast({ title: "VENDA APROVADA!", description: "Bilhete validado e comissões creditadas." });
   };
 
-  const calculateFinance = () => {
-    let org = 0;      
-    let cambista = 0; 
-    let gerente = 0;  
-    let bruto = 0;
+  const finance = useMemo(() => {
+    let orgRaw = 0;      
+    let cambistaRaw = 0; 
+    let gerenteRaw = 0;  
+    let brutoRaw = 0;
 
     const filteredTickets = tickets.filter(t => {
       const date = new Date(t.data).toISOString().split('T')[0];
@@ -174,29 +175,42 @@ function FinanceiroContent() {
     });
 
     filteredTickets.forEach(t => {
-      bruto += t.valorTotal;
+      brutoRaw += t.valorTotal;
       if (t.vendedorRole === 'admin') {
-        org += t.valorTotal * 0.35; 
+        orgRaw += t.valorTotal * 0.35; // Admin fica com os 35%
       } else if (t.vendedorRole === 'gerente') {
-        org += t.valorTotal * 0.20;
-        gerente += t.valorTotal * 0.15; 
+        orgRaw += t.valorTotal * 0.20; // Admin 20%
+        gerenteRaw += t.valorTotal * 0.15; // Gerente (10% seller + 5% manager)
       } else if (t.vendedorRole === 'cambista') {
-        org += t.valorTotal * 0.20;
-        cambista += t.valorTotal * 0.10;
+        orgRaw += t.valorTotal * 0.20; // Admin 20%
+        cambistaRaw += t.valorTotal * 0.10; // Cambista 10%
         if (t.gerenteId && t.gerenteId !== 'admin-master') {
-          gerente += t.valorTotal * 0.05;
+          gerenteRaw += t.valorTotal * 0.05; // Gerente 5%
         } else {
-          org += t.valorTotal * 0.05; 
+          orgRaw += t.valorTotal * 0.05; // Admin fica com os 5% se não tiver gerente
         }
       }
     });
 
-    return { org, cambista, gerente, bruto, premios: bruto * 0.65 };
-  };
+    // DISPLAY ROUNDING LOGIC - "PERFECTION" MODE
+    // We round parts to 2 decimals for UI, and Premios is the balance to match bruto.
+    const dBruto = Number(brutoRaw.toFixed(2));
+    const dOrg = Number(orgRaw.toFixed(2));
+    const dCambista = Number(cambistaRaw.toFixed(2));
+    const dGerente = Number(gerenteRaw.toFixed(2));
+    
+    // Premios is calculated as the difference to ensure sum(parts) === total
+    const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
-  const finance = calculateFinance();
+    return { 
+      org: dOrg, 
+      cambista: dCambista, 
+      gerente: dGerente, 
+      bruto: dBruto, 
+      premios: dPremios 
+    };
+  }, [tickets, startDate, endDate]);
 
-  // Outras funções de aprovação seguem a mesma lógica (deposit, withdrawal, payout)
   const approvePayout = (ticketId: string) => {
     const updated = tickets.map((r: any) => ({
       ...r,
@@ -312,6 +326,22 @@ function FinanceiroContent() {
     toast({ title: "CONFIGURAÇÕES SALVAS!" });
   };
 
+  const approveUser = (userId: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.map((u: any) => u.id === userId ? { ...u, status: 'approved' } : u);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: "ACESSO APROVADO!" });
+  };
+
+  const rejectUser = (userId: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.filter((u: any) => u.id !== userId);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ variant: "destructive", title: "SOLICITAÇÃO RECUSADA!" });
+  };
+
   const gerentes = allUsers.filter(u => u.role === 'gerente');
 
   return (
@@ -352,11 +382,36 @@ function FinanceiroContent() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Card className="bg-primary text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Admin (20%)</p><p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p></CardContent></Card>
-            <Card className="bg-blue-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Cambistas (10%)</p><p className="text-xl font-black">R$ {finance.cambista.toFixed(2)}</p></CardContent></Card>
-            <Card className="bg-purple-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Gerentes (5%)</p><p className="text-xl font-black">R$ {finance.gerente.toFixed(2)}</p></CardContent></Card>
-            <Card className="bg-green-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Prêmios (65%)</p><p className="text-xl font-black">R$ {finance.premios.toFixed(2)}</p></CardContent></Card>
-            <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Total Bruto</p><p className="text-xl font-black">R$ {finance.bruto.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-black uppercase opacity-60">Admin (20%)</p>
+                <p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-600 text-white border-none shadow-xl rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-black uppercase opacity-60">Cambistas (10%)</p>
+                <p className="text-xl font-black">R$ {finance.cambista.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-600 text-white border-none shadow-xl rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-black uppercase opacity-60">Gerentes (5%)</p>
+                <p className="text-xl font-black">R$ {finance.gerente.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-600 text-white border-none shadow-xl rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-black uppercase opacity-60">Prêmios (65%)</p>
+                <p className="text-xl font-black">R$ {finance.premios.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-black uppercase opacity-60">Total Bruto</p>
+                <p className="text-xl font-black">R$ {finance.bruto.toFixed(2)}</p>
+              </CardContent>
+            </Card>
           </div>
 
           <Tabs defaultValue={defaultTab}>
@@ -395,7 +450,6 @@ function FinanceiroContent() {
                )}
             </TabsContent>
 
-            {/* Outros TabsContent permanecem iguais para brevidade, mas devem ser incluídos no arquivo completo */}
             <TabsContent value="acessos" className="mt-6 space-y-4">
                {pendingUsers.length === 0 ? (
                  <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de acesso pendentes</Card>
