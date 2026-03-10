@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { UserCircle, ShieldCheck, Key, AlertTriangle } from 'lucide-react';
@@ -87,7 +88,7 @@ export default function PerfilPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground">Status da Conta</Label>
-                      <Badge className="bg-green-600 font-black h-11 w-full justify-center uppercase">{user.status}</Badge>
+                      <Badge className="bg-green-600 font-black h-11 w-full justify-center uppercase flex items-center">{user.status}</Badge>
                     </div>
                   </div>
 

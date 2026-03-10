@@ -80,12 +80,12 @@ export default function VendaPage() {
     const totalCents = Math.round(formData.valorTotal * 100);
     const unitCents = Math.round(formData.unitario * 100);
 
-    if (totalCents < unitCents || totalCents % unitCents !== 0) {
+    if (totalCents < unitCents || (unitCents > 0 && totalCents % unitCents !== 0)) {
       toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `Múltiplos de R$ ${formData.unitario.toFixed(2)}` });
       return;
     }
 
-    const qtd = Math.floor(totalCents / unitCents);
+    const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     const hasEnoughBalance = user?.role === 'admin' || (user?.balance || 0) >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -235,7 +235,7 @@ export default function VendaPage() {
 
             <div className="space-y-6">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] receipt-thermal rounded-[2rem] relative overflow-hidden">
+                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2rem] relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full -mr-10 -mt-10"></div>
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
                       <p className="text-2xl font-black tracking-tighter">LEOBET PRO</p>
