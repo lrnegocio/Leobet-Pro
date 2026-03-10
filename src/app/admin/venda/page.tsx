@@ -64,11 +64,7 @@ export default function VendaPage() {
     
     const cleanPhone = formData.whatsapp.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      toast({ 
-        variant: "destructive", 
-        title: "DDD OBRIGATÓRIO", 
-        description: "Informe o telefone completo com DDD." 
-      });
+      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO" });
       return;
     }
 
@@ -81,16 +77,15 @@ export default function VendaPage() {
     const totalCents = Math.round(formData.valorTotal * 100);
     const unitCents = Math.round(formData.unitario * 100);
 
-    // Permitir qualquer múltiplo do valor unitário
     if (totalCents < unitCents || (unitCents > 0 && totalCents % unitCents !== 0)) {
       toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `Múltiplos de R$ ${formData.unitario.toFixed(2)}` });
       return;
     }
 
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
-    
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
-    // Admin tem saldo infinito, cambistas/gerentes precisam de saldo
+    
+    // CRITICAL: SE NAO TIVER SALDO, O STATUS EH PENDENTE
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -99,7 +94,7 @@ export default function VendaPage() {
       const ticketsGenerated: any[] = [];
       for(let i=0; i<qtd; i++) {
         ticketsGenerated.push({
-          id: Math.random().toString().substring(2, 13), // Código de 11 dígitos
+          id: Math.random().toString().substring(2, 13),
           numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
           palpite: formData.tipo === 'bolao' ? formData.palpite : null,
           status: 'aberto'
@@ -123,7 +118,7 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
-      // Se pago com saldo, deduz do saldo e adiciona comissão
+      // Somente deduz saldo e gera comissao se for PAGO
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -132,7 +127,6 @@ export default function VendaPage() {
             let newComm = u.commissionBalance || 0;
             let newBal = u.balance || 0;
 
-            // Usa comissão primeiro, depois saldo de depósito
             if (newComm >= remaining) {
               newComm -= remaining;
               remaining = 0;
@@ -142,7 +136,6 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
-            // Adiciona a comissão da própria venda
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0;
             const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;
@@ -160,13 +153,9 @@ export default function VendaPage() {
       setLoading(false);
       
       if (statusVenda === 'pendente') {
-        toast({ 
-          variant: "destructive",
-          title: "VENDA PENDENTE", 
-          description: "Aguardando aprovação do Administrador Master para validar bilhetes e comissão." 
-        });
+        toast({ variant: "destructive", title: "AGUARDANDO APROVAÇÃO MASTER", description: "Venda sem saldo. O bilhete só será válido após validação do Admin." });
       } else {
-        toast({ title: "VENDA REALIZADA!" });
+        toast({ title: "VENDA REALIZADA COM SUCESSO!" });
       }
     }, 800);
   };
@@ -176,22 +165,7 @@ export default function VendaPage() {
     const host = window.location.origin;
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
-    
-    let message = `*LEOBET PRO - RECIBO OFICIAL*%0A%0A`;
-    message += `👤 *CLIENTE:* ${vendaRealizada.cliente.toUpperCase()}%0A`;
-    message += `🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A`;
-    message += `💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A`;
-    message += `✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'CONFIRMADO' : 'PENDENTE'}%0A`;
-    message += `--------------------------%0A`;
-    message += `📊 *ACOMPANHAR EM TEMPO REAL:*%0A${link}%0A`;
-    message += `--------------------------%0A`;
-    
-    vendaRealizada.tickets.forEach((t: any, idx: number) => {
-      message += `%0A🎫 *BILHETE ${idx + 1}:* ${t.id}%0A`;
-      if (t.numeros) message += `🔢 *NÚMEROS:* ${t.numeros.join('-')}%0A`;
-      if (t.palpite) message += `🎯 *PALPITE:* ${t.palpite}%0A`;
-    });
-
+    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A%0A*CONFERIR:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -202,41 +176,38 @@ export default function VendaPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex justify-between items-end print:hidden">
             <div>
-              <h1 className="text-3xl font-black uppercase text-primary leading-none">Terminal de Vendas</h1>
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Gere bilhetes profissionais 365 dias</p>
+              <h1 className="text-3xl font-black uppercase text-primary leading-none">Venda Rápida</h1>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Terminal Profissional 365 Dias</p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg border-none">
+            <div className="flex flex-col items-end gap-1">
+              <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
                  SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
               </Badge>
               {user?.role !== 'admin' && (
-                <p className="text-[9px] font-black uppercase text-muted-foreground">
-                  Balanço: R$ {(user?.balance || 0).toFixed(2)} | Comissão: R$ {(user?.commissionBalance || 0).toFixed(2)}
-                </p>
+                 <p className="text-[9px] font-black uppercase text-orange-600">Vendas sem saldo ficam bloqueadas até aprovação master.</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="rounded-[2.5rem] border-none shadow-2xl print:hidden overflow-hidden bg-white">
+            <Card className="rounded-[2rem] border-none shadow-2xl overflow-hidden bg-white print:hidden">
               <CardContent className="p-8">
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Label className="uppercase text-[10px] font-black opacity-60">Nome do Apostador</Label>
-                      <Input placeholder="JOÃO DA SILVA" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-12 rounded-xl" />
+                      <Input placeholder="NOME DO CLIENTE" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-12 rounded-xl" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="uppercase text-[10px] font-black opacity-60">WhatsApp (Com DDD)</Label>
-                      <Input placeholder="Ex: 82993343941" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-12 rounded-xl" />
-                      <p className="text-[9px] text-orange-600 font-bold flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" /> DDD obrigatório para acompanhamento.</p>
+                      <Label className="uppercase text-[10px] font-black opacity-60">WhatsApp</Label>
+                      <Input placeholder="DDD + NÚMERO" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-12 rounded-xl" />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[10px] font-black opacity-60">Concurso Ativo</Label>
+                    <Label className="uppercase text-[10px] font-black opacity-60">Selecione o Concurso</Label>
                     <select 
-                      className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-primary outline-none"
+                      className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-primary"
                       value={formData.eventoId}
                       onChange={e => {
                         const ev = eventosAtivos.find(evItem => String(evItem.id) === String(e.target.value));
@@ -251,13 +222,13 @@ export default function VendaPage() {
                       }}
                       required
                     >
-                      <option value="">-- SELECIONE O EVENTO --</option>
+                      <option value="">-- CONCURSOS ABERTOS --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {e.preco.toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[10px] font-black opacity-60 text-center block">Valor Total do Bilhete (R$)</Label>
+                    <Label className="uppercase text-[10px] font-black opacity-60 text-center block">Valor do Jogo (R$)</Label>
                     <Input 
                       type="number" 
                       step="0.01" 
@@ -267,8 +238,8 @@ export default function VendaPage() {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90" disabled={loading}>
-                    {loading ? "GERANDO..." : "CONFIRMAR APOSTA"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary" disabled={loading}>
+                    {loading ? "VALIDANDO..." : "CONCLUIR VENDA"}
                   </Button>
                 </form>
               </CardContent>
@@ -276,23 +247,23 @@ export default function VendaPage() {
 
             <div className="space-y-6">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2rem] relative">
+                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2rem]">
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
-                      <p className="text-2xl font-black tracking-tighter text-primary">LEOBET PRO</p>
-                      <p className="font-bold uppercase tracking-widest text-[8px]">Recibo de Aposta Oficial</p>
+                      <p className="text-2xl font-black text-primary">LEOBET PRO</p>
+                      <p className="font-bold uppercase tracking-widest text-[8px]">Bilhete de Aposta Oficial</p>
                    </div>
                    
                    <div className="space-y-1 mb-4 text-[9px] uppercase font-bold">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>EVENTO:</span> <span>{vendaRealizada.eventoNome}</span></p>
-                      <p className="flex justify-between"><span>VENDEDOR:</span> <span>{vendaRealizada.vendedorNome}</span></p>
+                      <p className="flex justify-between"><span>DATA:</span> <span>{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
 
                    <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
                         <div key={i} className="bg-black/5 p-3 rounded-xl">
                           <p className="font-black flex justify-between text-[8px] mb-1">
-                            <span>BILHETE #{i+1}</span>
+                            <span>ID BILHETE</span>
                             <span className="text-primary">{t.id}</span>
                           </p>
                           <p className="text-[9px] opacity-70">
@@ -302,26 +273,26 @@ export default function VendaPage() {
                       ))}
                    </div>
 
-                   <div className="text-center space-y-2 mb-4">
-                      <p className="text-2xl font-black">TOTAL: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
-                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-4 py-1">
-                         {vendaRealizada.status === 'pago' ? '✓ CONFIRMADO' : '⚠ PENDENTE'}
+                   <div className="text-center space-y-2">
+                      <p className="text-2xl font-black">R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
+                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6">
+                         {vendaRealizada.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO APROVAÇÃO'}
                       </Badge>
                    </div>
 
                    <div className="mt-8 flex flex-col gap-2 print:hidden">
                       <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl">
-                        <Send className="w-4 h-4 mr-2" /> Enviar WhatsApp
+                        <Send className="w-4 h-4 mr-2" /> Enviar p/ Cliente
                       </Button>
                       <Button onClick={() => window.print()} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2">
-                        <Printer className="w-4 h-4 mr-2" /> PDF / Imprimir
+                        <Printer className="w-4 h-4 mr-2" /> Imprimir / PDF
                       </Button>
                    </div>
                 </div>
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                    <TicketIcon className="w-20 h-20 mb-4 text-primary" />
-                   <p className="font-black uppercase text-xs tracking-widest text-center px-8">Aguardando venda...<br/>Saldo e comissão são usados automaticamente.</p>
+                   <p className="font-black uppercase text-xs tracking-widest text-center px-8">Aguardando Nova Venda...</p>
                 </div>
               )}
             </div>
