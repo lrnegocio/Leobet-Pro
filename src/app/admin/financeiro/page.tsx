@@ -37,7 +37,10 @@ import {
   Unlock,
   Edit2,
   AlertTriangle,
-  Zap
+  Zap,
+  PlusCircle,
+  MinusCircle,
+  Printer
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -53,6 +56,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function FinanceiroContent() {
   const { toast } = useToast();
@@ -60,13 +71,6 @@ function FinanceiroContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'depositos';
-
-  useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
-      toast({ variant: "destructive", title: "ACESSO NEGADO", description: "Área exclusiva para Administradores Master." });
-      router.push('/' + currentUser.role + '/dashboard');
-    }
-  }, [currentUser, router, toast]);
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -77,6 +81,8 @@ function FinanceiroContent() {
   const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [companyPix, setCompanyPix] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [manualAmount, setManualAmount] = useState<number>(0);
+  const [selectedUserForBalance, setSelectedUserForBalance] = useState<string | null>(null);
   
   const [newPartner, setNewPartner] = useState({
     nome: '',
@@ -106,19 +112,8 @@ function FinanceiroContent() {
     setAllUsers(users);
     setPendingUsers(users.filter((u: UserProfile) => u.status === 'pending'));
 
-    const rawWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
-    const validWithdrawals = rawWithdrawals.filter((w: any) => {
-      if (w.status !== 'pendente') return true;
-      const u = users.find((user: any) => user.id === w.userId);
-      if (!u) return false;
-      return ((u.balance || 0) + (u.commissionBalance || 0)) >= w.amount;
-    });
-
-    if (validWithdrawals.length !== rawWithdrawals.length) {
-      localStorage.setItem('leobet_withdrawals', JSON.stringify(validWithdrawals));
-    }
-
-    setPendingWithdrawals(validWithdrawals.filter((w: any) => w.status === 'pendente'));
+    const withdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+    setPendingWithdrawals(withdrawals.filter((w: any) => w.status === 'pendente'));
 
     const deposits = JSON.parse(localStorage.getItem('leobet_deposits') || '[]');
     setPendingDeposits(deposits.filter((d: any) => d.status === 'pendente'));
@@ -143,6 +138,25 @@ function FinanceiroContent() {
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleManualBalance = (type: 'add' | 'sub') => {
+    if (!selectedUserForBalance || manualAmount <= 0) return;
+
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.map((u: any) => {
+      if (u.id === selectedUserForBalance) {
+        const adjustment = type === 'add' ? manualAmount : -manualAmount;
+        return { ...u, balance: (u.balance || 0) + adjustment };
+      }
+      return u;
+    });
+
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: `SALDO ${type === 'add' ? 'ADICIONADO' : 'REMOVIDO'}!`, description: `R$ ${manualAmount.toFixed(2)}` });
+    setManualAmount(0);
+    setSelectedUserForBalance(null);
+  };
 
   const approveSale = (receiptId: string) => {
     const receipt = tickets.find(t => t.id === receiptId);
@@ -202,13 +216,10 @@ function FinanceiroContent() {
       }
     });
 
-    // MATEMÁTICA RESIDUAL PARA 100% DE ACERTO
     const dBruto = Number(brutoRaw.toFixed(2));
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
     const dGerente = Number(gerenteRaw.toFixed(2));
-    
-    // O prêmio é o resíduo exato para que a soma feche sempre 100% do bruto
     const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
     return { org: dOrg, cambista: dCambista, gerente: dGerente, bruto: dBruto, premios: dPremios };
@@ -263,43 +274,26 @@ function FinanceiroContent() {
     if (!withdrawal) return;
 
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    const user = users.find((u: any) => u.id === withdrawal.userId);
-    
-    if (user) {
-      let remainingToDeduct = withdrawal.amount;
-      let newComm = user.commissionBalance || 0;
-      let newBal = user.balance || 0;
-
-      if (newComm >= remainingToDeduct) {
-        newComm -= remainingToDeduct;
-        remainingToDeduct = 0;
-      } else {
-        remainingToDeduct -= newComm;
-        newComm = 0;
-        newBal -= remainingToDeduct;
+    const updatedUsers = users.map((u: any) => {
+      if (u.id === withdrawal.userId) {
+        return { ...u, balance: Math.max(0, (u.balance || 0) - withdrawal.amount) };
       }
-
-      const updatedUsers = users.map((u: any) => 
-        u.id === user.id ? { ...u, balance: newBal, commissionBalance: newComm } : u
-      );
-      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
-    }
+      return u;
+    });
 
     const updatedWithdrawals = allWithdrawals.map((w: any) => 
       w.id === withdrawId ? { ...w, status: 'pago' } : w
     );
+
+    localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
     localStorage.setItem('leobet_withdrawals', JSON.stringify(updatedWithdrawals));
     loadData();
-    toast({ title: "SAQUE APROVADO!", description: "Saldo deduzido da conta do parceiro." });
+    toast({ title: "SAQUE APROVADO!" });
   };
 
   const handleCreatePartner = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = newPartner.phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO", description: "Informe o telefone completo com DDD." });
-      return;
-    }
     const newUser: UserProfile = {
       id: Math.random().toString(36).substring(7).toUpperCase(),
       ...newPartner,
@@ -640,52 +634,98 @@ function FinanceiroContent() {
 
                   <div className="lg:col-span-2 space-y-4">
                      <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary"><Store className="w-4 h-4" /> Base de Parceiros</h3>
+                        <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary"><Store className="w-4 h-4" /> Base de Parceiros e Hierarquia</h3>
                         <Badge variant="outline" className="font-black uppercase text-[9px]">{allUsers.length} Membros</Badge>
                      </div>
                      <div className="space-y-2">
-                        {allUsers.filter(u => u.id !== 'admin-master').map((u, i) => (
-                          <Card key={i} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-all">
-                             <div className="flex items-center gap-3 flex-1">
-                                <div className="bg-primary/5 p-2 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
-                                <div>
-                                   <div className="flex items-center gap-2">
-                                     <p className="font-black uppercase text-xs">{u.nome}</p>
-                                     <Badge className={`${u.status === 'approved' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black`}>
-                                       {u.status === 'approved' ? 'ATIVO' : 'BLOQUEADO'}
-                                     </Badge>
-                                   </div>
-                                   <p className="text-[9px] font-bold text-muted-foreground uppercase">ID: {u.id} • {u.role} • {u.phone}</p>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-right mr-4">
-                                   <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo</p>
-                                   <p className="text-xs font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
-                                </div>
-                                <div className="flex gap-1">
-                                   <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => toggleUserStatus(u.id, u.status)}>
-                                     {u.status === 'approved' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                                   </Button>
-                                   <AlertDialog>
-                                     <AlertDialogTrigger asChild>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                                     </AlertDialogTrigger>
-                                     <AlertDialogContent className="bg-white rounded-2xl">
-                                       <AlertDialogHeader>
-                                         <AlertDialogTitle className="font-black uppercase text-center">Excluir Parceiro?</AlertDialogTitle>
-                                         <AlertDialogDescription className="text-center font-bold">Isso removerá definitivamente da base.</AlertDialogDescription>
-                                       </AlertDialogHeader>
-                                       <AlertDialogFooter className="flex gap-2">
-                                         <AlertDialogCancel className="flex-1 uppercase font-black">Cancelar</AlertDialogCancel>
-                                         <AlertDialogAction onClick={() => deleteUser(u.id)} className="flex-1 bg-destructive uppercase font-black">Excluir</AlertDialogAction>
-                                       </AlertDialogFooter>
-                                     </AlertDialogContent>
-                                   </AlertDialog>
-                                </div>
-                             </div>
-                          </Card>
-                        ))}
+                        {allUsers.filter(u => u.id !== 'admin-master').map((u, i) => {
+                          const parent = allUsers.find(p => p.id === u.gerenteId);
+                          return (
+                            <Card key={i} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-all">
+                               <div className="flex items-center gap-3 flex-1">
+                                  <div className="bg-primary/5 p-2 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
+                                  <div>
+                                     <div className="flex items-center gap-2">
+                                       <p className="font-black uppercase text-xs">{u.nome}</p>
+                                       <Badge className={cn(
+                                         "text-[8px] h-4 font-black",
+                                         u.role === 'gerente' ? 'bg-purple-600' : 
+                                         u.role === 'cambista' ? 'bg-blue-600' : 'bg-green-600'
+                                       )}>
+                                         {u.role.toUpperCase()}
+                                       </Badge>
+                                       <Badge className={`${u.status === 'approved' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black`}>
+                                         {u.status === 'approved' ? 'ATIVO' : 'BLOQUEADO'}
+                                       </Badge>
+                                     </div>
+                                     <p className="text-[9px] font-bold text-muted-foreground uppercase">ID: {u.id} • {u.phone}</p>
+                                     {parent && <p className="text-[8px] font-black text-primary/60 uppercase">Equipe de: {parent.nome}</p>}
+                                  </div>
+                               </div>
+                               <div className="flex items-center gap-3 shrink-0">
+                                  <div className="text-right mr-4">
+                                     <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo Atual</p>
+                                     <p className="text-xs font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
+                                  </div>
+                                  <div className="flex gap-1">
+                                     <Dialog>
+                                       <DialogTrigger asChild>
+                                         <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => setSelectedUserForBalance(u.id)}>
+                                           <ArrowRightLeft className="w-4 h-4" />
+                                         </Button>
+                                       </DialogTrigger>
+                                       <DialogContent className="bg-white rounded-[2rem]">
+                                         <DialogHeader>
+                                           <DialogTitle className="font-black uppercase text-center">Ajustar Saldo Manual</DialogTitle>
+                                         </DialogHeader>
+                                         <div className="py-4 space-y-4 text-center">
+                                            <div className="bg-primary/5 p-4 rounded-xl">
+                                               <p className="text-[10px] font-black uppercase text-muted-foreground">Usuário Selecionado</p>
+                                               <p className="font-black text-primary">{u.nome}</p>
+                                            </div>
+                                            <Input 
+                                              type="number" 
+                                              placeholder="0.00" 
+                                              value={manualAmount} 
+                                              onChange={e => setManualAmount(Number(e.target.value))}
+                                              className="h-14 text-center text-2xl font-black rounded-xl"
+                                            />
+                                            <div className="grid grid-cols-2 gap-4">
+                                               <Button onClick={() => handleManualBalance('add')} className="bg-green-600 font-black h-12 uppercase rounded-xl">
+                                                  <PlusCircle className="w-4 h-4 mr-2" /> Adicionar
+                                               </Button>
+                                               <Button onClick={() => handleManualBalance('sub')} variant="destructive" className="font-black h-12 uppercase rounded-xl">
+                                                  <MinusCircle className="w-4 h-4 mr-2" /> Remover
+                                               </Button>
+                                            </div>
+                                         </div>
+                                       </DialogContent>
+                                     </Dialog>
+
+                                     <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => toggleUserStatus(u.id, u.status)}>
+                                       {u.status === 'approved' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                                     </Button>
+                                     
+                                     <AlertDialog>
+                                       <AlertDialogTrigger asChild>
+                                         <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                                       </AlertDialogTrigger>
+                                       <AlertDialogContent className="bg-white rounded-2xl">
+                                         <AlertDialogHeader>
+                                           <AlertDialogTitle className="font-black uppercase text-center">Excluir Parceiro?</AlertDialogTitle>
+                                           <AlertDialogDescription className="text-center font-bold">Isso removerá definitivamente da base.</AlertDialogDescription>
+                                         </AlertDialogHeader>
+                                         <AlertDialogFooter className="flex gap-2">
+                                           <AlertDialogCancel className="flex-1 uppercase font-black">Cancelar</AlertDialogCancel>
+                                           <AlertDialogAction onClick={() => deleteUser(u.id)} className="flex-1 bg-destructive uppercase font-black">Excluir</AlertDialogAction>
+                                         </AlertDialogFooter>
+                                       </AlertDialogContent>
+                                     </AlertDialog>
+                                  </div>
+                               </div>
+                            </Card>
+                          );
+                        })}
                      </div>
                   </div>
                </div>
