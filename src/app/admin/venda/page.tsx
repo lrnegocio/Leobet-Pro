@@ -72,7 +72,7 @@ export default function VendaPage() {
       return;
     }
 
-    const ev = eventosAtivos.find(evItem => evItem.id === formData.eventoId);
+    const ev = eventosAtivos.find(evItem => String(evItem.id) === String(formData.eventoId));
     if (!ev) {
       toast({ variant: "destructive", title: "CONCURSO INDISPONÍVEL" });
       return;
@@ -81,6 +81,7 @@ export default function VendaPage() {
     const totalCents = Math.round(formData.valorTotal * 100);
     const unitCents = Math.round(formData.unitario * 100);
 
+    // Permitir qualquer múltiplo do valor unitário
     if (totalCents < unitCents || (unitCents > 0 && totalCents % unitCents !== 0)) {
       toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `Múltiplos de R$ ${formData.unitario.toFixed(2)}` });
       return;
@@ -89,6 +90,7 @@ export default function VendaPage() {
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
+    // Admin tem saldo infinito, cambistas/gerentes precisam de saldo
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -97,7 +99,7 @@ export default function VendaPage() {
       const ticketsGenerated: any[] = [];
       for(let i=0; i<qtd; i++) {
         ticketsGenerated.push({
-          id: Math.random().toString().substring(2, 13),
+          id: Math.random().toString().substring(2, 13), // Código de 11 dígitos
           numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
           palpite: formData.tipo === 'bolao' ? formData.palpite : null,
           status: 'aberto'
@@ -121,6 +123,7 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
+      // Se pago com saldo, deduz do saldo e adiciona comissão
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -129,6 +132,7 @@ export default function VendaPage() {
             let newComm = u.commissionBalance || 0;
             let newBal = u.balance || 0;
 
+            // Usa comissão primeiro, depois saldo de depósito
             if (newComm >= remaining) {
               newComm -= remaining;
               remaining = 0;
@@ -138,6 +142,7 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
+            // Adiciona a comissão da própria venda
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0;
             const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;

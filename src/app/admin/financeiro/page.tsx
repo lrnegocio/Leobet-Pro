@@ -26,7 +26,8 @@ import {
   Globe,
   UserPlus,
   ArrowRightLeft,
-  UserCircle
+  UserCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -92,6 +93,7 @@ function FinanceiroContent() {
     setTickets(allReceipts);
     setPendingSales(allReceipts.filter((t: any) => t.status === 'pendente'));
 
+    // Coletar prêmios que aguardam baixa
     const payouts: any[] = [];
     allReceipts.forEach((r: any) => {
       r.tickets.forEach((t: any) => {
@@ -162,6 +164,7 @@ function FinanceiroContent() {
     localStorage.removeItem('leobet_boloes');
     localStorage.removeItem('leobet_withdrawals');
     localStorage.removeItem('leobet_deposits');
+    // Manter o admin master
     const adminMaster = allUsers.find(u => u.id === 'admin-master');
     localStorage.setItem('leobet_users', JSON.stringify(adminMaster ? [adminMaster] : []));
     loadData();
@@ -256,6 +259,7 @@ function FinanceiroContent() {
         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
         return { ...u, commissionBalance: newComm };
       }
+      // Gerente ganha 5% sobre venda do cambista dele
       if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
          const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
          return { ...u, commissionBalance: newComm };
