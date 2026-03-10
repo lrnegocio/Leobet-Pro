@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -50,15 +50,23 @@ export default function VendaPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const generateUniqueNumbers = (count: number, max: number) => {
+    const nums: number[] = [];
+    while (nums.length < count) {
+      const n = Math.floor(Math.random() * max) + 1;
+      if (!nums.includes(n)) nums.push(n);
+    }
+    return nums.sort((a, b) => a - b);
+  };
+
   const handleVenda = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação de WhatsApp com DDD
     const cleanPhone = formData.whatsapp.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       toast({ 
         variant: "destructive", 
-        title: "WHATSAPP INVÁLIDO", 
+        title: "DDD OBRIGATÓRIO", 
         description: "Informe o telefone completo com DDD (ex: 82993343941)" 
       });
       return;
@@ -66,7 +74,7 @@ export default function VendaPage() {
 
     const ev = eventosAtivos.find(evItem => evItem.id === formData.eventoId);
     if (!ev) {
-      toast({ variant: "destructive", title: "CONCURSO ENCERRADO OU TRAVADO" });
+      toast({ variant: "destructive", title: "CONCURSO INDISPONÍVEL" });
       return;
     }
 
@@ -74,7 +82,7 @@ export default function VendaPage() {
     const unitCents = Math.round(formData.unitario * 100);
 
     if (totalCents % unitCents !== 0) {
-      toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `O valor deve ser múltiplo de R$ ${formData.unitario.toFixed(2)}` });
+      toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `Múltiplos de R$ ${formData.unitario.toFixed(2)}` });
       return;
     }
 
@@ -88,7 +96,7 @@ export default function VendaPage() {
       for(let i=0; i<qtd; i++) {
         tickets.push({
           id: Math.random().toString().substring(2, 13),
-          numeros: formData.tipo === 'bingo' ? Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1).sort((a,b) => a-b) : null,
+          numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
           palpite: formData.tipo === 'bolao' ? formData.palpite : null,
           status: 'aberto'
         });
@@ -99,8 +107,8 @@ export default function VendaPage() {
         data: new Date().toISOString(),
         status: statusVenda,
         vendedorId: user?.id,
-        vendedorRole: user?.role,
         vendedorNome: user?.nome,
+        vendedorRole: user?.role,
         gerenteId: user?.gerenteId || (user?.role === 'cambista' ? 'admin-master' : undefined),
         ...formData,
         whatsapp: cleanPhone,
@@ -124,10 +132,6 @@ export default function VendaPage() {
     }, 800);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleWhatsApp = () => {
     if (!vendaRealizada) return;
     
@@ -146,12 +150,9 @@ export default function VendaPage() {
     vendaRealizada.tickets.forEach((t: any, idx: number) => {
       message += `%0A🎫 *BILHETE ${idx + 1}:* ${t.id}%0A`;
       if (t.numeros) message += `🔢 *NÚMEROS:* ${t.numeros.join('-')}%0A`;
-      if (t.palpite) message += `⚽ *PALPITE:* ${t.palpite}%0A`;
     });
 
-    message += `%0A📞 *Suporte:* (82) 99334-3941%0A`;
-    message += `🍀 *Boa sorte!*`;
-
+    message += `%0A🍀 *Boa sorte!*`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -172,14 +173,14 @@ export default function VendaPage() {
               <CardContent className="p-8">
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Nome Completo do Cliente</Label>
+                    <Label className="uppercase text-[10px] font-black">Nome Completo</Label>
                     <Input placeholder="NOME DO CLIENTE" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} required />
-                    <Label className="uppercase text-[10px] font-black mt-2">WhatsApp (Com DDD)</Label>
+                    <Label className="uppercase text-[10px] font-black mt-2">WhatsApp (DDD + NÚMERO)</Label>
                     <Input placeholder="82993343941" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Concurso (Sorteios Ativos)</Label>
+                    <Label className="uppercase text-[10px] font-black">Selecione o Concurso</Label>
                     <select 
                       className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white"
                       value={formData.eventoId}
@@ -201,15 +202,8 @@ export default function VendaPage() {
                     </select>
                   </div>
 
-                  {formData.tipo === 'bolao' && (
-                    <div className="space-y-2">
-                       <Label className="uppercase text-[10px] font-black">Palpite da Rodada (Ex: 1-X-2-1...)</Label>
-                       <Input placeholder="DIGITE OS 10 PALPITES" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required />
-                    </div>
-                  )}
-
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Valor da Aposta (Total)</Label>
+                    <Label className="uppercase text-[10px] font-black">Valor Total (R$)</Label>
                     <Input 
                       type="number" 
                       step="0.01" 
@@ -217,13 +211,10 @@ export default function VendaPage() {
                       onChange={e => setFormData({...formData, valorTotal: Number(e.target.value)})} 
                       className="h-16 text-3xl font-black text-center border-primary/20 bg-primary/5" 
                     />
-                    <p className="text-[9px] font-bold text-center text-muted-foreground uppercase">
-                       {formData.unitario > 0 ? `Equivale a ${Math.floor(formData.valorTotal / formData.unitario)} bilhetes` : 'Selecione um evento'}
-                    </p>
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "EMITIR BILHETES"}
+                    {loading ? "PROCESSANDO..." : "EMITIR APOSTA"}
                   </Button>
                 </form>
               </CardContent>
@@ -231,27 +222,26 @@ export default function VendaPage() {
 
             <div className="space-y-6">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] relative overflow-hidden receipt-thermal">
+                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] receipt-thermal">
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
                       <p className="text-xl font-black">LEOBET PRO</p>
-                      <p className="font-bold">RECIBO OFICIAL DE APOSTA</p>
+                      <p className="font-bold uppercase">Recibo de Aposta</p>
                    </div>
                    
                    <div className="space-y-1 mb-4">
                       <p>DATA: {new Date(vendaRealizada.data).toLocaleString()}</p>
                       <p>CLIENTE: {vendaRealizada.cliente.toUpperCase()}</p>
                       <p>EVENTO: {vendaRealizada.eventoNome.toUpperCase()}</p>
-                      <p>VENDEDOR: {vendaRealizada.vendedorNome.toUpperCase()}</p>
                    </div>
 
                    <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-4">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
-                        <div key={i} className="space-y-1 bg-black/5 p-2 rounded">
+                        <div key={i} className="bg-black/5 p-2 rounded">
                           <p className="font-bold flex justify-between">
                             <span>BILHETE #{i+1}</span>
                             <span>ID: {t.id}</span>
                           </p>
-                          <p className="text-xs break-all">
+                          <p className="text-[9px] break-all">
                              {t.numeros ? `NÚMEROS: ${t.numeros.join('-')}` : `PALPITES: ${t.palpite}`}
                           </p>
                         </div>
@@ -261,31 +251,19 @@ export default function VendaPage() {
                    <div className="text-center space-y-2 mb-4">
                       <p className="text-lg font-black">TOTAL: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black">
-                         {vendaRealizada.status === 'pago' ? 'APOSTA CONFIRMADA' : 'AGUARDANDO PAGAMENTO'}
+                         {vendaRealizada.status === 'pago' ? 'APOSTA CONFIRMADA' : 'PENDENTE'}
                       </Badge>
                    </div>
 
-                   <div className="border-t-2 border-dashed border-black/20 pt-4 text-center space-y-2">
-                      <p className="font-bold">ACOMPANHE EM TEMPO REAL:</p>
-                      <p className="text-[9px] bg-white p-2 border rounded break-all select-all">
-                         {window.location.host}/resultados?c={vendaRealizada.tickets[0].id}
-                      </p>
-                      <p className="text-[8px] opacity-60">Válido por 365 dias para auditoria.</p>
-                   </div>
-
                    <div className="mt-8 flex gap-2 print:hidden">
-                      <Button onClick={handlePrint} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px] gap-2">
-                        <Printer className="w-4 h-4" /> PDF/Imprimir
-                      </Button>
-                      <Button onClick={handleWhatsApp} className="flex-1 h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] gap-2 text-white">
-                        <Send className="w-4 h-4" /> Enviar WhatsApp
-                      </Button>
+                      <Button onClick={() => window.print()} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px]">PDF / IMPRIMIR</Button>
+                      <Button onClick={handleWhatsApp} className="flex-1 h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] text-white">ENVIAR WHATSAPP</Button>
                    </div>
                 </div>
               ) : (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-3xl opacity-20 bg-white">
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-3xl opacity-20">
                    <TicketIcon className="w-20 h-20 mb-4" />
-                   <p className="font-black uppercase tracking-widest text-xs">Terminal Aguardando...</p>
+                   <p className="font-black uppercase text-xs">Aguardando Venda...</p>
                 </div>
               )}
             </div>
