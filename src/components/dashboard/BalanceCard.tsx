@@ -61,7 +61,6 @@ export function BalanceCard() {
 
       setLoading(false);
       
-      // Abre WhatsApp para enviar comprovante com Nome e ID
       const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A🆔 *ID USUÁRIO:* ${user.id}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A📦 *PEDIDO:* ${deposit.id}%0A%0A*Seguindo o comprovante abaixo para liberação imediata:*`;
       window.open(`https://api.whatsapp.com/send?phone=5582993343941&text=${message}`, '_blank');
 
@@ -92,6 +91,8 @@ export function BalanceCard() {
 
     setLoading(true);
     setTimeout(() => {
+      // LOGICA CORRETA: O saldo NÃO some agora. Ele só some quando o Admin aprova.
+      // Se o usuário gastar o saldo vendendo, o saque sumirá automaticamente do painel admin por falta de fundo.
       const withdrawal = {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         userId: user.id,
@@ -103,36 +104,13 @@ export function BalanceCard() {
         createdAt: new Date().toISOString()
       };
 
-      // Atualiza saldo local subtraindo primeiro da comissão, depois do balanço
-      let remainingToDeduct = amount;
-      let newComm = user.commissionBalance || 0;
-      let newBal = user.balance || 0;
-
-      if (newComm >= remainingToDeduct) {
-        newComm -= remainingToDeduct;
-        remainingToDeduct = 0;
-      } else {
-        remainingToDeduct -= newComm;
-        newComm = 0;
-        newBal -= remainingToDeduct;
-      }
-
-      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-      const updatedUsers = allUsers.map((u: any) => 
-        u.id === user.id ? { ...u, balance: newBal, commissionBalance: newComm } : u
-      );
-      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
-      
-      const me = updatedUsers.find((u: any) => u.id === user.id);
-      setUser(me);
-
       const existing = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
       localStorage.setItem('leobet_withdrawals', JSON.stringify([...existing, withdrawal]));
 
       setLoading(false);
       setOpenWithdraw(false);
       setWithdrawAmount('');
-      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a aprovação do administrador." });
+      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a aprovação do administrador. Seu saldo continua disponível para vendas até a aprovação." });
     }, 1000);
   };
 

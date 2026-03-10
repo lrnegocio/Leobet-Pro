@@ -105,8 +105,22 @@ function FinanceiroContent() {
     setAllUsers(users);
     setPendingUsers(users.filter((u: UserProfile) => u.status === 'pending'));
 
-    const withdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
-    setPendingWithdrawals(withdrawals.filter((w: any) => w.status === 'pendente'));
+    // LOGICA DE SAQUE: Se o cambista vendeu e gastou o saldo, o pedido de saque some.
+    const rawWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+    const validWithdrawals = rawWithdrawals.filter((w: any) => {
+      if (w.status !== 'pendente') return true;
+      const u = users.find((user: any) => user.id === w.userId);
+      if (!u) return false;
+      // Só aparece se ele ainda tiver saldo para cobrir o saque
+      return ((u.balance || 0) + (u.commissionBalance || 0)) >= w.amount;
+    });
+
+    // Sincroniza se houve remoção automática por falta de saldo
+    if (validWithdrawals.length !== rawWithdrawals.length) {
+      localStorage.setItem('leobet_withdrawals', JSON.stringify(validWithdrawals));
+    }
+
+    setPendingWithdrawals(validWithdrawals.filter((w: any) => w.status === 'pendente'));
 
     const deposits = JSON.parse(localStorage.getItem('leobet_deposits') || '[]');
     setPendingDeposits(deposits.filter((d: any) => d.status === 'pendente'));
@@ -139,12 +153,10 @@ function FinanceiroContent() {
     const allUsersList = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     const updatedUsers = allUsersList.map((u: any) => {
       if (u.id === receipt.vendedorId) {
-        // Se gerente vende, ganha 10% (seller) + 5% (manager) = 15%
         const commRate = receipt.vendedorRole === 'cambista' ? 0.10 : receipt.vendedorRole === 'gerente' ? 0.15 : 0;
         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
         return { ...u, commissionBalance: newComm };
       }
-      // Se cambista vende, o gerente dele ganha 5%
       if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
          const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
          return { ...u, commissionBalance: newComm };
@@ -177,38 +189,28 @@ function FinanceiroContent() {
     filteredTickets.forEach(t => {
       brutoRaw += t.valorTotal;
       if (t.vendedorRole === 'admin') {
-        orgRaw += t.valorTotal * 0.35; // Admin fica com os 35%
+        orgRaw += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
-        orgRaw += t.valorTotal * 0.20; // Admin 20%
-        gerenteRaw += t.valorTotal * 0.15; // Gerente (10% seller + 5% manager)
+        orgRaw += t.valorTotal * 0.20; 
+        gerenteRaw += t.valorTotal * 0.15; 
       } else if (t.vendedorRole === 'cambista') {
-        orgRaw += t.valorTotal * 0.20; // Admin 20%
-        cambistaRaw += t.valorTotal * 0.10; // Cambista 10%
+        orgRaw += t.valorTotal * 0.20; 
+        cambistaRaw += t.valorTotal * 0.10; 
         if (t.gerenteId && t.gerenteId !== 'admin-master') {
-          gerenteRaw += t.valorTotal * 0.05; // Gerente 5%
+          gerenteRaw += t.valorTotal * 0.05; 
         } else {
-          orgRaw += t.valorTotal * 0.05; // Admin fica com os 5% se não tiver gerente
+          orgRaw += t.valorTotal * 0.05; 
         }
       }
     });
 
-    // DISPLAY ROUNDING LOGIC - "PERFECTION" MODE
-    // We round parts to 2 decimals for UI, and Premios is the balance to match bruto.
     const dBruto = Number(brutoRaw.toFixed(2));
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
     const dGerente = Number(gerenteRaw.toFixed(2));
-    
-    // Premios is calculated as the difference to ensure sum(parts) === total
     const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
-    return { 
-      org: dOrg, 
-      cambista: dCambista, 
-      gerente: dGerente, 
-      bruto: dBruto, 
-      premios: dPremios 
-    };
+    return { org: dOrg, cambista: dCambista, gerente: dGerente, bruto: dBruto, premios: dPremios };
   }, [tickets, startDate, endDate]);
 
   const approvePayout = (ticketId: string) => {
@@ -256,12 +258,39 @@ function FinanceiroContent() {
 
   const approveWithdrawal = (withdrawId: string) => {
     const allWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+    const withdrawal = allWithdrawals.find((w: any) => w.id === withdrawId);
+    if (!withdrawal) return;
+
+    // DEDUÇÃO DE SALDO NO MOMENTO DA APROVAÇÃO
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const user = users.find((u: any) => u.id === withdrawal.userId);
+    
+    if (user) {
+      let remainingToDeduct = withdrawal.amount;
+      let newComm = user.commissionBalance || 0;
+      let newBal = user.balance || 0;
+
+      if (newComm >= remainingToDeduct) {
+        newComm -= remainingToDeduct;
+        remainingToDeduct = 0;
+      } else {
+        remainingToDeduct -= newComm;
+        newComm = 0;
+        newBal -= remainingToDeduct;
+      }
+
+      const updatedUsers = users.map((u: any) => 
+        u.id === user.id ? { ...u, balance: newBal, commissionBalance: newComm } : u
+      );
+      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+    }
+
     const updatedWithdrawals = allWithdrawals.map((w: any) => 
       w.id === withdrawId ? { ...w, status: 'pago' } : w
     );
     localStorage.setItem('leobet_withdrawals', JSON.stringify(updatedWithdrawals));
     loadData();
-    toast({ title: "SAQUE APROVADO!" });
+    toast({ title: "SAQUE APROVADO!", description: "Saldo deduzido da conta do parceiro." });
   };
 
   const handleCreatePartner = (e: React.FormEvent) => {
@@ -523,7 +552,7 @@ function FinanceiroContent() {
                        <p className="text-[10px] font-black uppercase text-muted-foreground">{w.userRole} • R$ {w.amount.toFixed(2)}</p>
                        <div className="bg-white/60 p-2 rounded-lg border mt-2 text-xs font-black">PIX DESTINO: {w.pixKey}</div>
                      </div>
-                     <Button onClick={() => approveWithdrawal(w.id)} className="bg-purple-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Confirmar Saque</Button>
+                     <Button onClick={() => approveWithdrawal(w.id)} className="bg-purple-600 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar Saque</Button>
                    </Card>
                  ))
                )}
