@@ -35,14 +35,17 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
+    
+    // Carrega Bingos
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       const limit = new Date(drawDate.getTime() - 60000); 
       return b.status === 'aberto' && now < limit;
     }).map((b: any) => ({ ...b, tipo: 'bingo' }));
 
+    // Carrega Bolões
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      const startDate = new Date(b.dataFim); 
+      const startDate = new Date(b.dataFim || b.createdAt); 
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     }).map((b: any) => ({ ...b, tipo: 'bolao' }));
@@ -59,6 +62,7 @@ export default function VendaPage() {
   const handleSelectEvent = (eventId: string) => {
     const ev = eventosAtivos.find(e => String(e.id) === String(eventId));
     setSelectedEvent(ev);
+    
     if (ev) {
       setFormData({
         ...formData,
@@ -73,6 +77,7 @@ export default function VendaPage() {
       }
     } else {
       setSelectedEvent(null);
+      setFormData(prev => ({ ...prev, eventoId: '', eventoNome: '', valorTotal: 0 }));
     }
   };
 
@@ -106,14 +111,13 @@ export default function VendaPage() {
       return;
     }
 
-    const ev = selectedEvent;
-    if (!ev) {
+    if (!selectedEvent) {
       toast({ variant: "destructive", title: "CONCURSO INDISPONÍVEL" });
       return;
     }
 
-    const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
-    const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
+    const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
+    const hasEnoughBalance = user?.role === 'admin' || userTotalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
     setLoading(true);
@@ -193,8 +197,13 @@ export default function VendaPage() {
     const link = `${host}/resultados?c=${firstTicketId}`;
     
     let palpitesTexto = '';
-    if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite) {
-      palpitesTexto = `%0A%0A*MEUS PALPITES:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => `Jogo ${i+1}: [${p}]`).join('%0A')}`;
+    if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
+      const matches = selectedEvent.partidas || [];
+      palpitesTexto = `%0A%0A*MEUS PALPITES:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
+        const time1 = matches[i]?.time1 || `Time ${i+1}A`;
+        const time2 = matches[i]?.time2 || `Time ${i+1}B`;
+        return `${time1} x ${time2}: [${p}]`;
+      }).join('%0A')}`;
     }
 
     let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}${palpitesTexto}%0A%0A*CONFERIR:* ${link}`;
@@ -206,6 +215,8 @@ export default function VendaPage() {
     toast({ title: "Buscando Impressora...", description: "Inicie o pareamento com o dispositivo Bluetooth." });
     setTimeout(() => { window.print(); }, 500);
   };
+
+  const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -219,7 +230,7 @@ export default function VendaPage() {
             </div>
             <div className="flex flex-col items-end gap-1">
               <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
-                 SALDO: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
+                 SALDO: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
               </Badge>
             </div>
           </div>

@@ -35,7 +35,7 @@ export default function NovoBolaoPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (partidas.some(p => !p.time1 || !p.time2)) {
+    if (partidas.some(p => !p.time1.trim() || !p.time2.trim())) {
       alert("Preencha todos os nomes dos times.");
       return;
     }

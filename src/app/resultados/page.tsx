@@ -178,9 +178,9 @@ function ResultadosContent() {
                       const isPaid = t.status === 'pago';
                       const isLost = t.status === 'perdeu';
                       
-                      // Comparação de Bolão
                       const guesses = t.palpite ? t.palpite.split('-') : [];
                       const results = eventoData?.resultados || [];
+                      const matches = eventoData?.partidas || [];
                       
                       return (
                         <Card key={idx} className={`rounded-[2.5rem] border-2 transition-all overflow-hidden ${
@@ -226,8 +226,9 @@ function ResultadosContent() {
                                   ) : (
                                     <div className="space-y-3">
                                        <p className="text-[10px] font-black uppercase text-muted-foreground">Palpites da Rodada:</p>
-                                       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
                                           {guesses.map((g: string, i: number) => {
+                                            const match = matches[i];
                                             const isCorrect = results[i] && results[i] === g;
                                             const isWrong = results[i] && results[i] !== g;
                                             return (
@@ -236,7 +237,9 @@ function ResultadosContent() {
                                                 isWrong ? 'bg-red-500 border-red-600 text-white' : 
                                                 'bg-white'
                                               }`}>
-                                                <span className="text-[8px] font-black uppercase opacity-60">JOGO {i+1}</span>
+                                                <div className="text-[7px] font-black uppercase opacity-60 text-center leading-tight mb-1">
+                                                  {match?.time1 || 'Casa'} vs {match?.time2 || 'Fora'}
+                                                </div>
                                                 <span className="text-xl font-black">{g}</span>
                                                 {results[i] && (
                                                   <span className="text-[8px] font-bold uppercase">Oficial: {results[i]}</span>
