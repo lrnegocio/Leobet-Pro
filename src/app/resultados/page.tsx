@@ -1,6 +1,8 @@
+
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,24 +10,33 @@ import { Search, Trophy, XCircle, Clock, ArrowLeft, CheckCircle2, Ticket } from 
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
-export default function ResultadosPage() {
+function ResultadosContent() {
+  const searchParams = useSearchParams();
   const [code, setCode] = useState('');
   const [result, setResult] = useState<any>(null);
   const [searched, setSearched] = useState(false);
 
-  const handleSearch = () => {
-    if (code.length < 11) return;
+  useEffect(() => {
+    const ticketCode = searchParams.get('c');
+    if (ticketCode) {
+      setCode(ticketCode);
+      handleSearch(ticketCode);
+    }
+  }, [searchParams]);
+
+  const handleSearch = (searchCode?: string) => {
+    const codeToSearch = searchCode || code;
+    if (codeToSearch.length < 11) return;
 
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     let found = null;
 
     allReceipts.forEach((receipt: any) => {
-      const ticket = receipt.tickets.find((t: any) => t.id === code);
+      const ticket = receipt.tickets.find((t: any) => t.id === codeToSearch);
       if (ticket) {
         found = { 
           ...ticket, 
           receiptInfo: receipt,
-          // Garante que o status do bilhete individual seja o que manda
           currentStatus: ticket.status || receipt.status 
         };
       }
@@ -62,7 +73,7 @@ export default function ResultadosPage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                 />
-                <Button onClick={handleSearch} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-8 rounded-2xl shadow-lg">
+                <Button onClick={() => handleSearch()} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-8 rounded-2xl shadow-lg">
                   <Search className="w-6 h-6" />
                 </Button>
               </div>
@@ -167,5 +178,13 @@ export default function ResultadosPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ResultadosPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando Resultados...</div>}>
+      <ResultadosContent />
+    </Suspense>
   );
 }
