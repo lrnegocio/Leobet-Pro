@@ -5,18 +5,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw, Trophy, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
-export default function SorteioPage({ params }: { params: { id: string } }) {
+export default function SorteioPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = React.use(paramsPromise);
   const { toast } = useToast();
+  const router = useRouter();
   const [bingo, setBingo] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
   const [lastNumber, setLastNumber] = useState<number | null>(null);
   const [isAuto, setIsAuto] = useState(false);
+  const [finished, setFinished] = useState(false);
   
   const [winners, setWinners] = useState<{
     quadra: any[],
@@ -38,40 +42,63 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
 
   const checkWinners = useCallback((drawn: number[]) => {
     const newWinners = { ...winners };
-    let found = false;
+    let foundNewBingoWinner = false;
+    let foundNewLevelWinner = false;
 
     tickets.forEach(receipt => {
       receipt.tickets.forEach((t: any) => {
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        if (hits >= 4 && !newWinners.quadra.some(w => w.id === t.id)) {
-          newWinners.quadra.push({ id: t.id, cliente: receipt.cliente });
-          if (currentPrizeLevel === 'quadra') found = true;
+        // Verifica Quadra (4 pontos)
+        if (hits >= 4 && !newWinners.quadra.some(w => w.ticketId === t.id)) {
+          newWinners.quadra.push({ ticketId: t.id, cliente: receipt.cliente });
+          if (currentPrizeLevel === 'quadra') foundNewLevelWinner = true;
         }
-        if (hits >= 5 && !newWinners.quina.some(w => w.id === t.id)) {
-          newWinners.quina.push({ id: t.id, cliente: receipt.cliente });
-          if (currentPrizeLevel === 'quina') found = true;
+        
+        // Verifica Quina (5 pontos)
+        if (hits >= 5 && !newWinners.quina.some(w => w.ticketId === t.id)) {
+          newWinners.quina.push({ ticketId: t.id, cliente: receipt.cliente });
+          if (currentPrizeLevel === 'quina') foundNewLevelWinner = true;
         }
-        if (hits === 15 && !newWinners.bingo.some(w => w.id === t.id)) {
-          newWinners.bingo.push({ id: t.id, cliente: receipt.cliente });
-          found = true;
+        
+        // Verifica Bingo (15 pontos)
+        if (hits === 15 && !newWinners.bingo.some(w => w.ticketId === t.id)) {
+          newWinners.bingo.push({ ticketId: t.id, cliente: receipt.cliente });
+          foundNewBingoWinner = true;
         }
       });
     });
 
-    if (found) {
+    if (foundNewBingoWinner || foundNewLevelWinner) {
       setIsAuto(false);
       setWinners(newWinners);
+      
+      const winnerName = foundNewBingoWinner 
+        ? newWinners.bingo[newWinners.bingo.length - 1].cliente 
+        : foundNewLevelWinner 
+          ? (currentPrizeLevel === 'quadra' ? newWinners.quadra[newWinners.quadra.length-1].cliente : newWinners.quina[newWinners.quina.length-1].cliente)
+          : 'Alguém';
+
       toast({
         title: "🔥 GANHADOR IDENTIFICADO!",
-        description: "O sorteio foi pausado para verificação.",
+        description: `${winnerName} acaba de ganhar na ${currentPrizeLevel.toUpperCase()}!`,
         duration: 10000,
       });
+
+      if (foundNewBingoWinner) {
+        setFinished(true);
+        // Salva sorteio finalizado
+        const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+        const updated = allBingos.map((b: any) => 
+          b.id === params.id ? { ...b, status: 'finalizado', bolasSorteadas: drawn } : b
+        );
+        localStorage.setItem('leobet_bingos', JSON.stringify(updated));
+      }
     }
-  }, [tickets, winners, currentPrizeLevel, toast]);
+  }, [tickets, winners, currentPrizeLevel, toast, params.id]);
 
   const drawNumber = () => {
-    if (drawnNumbers.length >= 90) return;
+    if (drawnNumbers.length >= 90 || finished) return;
     
     let num;
     do {
@@ -94,11 +121,11 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     let interval: any;
-    if (isAuto && drawnNumbers.length < 90) {
-      interval = setInterval(drawNumber, 3500);
+    if (isAuto && drawnNumbers.length < 90 && !finished) {
+      interval = setInterval(drawNumber, 4000);
     }
     return () => clearInterval(interval);
-  }, [isAuto, drawnNumbers]);
+  }, [isAuto, drawnNumbers, finished]);
 
   if (!bingo) return null;
 
@@ -119,15 +146,21 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
             </div>
             <div className="text-right space-y-2">
               <Badge variant="outline" className="text-lg py-1 px-4">{drawnNumbers.length} / 90 Bolas</Badge>
-              <div className="flex gap-2">
-                <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"} className="h-12 uppercase font-black">
-                  {isAuto ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                  {isAuto ? "Pausar" : "Automático"}
-                </Button>
-                <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-12 uppercase font-black">
-                  Sortear Próxima
-                </Button>
-              </div>
+              {!finished ? (
+                <div className="flex gap-2">
+                  <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"} className="h-12 uppercase font-black">
+                    {isAuto ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                    {isAuto ? "Pausar" : "Automático"}
+                  </Button>
+                  <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-12 uppercase font-black">
+                    Sortear Próxima
+                  </Button>
+                </div>
+              ) : (
+                <Badge className="bg-green-600 text-white p-3 font-black uppercase text-sm flex gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Sorteio Finalizado
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -152,7 +185,7 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
               <Card className="bg-white">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-black uppercase">Painel Geral (1-90)</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => { setDrawnNumbers([]); setLastNumber(null); setWinners({ quadra: [], quina: [], bingo: [] }); }} className="text-muted-foreground">
+                  <Button variant="ghost" size="sm" onClick={() => { setDrawnNumbers([]); setLastNumber(null); setWinners({ quadra: [], quina: [], bingo: [] }); setFinished(false); }} className="text-muted-foreground">
                     <RotateCcw className="w-3 h-3 mr-1" /> Reiniciar
                   </Button>
                 </CardHeader>
@@ -188,7 +221,6 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
                           <Trophy className="w-3 h-3" /> {w.cliente}
                         </div>
                       ))}
-                      {winners.quadra.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
                     </div>
                   </CardContent>
                 </Card>
@@ -201,7 +233,6 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
                           <Trophy className="w-3 h-3" /> {w.cliente}
                         </div>
                       ))}
-                      {winners.quina.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
                     </div>
                   </CardContent>
                 </Card>
@@ -210,21 +241,22 @@ export default function SorteioPage({ params }: { params: { id: string } }) {
                   <CardContent className="px-4 pb-4">
                     <div className="space-y-2">
                       {winners.bingo.map((w, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-green-50 p-2 rounded text-[10px] font-black uppercase text-green-700 animate-bounce">
+                        <div key={i} className="flex items-center gap-2 bg-orange-50 p-2 rounded text-[10px] font-black uppercase text-orange-700 animate-bounce ring-2 ring-accent">
                           <Trophy className="w-3 h-3" /> {w.cliente}
                         </div>
                       ))}
-                      {winners.bingo.length === 0 && <p className="text-[10px] text-center text-muted-foreground italic">Nenhum ganhador</p>}
                     </div>
                   </CardContent>
                 </Card>
               </div>
               
-              <div className="flex justify-center gap-4">
-                 <Button variant={currentPrizeLevel === 'quadra' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quadra')} className="font-black uppercase text-xs">Focar Quadra</Button>
-                 <Button variant={currentPrizeLevel === 'quina' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quina')} className="font-black uppercase text-xs">Focar Quina</Button>
-                 <Button variant={currentPrizeLevel === 'bingo' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('bingo')} className="font-black uppercase text-xs">Focar Bingo</Button>
-              </div>
+              {!finished && (
+                <div className="flex justify-center gap-4">
+                   <Button variant={currentPrizeLevel === 'quadra' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quadra')} className="font-black uppercase text-xs">Focar Quadra</Button>
+                   <Button variant={currentPrizeLevel === 'quina' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('quina')} className="font-black uppercase text-xs">Focar Quina</Button>
+                   <Button variant={currentPrizeLevel === 'bingo' ? 'default' : 'outline'} onClick={() => setCurrentPrizeLevel('bingo')} className="font-black uppercase text-xs">Focar Bingo</Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

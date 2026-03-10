@@ -51,7 +51,7 @@ export default function VendaPage() {
         return;
     }
 
-    if (formData.valorTotal % formData.unitario !== 0) {
+    if (formData.unitario > 0 && formData.valorTotal % formData.unitario !== 0) {
       toast({ 
         variant: "destructive", 
         title: "Valor Inválido", 
@@ -60,15 +60,10 @@ export default function VendaPage() {
       return;
     }
 
-    const qtd = formData.valorTotal / formData.unitario;
+    const qtd = formData.unitario > 0 ? Math.floor(formData.valorTotal / formData.unitario) : 0;
     setLoading(true);
     
     setTimeout(() => {
-      // Se for Gerente vendendo, comissão é 15% (10 cambista + 5 gerente)
-      // Se for Cambista, 10%
-      // Admin retém 20% + sobra
-      const isPending = (user?.balance || 0) < formData.valorTotal && user?.role !== 'admin';
-      
       const tickets: any[] = [];
       for(let i=0; i<qtd; i++) {
         tickets.push({
@@ -80,7 +75,7 @@ export default function VendaPage() {
       
       const receipt = {
         data: new Date().toLocaleString('pt-BR'),
-        status: isPending ? 'pendente' : 'pago',
+        status: 'pago', // Admin sempre aprovado
         qtd,
         tickets,
         vendedorId: user?.id,
@@ -100,13 +95,8 @@ export default function VendaPage() {
       
       setVendaRealizada(receipt);
       setLoading(false);
-      
-      if (isPending) {
-        toast({ variant: "destructive", title: "Venda Pendente", description: "Aguardando aprovação de saldo pelo Admin." });
-      } else {
-        toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s).` });
-      }
-    }, 800);
+      toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s).` });
+    }, 600);
   };
 
   const shareWhatsApp = () => {
@@ -120,13 +110,13 @@ export default function VendaPage() {
     let ticketInfo = "";
     vendaRealizada.tickets.forEach((t: any, i: number) => {
       ticketInfo += `\n🎫 *BILHETE ${i+1}:* ${t.id}\n` +
-                   (t.numeros ? `🔢 *NÚMEROS:* ${t.numeros.join('-')}\n` : `⚽ *PALPITE:* ${t.palpite}\n`);
+                   (t.numeros ? `🔢 *B-I-N-G-O:* ${t.numeros.join('-')}\n` : `⚽ *PALPITE:* ${t.palpite}\n`);
     });
 
     const text = `*LEOBET PRO - RECIBO OFICIAL*\n` +
       `👤 *CLIENTE:* ${vendaRealizada.cliente}\n` +
       `🎯 *CONCURSO:* ${vendaRealizada.eventoNome}\n` +
-      `💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
+      `💰 *VALOR TOTAL:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
       `📌 *STATUS:* ${vendaRealizada.status.toUpperCase()}\n` +
       `--------------------------\n` +
       `🏆 *PRÊMIO LÍQUIDO ATUAL: R$ ${premioLiquido.toFixed(2)}*\n` +
@@ -146,14 +136,12 @@ export default function VendaPage() {
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase text-primary leading-tight">Terminal de Vendas</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Emissão de Bilhetes Inteligentes</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Emissão Master de Bilhetes</p>
             </div>
             <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-primary/20 flex items-center gap-3">
                <div className="text-right">
                   <p className="text-[9px] font-black uppercase text-muted-foreground">Meu Saldo</p>
-                  <p className="text-sm font-black text-primary">
-                    {user?.role === 'admin' ? 'ILIMITADO' : `R$ ${user?.balance.toFixed(2)}`}
-                  </p>
+                  <p className="text-sm font-black text-primary">ILIMITADO</p>
                </div>
                <ShoppingCart className="w-5 h-5 text-accent" />
             </div>
@@ -207,7 +195,7 @@ export default function VendaPage() {
                   {formData.tipo === 'bolao' && (
                     <div className="p-4 bg-muted/50 rounded-xl space-y-2 border-2 border-accent/20">
                        <Label className="text-[10px] font-black uppercase text-accent">Palpite (1-X-2)</Label>
-                       <Input placeholder="Ex: 1-X-2-1-1-X-2-2-1-X" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required className="font-mono text-center tracking-widest" />
+                       <Input placeholder="Ex: 1-X-2-1-1-X-2-2-1-X" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required className="font-mono text-center tracking-widest uppercase" />
                     </div>
                   )}
 
@@ -215,7 +203,7 @@ export default function VendaPage() {
                     <Label className="text-xs font-black uppercase text-muted-foreground">Valor Total (R$)</Label>
                     <Input type="number" step="0.01" value={formData.valorTotal} onChange={e => setFormData({...formData, valorTotal: Number(e.target.value)})} className="h-14 font-black text-2xl text-primary border-2" required />
                     <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                      Equivale a {formData.unitario > 0 ? (formData.valorTotal / formData.unitario).toFixed(0) : 0} cartela(s)
+                      Equivale a {formData.unitario > 0 ? (formData.valorTotal / formData.unitario).toFixed(0) : 0} bilhete(s)
                     </p>
                   </div>
 
@@ -229,13 +217,13 @@ export default function VendaPage() {
             <Card className={vendaRealizada ? "border-accent border-2 shadow-2xl animate-in zoom-in-95" : "opacity-40"}>
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Printer className="w-4 h-4 text-accent" /> Comprovante Digital</span>
+                  <span className="flex items-center gap-2"><Printer className="w-4 h-4 text-accent" /> Comprovante Master</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {vendaRealizada ? (
                   <div className="p-6 space-y-6">
-                    <div id="printable-ticket" className="bg-white p-6 border-4 border-double border-primary/20 font-code text-[11px] leading-relaxed relative overflow-hidden shadow-inner">
+                    <div className="bg-white p-6 border-4 border-double border-primary/20 font-code text-[11px] leading-relaxed relative shadow-inner">
                        <div className="text-center border-b-2 pb-4 mb-4">
                           <p className="font-black text-2xl tracking-tighter text-primary">LEOBET PRO</p>
                           <p className="text-[8px] font-bold text-muted-foreground">SISTEMA OFICIAL DE APOSTAS</p>
@@ -257,7 +245,7 @@ export default function VendaPage() {
                                     </div>
                                   </div>
                                 )}
-                                {t.palpite && <p className="font-bold text-center bg-muted p-1 border">{t.palpite}</p>}
+                                {t.palpite && <p className="font-bold text-center bg-muted p-1 border uppercase">{t.palpite}</p>}
                               </div>
                             ))}
                           </div>
@@ -269,7 +257,6 @@ export default function VendaPage() {
                        </div>
                        <div className="text-center mt-6 pt-4 border-t border-dashed opacity-60">
                           <p className="font-bold">Dúvidas? (82) 99334-3941</p>
-                          <p className="text-[9px] mt-1 italic">Vendedor: {vendaRealizada.vendedorRole.toUpperCase()}</p>
                        </div>
                     </div>
                     <div className="flex flex-col gap-3">
