@@ -1,3 +1,4 @@
+
 "use client"
 
 import React from 'react';
@@ -28,9 +29,9 @@ const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: <Home className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Meu Painel', href: '/gerente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['gerente'] },
+  { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Meu Painel', href: '/cambista/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cambista'] },
   { label: 'Área do Apostador', href: '/cliente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cliente'] },
-  { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Terminal Vendas', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: <Search className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Gestão Bingos', href: '/admin/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['admin'] },
