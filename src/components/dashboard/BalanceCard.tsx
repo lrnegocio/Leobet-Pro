@@ -61,9 +61,9 @@ export function BalanceCard() {
 
       setLoading(false);
       
-      // Abre WhatsApp para enviar comprovante
-      const message = `Olá Admin! Acabei de fazer um depósito de R$ ${amount.toFixed(2)} no LEOBET PRO. Meu ID de depósito é: ${deposit.id}. Segue o comprovante abaixo:`;
-      window.open(`https://api.whatsapp.com/send?phone=5582993343941&text=${encodeURIComponent(message)}`, '_blank');
+      // Abre WhatsApp para enviar comprovante com Nome e ID
+      const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A🆔 *ID USUÁRIO:* ${user.id}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A📦 *PEDIDO:* ${deposit.id}%0A%0A*Seguindo o comprovante abaixo para liberação imediata:*`;
+      window.open(`https://api.whatsapp.com/send?phone=5582993343941&text=${message}`, '_blank');
 
       setOpenDeposit(false);
       setDepositAmount('');
@@ -249,4 +249,3 @@ export function BalanceCard() {
     </Card>
   );
 }
-

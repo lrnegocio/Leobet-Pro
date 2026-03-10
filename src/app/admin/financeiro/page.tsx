@@ -135,7 +135,7 @@ function FinanceiroContent() {
     }
 
     const newUser: UserProfile = {
-      id: Math.random().toString(36).substring(7),
+      id: Math.random().toString(36).substring(7).toUpperCase(),
       ...newPartner,
       nome: newPartner.nome.toUpperCase(),
       phone: cleanPhone,
@@ -149,7 +149,7 @@ function FinanceiroContent() {
     const existingUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     localStorage.setItem('leobet_users', JSON.stringify([...existingUsers, newUser]));
     
-    toast({ title: "PARCEIRO CADASTRADO!", description: `${newUser.nome} agora faz parte da rede.` });
+    toast({ title: "PARCEIRO CADASTRADO!", description: `${newUser.nome} (ID: ${newUser.id}) agora faz parte da rede.` });
     setNewPartner({
       nome: '',
       email: '',
@@ -289,6 +289,16 @@ function FinanceiroContent() {
     toast({ title: "DEPÓSITO APROVADO!" });
   };
 
+  const rejectDeposit = (depositId: string) => {
+    const allDeposits = JSON.parse(localStorage.getItem('leobet_deposits') || '[]');
+    const updatedDeposits = allDeposits.map((d: any) => 
+      d.id === depositId ? { ...d, status: 'rejeitado' } : d
+    );
+    localStorage.setItem('leobet_deposits', JSON.stringify(updatedDeposits));
+    loadData();
+    toast({ variant: "destructive", title: "DEPÓSITO REJEITADO!" });
+  };
+
   const approveWithdrawal = (withdrawId: string) => {
     const allWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
     const updatedWithdrawals = allWithdrawals.map((w: any) => 
@@ -394,6 +404,7 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-accent/5 border-accent/20 border-l-8 border-l-accent rounded-2xl shadow-sm">
                      <div className="space-y-1">
                         <p className="font-black uppercase text-lg text-primary">{u.nome}</p>
+                        <p className="text-[10px] font-black text-primary/60 uppercase">ID: {u.id}</p>
                         <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email} • {u.phone}</p>
                         <div className="flex gap-2 mt-2">
                           <Badge variant="outline" className="text-[9px] font-black uppercase">CPF: {u.cpf}</Badge>
@@ -417,11 +428,13 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-blue-50 border-blue-200 border-l-8 border-l-blue-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg text-blue-900">{d.userName}</p>
+                       <p className="text-[10px] font-black text-blue-800/50 uppercase">ID USUÁRIO: {d.userId}</p>
                        <p className="text-xs font-bold text-blue-700/70 uppercase">{d.userRole} • {new Date(d.createdAt).toLocaleString()}</p>
                        <Badge className="bg-blue-600 mt-2 h-7 px-4 font-black uppercase text-xs">VALOR: R$ {d.amount.toFixed(2)}</Badge>
                      </div>
                      <div className="flex gap-2">
-                       <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${d.phone}&text=Olá, vi seu pedido de depósito. Pode me enviar o comprovante?`, '_blank')} variant="outline" className="border-blue-300 text-blue-600 font-black uppercase text-xs h-12 px-6 rounded-xl">Chamar WhatsApp</Button>
+                       <Button onClick={() => rejectDeposit(d.id)} variant="outline" className="border-red-300 text-red-600 font-black uppercase text-xs h-12 px-6 rounded-xl">Recusar</Button>
+                       <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${d.phone}&text=Olá, vi seu pedido de depósito de R$ ${d.amount.toFixed(2)}. Pode me enviar o comprovante?`, '_blank')} variant="outline" className="border-blue-300 text-blue-600 font-black uppercase text-xs h-12 px-6 rounded-xl">WhatsApp</Button>
                        <Button onClick={() => approveDeposit(d.id)} className="bg-blue-600 hover:bg-blue-700 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Aprovar Saldo</Button>
                      </div>
                    </Card>
@@ -457,6 +470,7 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-purple-50 border-purple-200 border-l-8 border-l-purple-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg">{w.userName}</p>
+                       <p className="text-[10px] font-black text-purple-800/50 uppercase">ID: {w.userId}</p>
                        <p className="text-[10px] font-black uppercase text-muted-foreground">{w.userRole} • R$ {w.amount.toFixed(2)}</p>
                        <div className="bg-white/60 p-2 rounded-lg border mt-2 text-xs font-black">PIX DESTINO: {w.pixKey}</div>
                      </div>
@@ -580,7 +594,7 @@ function FinanceiroContent() {
                                        {u.status === 'approved' ? 'ATIVO' : 'BLOQUEADO'}
                                      </Badge>
                                    </div>
-                                   <p className="text-[9px] font-bold text-muted-foreground uppercase">{u.role} • {u.phone}</p>
+                                   <p className="text-[9px] font-bold text-muted-foreground uppercase">ID: {u.id} • {u.role} • {u.phone}</p>
                                 </div>
                              </div>
                              <div className="flex items-center gap-3 shrink-0">
