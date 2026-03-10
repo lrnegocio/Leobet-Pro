@@ -47,8 +47,9 @@ export default function RegisterContent() {
 
     const newUser: UserProfile = {
       id: Math.random().toString(36).substring(7),
-      nome,
+      nome: nome.toUpperCase(),
       email,
+      password, // Persistindo a senha informada
       cpf,
       birthDate,
       phone: cleanPhone,
@@ -144,7 +145,7 @@ export default function RegisterContent() {
             </div>
 
             <div className="space-y-2">
-              <Label>Email ou Usuário</Label>
+              <Label>Usuário ou Email</Label>
               <Input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex: joao.silva" required disabled={loading} />
             </div>
             

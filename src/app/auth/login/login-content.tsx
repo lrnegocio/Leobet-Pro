@@ -37,6 +37,7 @@ export default function LoginContent() {
         id: 'admin-master',
         nome: 'Administrador LEOBET',
         email: 'admin@leobet.pro',
+        password: MASTER_PASS,
         role: 'admin',
         balance: 999999999,
         commissionBalance: 0,
@@ -56,9 +57,14 @@ export default function LoginContent() {
 
     // Busca usuário no LocalStorage
     const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    const foundUser = allUsers.find((u: UserProfile) => u.email === identifier || u.nome === identifier);
+    // Encontra por email ou por nome (usuário) ignorando case
+    const foundUser = allUsers.find((u: UserProfile) => 
+      u.email.toLowerCase() === identifier.toLowerCase() || 
+      u.nome.toLowerCase() === identifier.toLowerCase()
+    );
 
-    if (foundUser && password === '123456') { // Senha fixa para teste
+    // Verifica se o usuário existe e se a senha confere
+    if (foundUser && foundUser.password === password) {
       if (foundUser.status === 'pending') {
         toast({
           variant: "destructive",
@@ -103,7 +109,7 @@ export default function LoginContent() {
               <Label htmlFor="identifier">Usuário ou Email</Label>
               <Input
                 id="identifier"
-                placeholder="Ex: lrnegocio"
+                placeholder="Ex: joao.silva"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={loading}

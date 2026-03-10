@@ -5,6 +5,7 @@ export interface UserProfile {
   id: string;
   nome: string;
   email: string;
+  password?: string; // Adicionado para persistência em mock
   role: UserRole;
   rg?: string;
   cpf?: string;
