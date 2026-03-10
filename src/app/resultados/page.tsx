@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube, Printer, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -24,8 +24,8 @@ function ResultadosContent() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
 
   const handleSearch = (searchCode?: string) => {
-    const codeToSearch = searchCode || code;
-    if (codeToSearch.length < 11) return;
+    const codeToSearch = (searchCode || code).trim().toUpperCase();
+    if (codeToSearch.length < 5) return;
 
     setLoading(true);
     setSearched(true);
@@ -34,9 +34,11 @@ function ResultadosContent() {
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       let foundReceipt = null;
 
+      // Busca Híbrida: Por ID do Bilhete (11 dígitos) ou ID do Recibo (curto)
       allReceipts.forEach((r: any) => {
-        const ticket = r.tickets.find((t: any) => t.id === codeToSearch);
-        if (ticket) foundReceipt = r;
+        const ticketMatch = r.tickets.find((t: any) => String(t.id) === codeToSearch);
+        const receiptMatch = String(r.id) === codeToSearch;
+        if (ticketMatch || receiptMatch) foundReceipt = r;
       });
 
       setReceipt(foundReceipt);
@@ -83,7 +85,7 @@ function ResultadosContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-3xl w-full space-y-8">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center print:hidden">
           <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase transition-all">
             <ArrowLeft className="w-4 h-4" /> Voltar ao Início
           </Link>
@@ -94,7 +96,7 @@ function ResultadosContent() {
           )}
         </div>
 
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 print:hidden">
           <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4">
              <Trophy className="w-10 h-10" />
           </div>
@@ -102,16 +104,17 @@ function ResultadosContent() {
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência em Tempo Real 365 Dias</p>
         </div>
 
-        <Card className="border-t-[12px] border-t-accent shadow-2xl overflow-hidden rounded-[2.5rem] border-none">
+        <Card className="border-t-[12px] border-t-accent shadow-2xl overflow-hidden rounded-[2.5rem] border-none print:shadow-none print:border-none">
           <CardContent className="p-8 md:p-12 space-y-10">
-            <div className="space-y-4">
-               <label className="text-xs font-black uppercase text-muted-foreground block text-center opacity-60">Insira o código do seu bilhete</label>
+            <div className="space-y-4 print:hidden">
+               <label className="text-xs font-black uppercase text-muted-foreground block text-center opacity-60">Insira o código do seu bilhete ou recibo</label>
                <div className="flex flex-col md:flex-row gap-3">
                 <Input 
-                  placeholder="CÓDIGO DO BILHETE" 
+                  placeholder="CÓDIGO" 
                   className="h-16 font-black text-center text-3xl tracking-[0.4em] border-2 focus:border-primary rounded-2xl uppercase shadow-inner" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 />
                 <Button onClick={() => handleSearch()} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-2xl shadow-xl" disabled={loading}>
                   {loading ? <Clock className="animate-spin w-6 h-6" /> : <Search className="w-7 h-7" />}
@@ -142,16 +145,21 @@ function ResultadosContent() {
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Evento</p>
                         <p className="font-black uppercase text-lg text-primary">{receipt.eventoNome}</p>
                       </div>
-                      <Badge className={`${receipt.status === 'pago' ? 'bg-primary' : 'bg-orange-600'} text-white border-none font-black uppercase h-8 px-4 rounded-xl`}>
-                        {receipt.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO PAGAMENTO'}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={`${receipt.status === 'pago' ? 'bg-primary' : 'bg-orange-600'} text-white border-none font-black uppercase h-8 px-4 rounded-xl`}>
+                          {receipt.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO PAGAMENTO'}
+                        </Badge>
+                        <p className="text-[9px] font-black uppercase text-muted-foreground">Recibo: {receipt.id}</p>
+                      </div>
                    </div>
                 </div>
 
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between print:hidden">
                      <h3 className="text-xs font-black uppercase text-muted-foreground tracking-[0.3em]">Minhas Apostas ({receipt.tickets.length})</h3>
-                     <Badge variant="outline" className="font-black text-[9px] uppercase border-dashed">ID RECIBO: {receipt.id}</Badge>
+                     <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-2 font-black uppercase text-[9px] rounded-lg">
+                       <Printer className="w-3.5 h-3.5" /> Imprimir Comprovante
+                     </Button>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-4">
@@ -164,7 +172,7 @@ function ResultadosContent() {
                       return (
                         <Card key={idx} className={`rounded-[2rem] border-2 transition-all hover:shadow-xl overflow-hidden ${
                           isWinner ? 'bg-green-50 border-green-200 ring-4 ring-green-100 shadow-green-100' : 
-                          isPaid ? 'bg-blue-50 border-blue-200' : 
+                          isPaid ? 'bg-blue-50 border-blue-600 ring-4 ring-blue-100' : 
                           isPending ? 'bg-orange-50 border-orange-200' :
                           isLost ? 'bg-red-50/30 border-red-100 opacity-80' :
                           'bg-white border-muted-foreground/10'
@@ -180,7 +188,9 @@ function ResultadosContent() {
                                      {isWinner ? (
                                        <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 PREMIADO!</Badge>
                                      ) : isPaid ? (
-                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ PRÊMIO PAGO</Badge>
+                                       <Badge className="bg-blue-600 text-white font-black uppercase text-[10px] flex items-center gap-1">
+                                          <ShieldCheck className="w-3 h-3" /> ✓ PRÊMIO PAGO
+                                       </Badge>
                                      ) : isPending ? (
                                        <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE PENDENTE</Badge>
                                      ) : isLost ? (
@@ -242,15 +252,22 @@ function ResultadosContent() {
                                         </Button>
                                       </div>
                                     ) : isPaid ? (
-                                      <>
-                                        <CheckCircle2 className="w-10 h-10 mb-2" />
-                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">PREMIAÇÃO PAGA!</p>
-                                      </>
+                                      <div className="space-y-4 w-full">
+                                        <div className="bg-white/20 p-4 rounded-2xl">
+                                          <CheckCircle2 className="w-12 h-12 mb-2 mx-auto" />
+                                          <p className="font-black uppercase text-sm tracking-widest leading-tight">PREMIAÇÃO PAGA!</p>
+                                          <p className="text-[10px] font-bold opacity-70 mt-1 uppercase">O valor de R$ {(t.valorPremio || 0).toFixed(2)} foi creditado na chave {t.pixResgate || 'informada'}.</p>
+                                        </div>
+                                        <Button variant="outline" onClick={() => window.print()} className="w-full h-10 border-white/40 text-white hover:bg-white/10 font-black uppercase text-[9px] rounded-xl">
+                                          Baixar Quitação
+                                        </Button>
+                                      </div>
                                     ) : (
                                       <>
                                         <Clock className="w-10 h-10 mb-2 animate-pulse" />
                                         <p className="font-black uppercase text-[10px] tracking-widest">RESGATE PENDENTE</p>
                                         <p className="text-[8px] mt-2 opacity-50 uppercase font-black">Chave: {t.pixResgate}</p>
+                                        <p className="text-[8px] mt-1 opacity-40 uppercase">Aguardando Auditoria Master</p>
                                       </>
                                     )}
                                  </div>
@@ -263,7 +280,7 @@ function ResultadosContent() {
                   </div>
                 </div>
 
-                <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden">
+                <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden print:hidden">
                   <Info className="w-8 h-8 mx-auto opacity-40" />
                   <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-80">Suporte ao Apostador</p>
                   <p className="font-black text-4xl mt-1 tracking-tighter">(82) 99334-3941</p>
@@ -273,6 +290,7 @@ function ResultadosContent() {
               <div className="text-center py-20">
                 <XCircle className="w-24 h-24 mx-auto mb-8 opacity-20" />
                 <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete Não Localizado</h3>
+                <p className="text-xs font-bold text-muted-foreground uppercase mt-2">Verifique o código e tente novamente.</p>
                 <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Tentar Novamente</Button>
               </div>
             )}

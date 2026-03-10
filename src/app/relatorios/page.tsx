@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Search, Send, FileText, CheckCircle2, Clock, XCircle, TrendingUp } from 'lucide-react';
+import { Calendar, Search, Send, FileText, CheckCircle2, Clock, XCircle, TrendingUp, ShieldCheck, Trophy } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
 
@@ -53,15 +53,17 @@ export default function RelatoriosPage() {
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
-    if (ticket.status !== 'pago') {
-      toast({ variant: "destructive", title: "APOSTA NÃO VALIDADA", description: "Vendas pendentes não podem ser compartilhadas como validadas." });
-      return;
-    }
-
     const host = window.location.origin;
-    const firstTicketId = ticket.tickets[0].id;
-    const link = `${host}/resultados?c=${firstTicketId}`;
-    const message = `*LEOBET PRO - APOSTA VALIDADA*%0A%0A✅ *STATUS:* CONFIRMADA PARA SORTEIO%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A%0A*Acompanhe em tempo real:*%0A${link}`;
+    // Usa o ID do Recibo para o link de conferência
+    const link = `${host}/resultados?c=${ticket.id}`;
+    
+    let statusText = ticket.status === 'pago' ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
+    
+    // Verifica se algum bilhete dentro do recibo já ganhou ou foi pago
+    const hasWinner = ticket.tickets.some((t: any) => t.status === 'ganhou' || t.status === 'pago' || t.status === 'pendente-resgate');
+    if (hasWinner) statusText = '🔥 BILHETE PREMIADO';
+
+    const message = `*LEOBET PRO - CONSULTA DE BILHETE*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A🆔 *RECIBO:* ${ticket.id}%0A%0A*Conferir em tempo real:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -127,40 +129,46 @@ export default function RelatoriosPage() {
                 {filteredTickets.length === 0 ? (
                   <Card className="py-20 text-center border-dashed opacity-30 uppercase font-black text-xs">Nenhum registro no período selecionado</Card>
                 ) : (
-                  filteredTickets.map((t, i) => (
-                    <Card key={i} className={`p-4 hover:shadow-md transition-all border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'}`}>
-                       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                          <div className="flex-1">
-                             <div className="flex items-center gap-2">
-                                <p className="font-black uppercase text-sm">{t.cliente}</p>
-                                <Badge variant={t.status === 'pago' ? 'default' : 'destructive'} className="text-[8px] h-4 font-black uppercase">
-                                  {t.status === 'pago' ? '✓ Validado' : '⚠ Pendente'}
-                                </Badge>
-                             </div>
-                             <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                               {t.eventoNome} • {new Date(t.data).toLocaleString()} • {t.tickets.length} Bilhetes
-                             </p>
-                             {user?.role === 'admin' && <p className="text-[9px] font-black uppercase text-primary/60 mt-1">Vendedor: {t.vendedorNome}</p>}
-                          </div>
-                          
-                          <div className="flex items-center gap-6 shrink-0">
-                             <div className="text-right">
-                                <p className="text-[9px] font-black uppercase text-muted-foreground">Valor Total</p>
-                                <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
-                             </div>
-                             <div className="flex gap-2">
-                                <Button 
-                                  onClick={() => handleShareValidation(t)}
-                                  className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl"
-                                  disabled={t.status !== 'pago'}
-                                >
-                                  <Send className="w-3.5 h-3.5" /> Validar Cliente
-                                </Button>
-                             </div>
-                          </div>
-                       </div>
-                    </Card>
-                  ))
+                  filteredTickets.map((t, i) => {
+                    const hasWinner = t.tickets.some((ticket: any) => ticket.status === 'ganhou' || ticket.status === 'pendente-resgate');
+                    const hasPaid = t.tickets.some((ticket: any) => ticket.status === 'pago' && ticket.valorPremio > 0);
+                    
+                    return (
+                      <Card key={i} className={`p-4 hover:shadow-md transition-all border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'}`}>
+                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex-1">
+                               <div className="flex items-center gap-2">
+                                  <p className="font-black uppercase text-sm">{t.cliente}</p>
+                                  <Badge variant={t.status === 'pago' ? 'default' : 'destructive'} className="text-[8px] h-4 font-black uppercase">
+                                    {t.status === 'pago' ? '✓ Validado' : '⚠ Pendente'}
+                                  </Badge>
+                                  {hasWinner && <Badge className="bg-accent text-white text-[8px] h-4 font-black uppercase">🔥 Ganhador</Badge>}
+                                  {hasPaid && <Badge className="bg-blue-600 text-white text-[8px] h-4 font-black uppercase">✓ Prêmio Pago</Badge>}
+                               </div>
+                               <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
+                                 {t.eventoNome} • {new Date(t.data).toLocaleString()} • {t.tickets.length} Bilhetes • ID: {t.id}
+                               </p>
+                               {user?.role === 'admin' && <p className="text-[9px] font-black uppercase text-primary/60 mt-1">Vendedor: {t.vendedorNome}</p>}
+                            </div>
+                            
+                            <div className="flex items-center gap-6 shrink-0">
+                               <div className="text-right">
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground">Valor Total</p>
+                                  <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
+                                </div>
+                               <div className="flex gap-2">
+                                  <Button 
+                                    onClick={() => handleShareValidation(t)}
+                                    className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl"
+                                  >
+                                    <Send className="w-3.5 h-3.5" /> Enviar p/ Cliente
+                                  </Button>
+                               </div>
+                            </div>
+                         </div>
+                      </Card>
+                    );
+                  })
                 )}
              </div>
           </div>
