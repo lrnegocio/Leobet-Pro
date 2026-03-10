@@ -37,7 +37,6 @@ export default function VendaPage() {
       return b.status === 'aberto' && now < limit;
     });
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      // No Bolão, a trava é 1 min antes da 1ª partida
       const startDate = new Date(b.dataFim); 
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
@@ -54,7 +53,8 @@ export default function VendaPage() {
   const generateUniqueNumbers = (count: number, max: number) => {
     const nums: Set<number> = new Set();
     while (nums.size < count) {
-      nums.add(Math.floor(Math.random() * max) + 1);
+      const n = Math.floor(Math.random() * max) + 1;
+      nums.add(n);
     }
     return Array.from(nums).sort((a, b) => a - b);
   };
@@ -88,7 +88,6 @@ export default function VendaPage() {
 
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     
-    // Comissão também conta como saldo para vender
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
@@ -139,7 +138,6 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
-            // Adiciona comissão da própria venda imediatamente apenas se foi paga com saldo
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0;
             const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;
@@ -192,8 +190,6 @@ export default function VendaPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
-  const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
-
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
@@ -206,7 +202,7 @@ export default function VendaPage() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg border-none">
-                 SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : totalDisplay(user)}
+                 SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
               </Badge>
               {user?.role !== 'admin' && (
                 <p className="text-[9px] font-black uppercase text-muted-foreground">
@@ -238,7 +234,7 @@ export default function VendaPage() {
                       className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-primary outline-none"
                       value={formData.eventoId}
                       onChange={e => {
-                        const ev = eventosAtivos.find(evItem => evItem.id === e.target.value);
+                        const ev = eventosAtivos.find(evItem => String(evItem.id) === String(e.target.value));
                         setFormData({
                           ...formData, 
                           eventoId: e.target.value, 
@@ -329,8 +325,4 @@ export default function VendaPage() {
       </main>
     </div>
   );
-}
-
-function totalDisplay(user: any) {
-  return ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2);
 }
