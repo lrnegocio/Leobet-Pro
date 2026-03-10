@@ -12,23 +12,20 @@ import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle2, 
   Users,
-  ArrowRightLeft,
   RefreshCcw,
   Trophy,
   History,
   ShieldAlert,
-  UserPlus,
-  PlusCircle,
   Search,
-  DollarSign,
-  Wallet,
-  Clock,
   Settings,
-  ArrowUpCircle,
-  XCircle
+  XCircle,
+  TrendingUp,
+  Store,
+  Wallet,
+  Globe
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { UserProfile, UserRole } from '@/types/auth';
+import { UserProfile } from '@/types/auth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,14 +41,11 @@ import {
 export default function FinanceiroPage() {
   const { toast } = useToast();
   const [tickets, setTickets] = useState<any[]>([]);
-  const [bingosHistory, setBingosHistory] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
-  const [validationCode, setValidationCode] = useState('');
-  const [validatedTicket, setValidatedTicket] = useState<any>(null);
   const [companyPix, setCompanyPix] = useState('');
   
   const [startDate, setStartDate] = useState(() => {
@@ -87,9 +81,6 @@ export default function FinanceiroPage() {
       });
     });
     setPendingPayouts(payouts);
-
-    const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
-    setBingosHistory(allBingos); 
   };
 
   useEffect(() => {
@@ -127,6 +118,7 @@ export default function FinanceiroPage() {
 
     filteredTickets.forEach(t => {
       bruto += t.valorTotal;
+      // Regra 20/10/5 Master
       if (t.vendedorRole === 'admin') {
         org += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
@@ -155,7 +147,7 @@ export default function FinanceiroPage() {
     }));
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
     loadData();
-    toast({ title: "PAGAMENTO APROVADO!" });
+    toast({ title: "PAGAMENTO APROVADO!", description: "Bilhete marcado como pago definitivamente." });
   };
 
   const approveDeposit = (depositId: string) => {
@@ -183,40 +175,43 @@ export default function FinanceiroPage() {
 
   const approveWithdrawal = (withdrawId: string) => {
     const allWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
-    const withdraw = allWithdrawals.find((w: any) => w.id === withdrawId);
-    if (!withdraw) return;
-
-    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     const updatedWithdrawals = allWithdrawals.map((w: any) => 
       w.id === withdrawId ? { ...w, status: 'pago' } : w
     );
-
     localStorage.setItem('leobet_withdrawals', JSON.stringify(updatedWithdrawals));
     loadData();
     toast({ title: "SAQUE APROVADO!" });
   };
 
   const approveSale = (receiptId: string) => {
-    const updated = tickets.map((t: any) => {
+    const receipt = tickets.find(t => t.id === receiptId);
+    if (!receipt) return;
+
+    // Quando aprova venda sem saldo, a comissão entra pro vendedor AGORA
+    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updatedUsers = allUsers.map((u: any) => {
+      if (u.id === receipt.vendedorId) {
+        const commRate = receipt.vendedorRole === 'cambista' ? 0.10 : receipt.vendedorRole === 'gerente' ? 0.05 : 0;
+        const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
+        return { ...u, commissionBalance: newComm };
+      }
+      // Se for cambista de gerente, o gerente tb ganha 5% na aprovação
+      if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
+         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
+         return { ...u, commissionBalance: newComm };
+      }
+      return u;
+    });
+
+    const updatedTickets = tickets.map((t: any) => {
       if (t.id === receiptId) return { ...t, status: 'pago' };
       return t;
     });
-    localStorage.setItem('leobet_tickets', JSON.stringify(updated));
-    loadData();
-    toast({ title: "VENDA APROVADA!" });
-  };
 
-  const handleValidatePrize = () => {
-    let found = null;
-    tickets.forEach((receipt: any) => {
-      const ticket = receipt.tickets.find((t: any) => t.id === validationCode);
-      if (ticket) found = { ...ticket, receiptInfo: receipt };
-    });
-    if (found) setValidatedTicket(found);
-    else {
-      toast({ variant: "destructive", title: "CÓDIGO INVÁLIDO" });
-      setValidatedTicket(null);
-    }
+    localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+    localStorage.setItem('leobet_tickets', JSON.stringify(updatedTickets));
+    loadData();
+    toast({ title: "VENDA APROVADA!", description: "Bilhete validado e comissão creditada." });
   };
 
   return (
@@ -227,7 +222,7 @@ export default function FinanceiroPage() {
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-black uppercase text-primary leading-none">Painel Master LEOBET</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Gestão de Fluxo e Auditoria 365 Dias</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Gestão de Fluxo e Auditoria Permanente</p>
             </div>
             <div className="flex gap-3">
                <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center">
@@ -245,7 +240,7 @@ export default function FinanceiroPage() {
                  <AlertDialogContent className="bg-white rounded-3xl border-t-8 border-t-destructive">
                    <AlertDialogHeader>
                      <AlertDialogTitle className="text-2xl font-black uppercase text-center">Reset Total?</AlertDialogTitle>
-                     <AlertDialogDescription className="text-center font-bold text-muted-foreground">Isso limpará concursos, bilhetes e depósitos anteriores.</AlertDialogDescription>
+                     <AlertDialogDescription className="text-center font-bold text-muted-foreground">Isso limpará concursos, bilhetes e depósitos anteriores para novo ciclo.</AlertDialogDescription>
                    </AlertDialogHeader>
                    <AlertDialogFooter className="mt-6 flex gap-3">
                      <AlertDialogCancel className="flex-1 h-12 rounded-xl uppercase font-black">Cancelar</AlertDialogCancel>
@@ -257,7 +252,7 @@ export default function FinanceiroPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Card className="bg-primary text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Admin (20%+)</p><p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-primary text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Admin (20%)</p><p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p></CardContent></Card>
             <Card className="bg-blue-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Cambistas (10%)</p><p className="text-xl font-black">R$ {finance.cambista.toFixed(2)}</p></CardContent></Card>
             <Card className="bg-purple-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Gerentes (5%)</p><p className="text-xl font-black">R$ {finance.gerente.toFixed(2)}</p></CardContent></Card>
             <Card className="bg-green-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Prêmios (65%)</p><p className="text-xl font-black">R$ {finance.premios.toFixed(2)}</p></CardContent></Card>
@@ -267,9 +262,9 @@ export default function FinanceiroPage() {
           <Tabs defaultValue="depositos">
             <TabsList className="bg-muted p-1 rounded-2xl w-full flex justify-start overflow-x-auto gap-2">
               <TabsTrigger value="depositos" className="font-bold rounded-xl whitespace-nowrap">Depósitos ({pendingDeposits.length})</TabsTrigger>
-              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Ganhadores ({pendingPayouts.length})</TabsTrigger>
-              <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques ({pendingWithdrawals.length})</TabsTrigger>
-              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas ({pendingSales.length})</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Prêmios Ganhadores ({pendingPayouts.length})</TabsTrigger>
+              <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques Rede ({pendingWithdrawals.length})</TabsTrigger>
+              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas s/ Saldo ({pendingSales.length})</TabsTrigger>
               <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configurações</TabsTrigger>
             </TabsList>
             
@@ -293,29 +288,6 @@ export default function FinanceiroPage() {
                )}
             </TabsContent>
 
-            <TabsContent value="settings" className="mt-6">
-              <Card className="max-w-2xl border-none shadow-xl rounded-3xl overflow-hidden">
-                <CardHeader className="bg-primary text-white p-8">
-                  <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><Settings className="w-6 h-6" /> Configurações da Banca</CardTitle>
-                </CardHeader>
-                <CardContent className="p-8 space-y-6 bg-white">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase text-muted-foreground">Minha Chave PIX (Para Depósitos de Clientes/Rede)</Label>
-                    <Input 
-                      placeholder="CPF, Email, Telefone ou Chave Aleatória" 
-                      value={companyPix} 
-                      onChange={e => setCompanyPix(e.target.value)} 
-                      className="h-14 font-black text-lg border-2 border-primary/20 rounded-2xl focus:border-primary"
-                    />
-                    <p className="text-[10px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                      <ShieldAlert className="w-3 h-3" /> Esta chave aparecerá para todos os Gerentes, Cambistas e Clientes ao clicar em "Depósito".
-                    </p>
-                  </div>
-                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Configurações Master</Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {pendingPayouts.length === 0 ? (
                  <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de prêmios</Card>
@@ -326,7 +298,7 @@ export default function FinanceiroPage() {
                        <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
                        <p className="text-xs font-bold text-green-700/70 uppercase">Bilhete: {p.id} • R$ {p.valorPremio.toFixed(2)}</p>
                        <div className="bg-white/60 p-2 rounded-lg border mt-2">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">PIX:</p>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">CHAVE PIX DO GANHADOR:</p>
                           <p className="text-sm font-black text-primary">{p.pixResgate || 'Não informado'}</p>
                        </div>
                      </div>
@@ -338,14 +310,14 @@ export default function FinanceiroPage() {
 
             <TabsContent value="withdrawals" className="mt-6 space-y-4">
                {pendingWithdrawals.length === 0 ? (
-                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de saque</Card>
+                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de saque da rede</Card>
                ) : (
                  pendingWithdrawals.map((w, i) => (
                    <Card key={i} className="flex justify-between items-center p-6 bg-purple-50 border-purple-200 border-l-8 border-l-purple-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg">{w.userName}</p>
                        <p className="text-[10px] font-black uppercase text-muted-foreground">{w.userRole} • R$ {w.amount.toFixed(2)}</p>
-                       <div className="bg-white/60 p-2 rounded-lg border mt-2 text-xs font-black">PIX: {w.pixKey}</div>
+                       <div className="bg-white/60 p-2 rounded-lg border mt-2 text-xs font-black">PIX DESTINO: {w.pixKey}</div>
                      </div>
                      <Button onClick={() => approveWithdrawal(w.id)} className="bg-purple-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Confirmar Saque</Button>
                    </Card>
@@ -355,7 +327,7 @@ export default function FinanceiroPage() {
 
             <TabsContent value="pendentes" className="mt-6 space-y-4">
                {pendingSales.length === 0 ? (
-                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem vendas pendentes</Card>
+                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem vendas pendentes de aprovação</Card>
                ) : (
                  pendingSales.map((t, i) => (
                    <Card key={i} className="flex justify-between items-center p-6 bg-orange-50 border-orange-200 border-l-8 border-l-orange-500 rounded-2xl shadow-sm">
@@ -364,10 +336,33 @@ export default function FinanceiroPage() {
                        <p className="text-xs font-bold text-orange-700/70 uppercase">{t.eventoNome} • R$ {t.valorTotal.toFixed(2)}</p>
                        <Badge className="bg-orange-600 mt-2 font-black uppercase text-[9px]">Vendedor: {t.vendedorNome}</Badge>
                      </div>
-                     <Button onClick={() => approveSale(t.id)} className="bg-orange-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Aprovar Venda</Button>
+                     <Button onClick={() => approveSale(t.id)} className="bg-orange-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Confirmar Recebimento e Aprovar</Button>
                    </Card>
                  ))
                )}
+            </TabsContent>
+
+            <TabsContent value="settings" className="mt-6">
+              <Card className="max-w-2xl border-none shadow-xl rounded-3xl overflow-hidden">
+                <CardHeader className="bg-primary text-white p-8">
+                  <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><Settings className="w-6 h-6" /> Configurações Master</CardTitle>
+                </CardHeader>
+                <CardContent className="p-8 space-y-6 bg-white">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase text-muted-foreground">Chave PIX da Banca (Para Receber Depósitos)</Label>
+                    <Input 
+                      placeholder="CPF, Email, Telefone ou Aleatória" 
+                      value={companyPix} 
+                      onChange={e => setCompanyPix(e.target.value)} 
+                      className="h-14 font-black text-lg border-2 border-primary/20 rounded-2xl focus:border-primary"
+                    />
+                    <p className="text-[10px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
+                      <ShieldAlert className="w-3 h-3" /> Esta chave é exibida para Gerentes, Cambistas e Clientes ao solicitarem recarga de saldo.
+                    </p>
+                  </div>
+                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Chave Master</Button>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
@@ -375,4 +370,3 @@ export default function FinanceiroPage() {
     </div>
   );
 }
-

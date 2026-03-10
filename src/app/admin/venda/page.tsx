@@ -33,10 +33,11 @@ export default function VendaPage() {
     const now = new Date();
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
-      const limit = new Date(drawDate.getTime() - 60000); // 1 min antes
+      const limit = new Date(drawDate.getTime() - 60000); 
       return b.status === 'aberto' && now < limit;
     });
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
+      // No Bolão, a trava é 1 min antes da 1ª partida
       const startDate = new Date(b.dataFim); 
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
@@ -125,7 +126,6 @@ export default function VendaPage() {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
           if (u.id === user?.id) {
-            // Deduz primeiro da comissão, depois do saldo
             let remaining = formData.valorTotal;
             let newComm = u.commissionBalance || 0;
             let newBal = u.balance || 0;
@@ -139,8 +139,9 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
-            // Adiciona comissão da própria venda (se aplicável)
-            const myComm = formData.valorTotal * (user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0);
+            // Adiciona comissão da própria venda imediatamente apenas se foi paga com saldo
+            const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.05 : 0;
+            const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;
 
             return { ...u, balance: newBal, commissionBalance: newComm };
@@ -159,7 +160,7 @@ export default function VendaPage() {
         toast({ 
           variant: "destructive",
           title: "VENDA PENDENTE", 
-          description: "Aguardando aprovação do Administrador Master." 
+          description: "Aguardando aprovação do Administrador Master para validar bilhetes e comissão." 
         });
       } else {
         toast({ title: "VENDA REALIZADA!" });
@@ -170,7 +171,8 @@ export default function VendaPage() {
   const handleWhatsApp = () => {
     if (!vendaRealizada) return;
     const host = window.location.origin;
-    const link = `${host}/resultados?c=${vendaRealizada.tickets[0].id}`;
+    const firstTicketId = vendaRealizada.tickets[0].id;
+    const link = `${host}/resultados?c=${firstTicketId}`;
     
     let message = `*LEOBET PRO - RECIBO OFICIAL*%0A%0A`;
     message += `👤 *CLIENTE:* ${vendaRealizada.cliente.toUpperCase()}%0A`;
@@ -178,11 +180,13 @@ export default function VendaPage() {
     message += `💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A`;
     message += `✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'CONFIRMADO' : 'PENDENTE'}%0A`;
     message += `--------------------------%0A`;
-    message += `📊 *ACOMPANHAR:*%0A${link}%0A`;
+    message += `📊 *ACOMPANHAR EM TEMPO REAL:*%0A${link}%0A`;
+    message += `--------------------------%0A`;
     
     vendaRealizada.tickets.forEach((t: any, idx: number) => {
-      message += `%0A🎫 *BILHETE:* ${t.id}%0A`;
+      message += `%0A🎫 *BILHETE ${idx + 1}:* ${t.id}%0A`;
       if (t.numeros) message += `🔢 *NÚMEROS:* ${t.numeros.join('-')}%0A`;
+      if (t.palpite) message += `🎯 *PALPITE:* ${t.palpite}%0A`;
     });
 
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
@@ -202,11 +206,11 @@ export default function VendaPage() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg border-none">
-                 SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : totalBalance.toFixed(2)}
+                 SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : totalDisplay(user)}
               </Badge>
               {user?.role !== 'admin' && (
                 <p className="text-[9px] font-black uppercase text-muted-foreground">
-                  Balanço: R$ {user?.balance.toFixed(2)} | Comissão: R$ {user?.commissionBalance.toFixed(2)}
+                  Balanço: R$ {(user?.balance || 0).toFixed(2)} | Comissão: R$ {(user?.commissionBalance || 0).toFixed(2)}
                 </p>
               )}
             </div>
@@ -273,7 +277,7 @@ export default function VendaPage() {
               {vendaRealizada ? (
                 <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2rem] relative">
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
-                      <p className="text-2xl font-black tracking-tighter">LEOBET PRO</p>
+                      <p className="text-2xl font-black tracking-tighter text-primary">LEOBET PRO</p>
                       <p className="font-bold uppercase tracking-widest text-[8px]">Recibo de Aposta Oficial</p>
                    </div>
                    
@@ -325,4 +329,8 @@ export default function VendaPage() {
       </main>
     </div>
   );
+}
+
+function totalDisplay(user: any) {
+  return ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2);
 }

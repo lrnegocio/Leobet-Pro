@@ -33,6 +33,7 @@ function ResultadosContent() {
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       let foundReceipt = null;
 
+      // Busca o recibo que contém esse ticket específico
       allReceipts.forEach((r: any) => {
         const ticket = r.tickets.find((t: any) => t.id === codeToSearch);
         if (ticket) foundReceipt = r;
@@ -72,7 +73,7 @@ function ResultadosContent() {
       localStorage.setItem('leobet_tickets', JSON.stringify(updated));
       handleSearch(ticketId);
       setClaiming(null);
-      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Aguarde a aprovação do pagamento pelo administrador." });
+      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Sua chave PIX foi registrada. Aguarde a conferência e pagamento do Admin." });
     }, 1000);
   };
 
@@ -88,7 +89,7 @@ function ResultadosContent() {
              <Trophy className="w-10 h-10" />
           </div>
           <h1 className="text-5xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Auditoria</h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Resultados LEOBET PRO 365 Dias Permanente</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência de Bilhetes 365 Dias</p>
         </div>
 
         <Card className="border-t-[12px] border-t-accent shadow-2xl overflow-hidden rounded-[2.5rem] border-none">
@@ -114,7 +115,7 @@ function ResultadosContent() {
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                    <Clock className="w-8 h-8 text-primary" />
                 </div>
-                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Base de Dados...</p>
+                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Auditoria...</p>
               </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-8">
@@ -122,21 +123,21 @@ function ResultadosContent() {
                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full"></div>
                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
                       <div className="text-center md:text-left">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador Oficial</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador</p>
                         <p className="font-black text-primary text-3xl tracking-tight leading-none">{receipt.cliente.toUpperCase()}</p>
                       </div>
                       <div className="text-center md:text-right bg-white px-6 py-4 rounded-2xl shadow-sm border border-primary/10">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Total da Compra</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Valor do Bilhete</p>
                         <p className="font-black text-primary text-2xl">R$ {receipt.valorTotal.toFixed(2)}</p>
                       </div>
                    </div>
                    <div className="border-t border-primary/10 pt-6 flex justify-between items-center">
                       <div>
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Evento</p>
                         <p className="font-black uppercase text-lg text-primary">{receipt.eventoNome}</p>
                       </div>
-                      <Badge className="bg-primary text-white border-none font-black uppercase h-8 px-4 rounded-xl">
-                        {receipt.status === 'pago' ? '✓ BILHETE VALIDADO' : '⚠ AGUARDANDO LIBERAÇÃO'}
+                      <Badge className={`${receipt.status === 'pago' ? 'bg-primary' : 'bg-orange-600'} text-white border-none font-black uppercase h-8 px-4 rounded-xl`}>
+                        {receipt.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO PAGAMENTO'}
                       </Badge>
                    </div>
                 </div>
@@ -144,20 +145,19 @@ function ResultadosContent() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                      <h3 className="text-xs font-black uppercase text-muted-foreground tracking-[0.3em]">Minhas Apostas ({receipt.tickets.length})</h3>
-                     <Badge variant="outline" className="font-black text-[9px] uppercase border-dashed">RECIBO: {receipt.id}</Badge>
+                     <Badge variant="outline" className="font-black text-[9px] uppercase border-dashed">ID RECIBO: {receipt.id}</Badge>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-4">
                     {receipt.tickets.map((t: any, idx: number) => {
-                      const status = t.status;
-                      const isWinner = status === 'ganhou';
-                      const isPending = status === 'pendente-resgate';
-                      const isPaid = status === 'pago';
-                      const isLost = status === 'perdeu';
+                      const isWinner = t.status === 'ganhou';
+                      const isPending = t.status === 'pendente-resgate';
+                      const isPaid = t.status === 'pago';
+                      const isLost = t.status === 'perdeu';
                       
                       return (
                         <Card key={idx} className={`rounded-[2rem] border-2 transition-all hover:shadow-xl overflow-hidden ${
-                          isWinner ? 'bg-green-50 border-green-200 ring-4 ring-green-100' : 
+                          isWinner ? 'bg-green-50 border-green-200 ring-4 ring-green-100 shadow-green-100' : 
                           isPaid ? 'bg-blue-50 border-blue-200' : 
                           isPending ? 'bg-orange-50 border-orange-200' :
                           isLost ? 'bg-red-50/30 border-red-100 opacity-80' :
@@ -169,14 +169,14 @@ function ResultadosContent() {
                                   <div className="flex justify-between items-center">
                                      <div className="flex items-center gap-2">
                                        <Ticket className="w-4 h-4 text-primary opacity-40" />
-                                       <span className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Bilhete #{idx + 1} • {t.id}</span>
+                                       <span className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Bilhete {idx + 1} • {t.id}</span>
                                      </div>
                                      {isWinner ? (
-                                       <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 VOCÊ GANHOU!</Badge>
+                                       <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 PREMIADO!</Badge>
                                      ) : isPaid ? (
-                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ BILHETE JÁ PAGO</Badge>
+                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ PRÊMIO JÁ PAGO</Badge>
                                      ) : isPending ? (
-                                       <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE PENDENTE</Badge>
+                                       <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE SOLICITADO</Badge>
                                      ) : isLost ? (
                                        <Badge variant="destructive" className="font-black uppercase text-[10px]">NÃO PREMIADO</Badge>
                                      ) : (
@@ -189,7 +189,7 @@ function ResultadosContent() {
                                   {t.numeros ? (
                                     <div className="flex flex-wrap gap-1.5">
                                       {t.numeros.map((n: number) => (
-                                        <div key={n} className="w-8 h-8 flex items-center justify-center bg-white border-2 rounded-xl font-black text-[10px] text-primary shadow-sm hover:scale-110 transition-transform cursor-default">
+                                        <div key={n} className="w-8 h-8 flex items-center justify-center bg-white border-2 rounded-xl font-black text-[10px] text-primary shadow-sm">
                                           {n.toString().padStart(2, '0')}
                                         </div>
                                       ))}
@@ -208,23 +208,23 @@ function ResultadosContent() {
                                     {isWinner ? (
                                       <div className="w-full space-y-4">
                                         <div>
-                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Valor Líquido:</p>
-                                          <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2)}</p>
+                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Seu Prêmio:</p>
+                                          <p className="text-3xl font-black">R$ {(t.valorPremio || 0).toFixed(2)}</p>
                                         </div>
                                         
                                         <div className="text-left space-y-1.5">
-                                           <Label className="text-[10px] font-black uppercase text-white/70">Informe sua Chave PIX:</Label>
+                                           <Label className="text-[10px] font-black uppercase text-white/70">Digite seu PIX para receber:</Label>
                                            <Input 
                                             value={pixKey} 
                                             onChange={e => setPixKey(e.target.value)}
-                                            placeholder="Ex: CPF, Email ou Celular"
+                                            placeholder="CPF, Email ou Celular"
                                             className="h-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 text-xs font-bold"
                                            />
                                         </div>
 
                                         <p className="text-[8px] font-bold text-white/50 flex items-start gap-1 leading-tight text-left">
                                           <AlertTriangle className="w-3 h-3 shrink-0" />
-                                          Atenção: A banca não se responsabiliza por erros de digitação na chave PIX informada.
+                                          Atenção: A banca não se responsabiliza por chaves PIX digitadas incorretamente.
                                         </p>
 
                                         <Button 
@@ -232,19 +232,21 @@ function ResultadosContent() {
                                           className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg"
                                           disabled={claiming === t.id}
                                         >
-                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR PAGAMENTO"}
+                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR BAIXA DO PRÊMIO"}
                                         </Button>
                                       </div>
                                     ) : isPaid ? (
                                       <>
                                         <CheckCircle2 className="w-10 h-10 mb-2" />
-                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">BILHETE JÁ PAGO<br/>COM SUCESSO!</p>
+                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">BILHETE JÁ PAGO!</p>
+                                        <p className="text-[8px] mt-2 opacity-60 uppercase font-black">Este bilhete não pode ser baixado novamente.</p>
                                       </>
                                     ) : (
                                       <>
-                                        <Clock className="w-10 h-10 mb-2 animate-spin" />
-                                        <p className="font-black uppercase text-[10px] tracking-widest">AGUARDANDO<br/>APROVAÇÃO</p>
-                                        <p className="text-[8px] mt-2 opacity-50 uppercase font-black">Chave PIX informada: {t.pixResgate}</p>
+                                        <Clock className="w-10 h-10 mb-2 animate-pulse" />
+                                        <p className="font-black uppercase text-[10px] tracking-widest">RESGATE PENDENTE</p>
+                                        <p className="text-[8px] mt-2 opacity-50 uppercase font-black">Chave: {t.pixResgate}</p>
+                                        <p className="text-[8px] opacity-40 uppercase font-black">Aguardando aprovação do Admin</p>
                                       </>
                                     )}
                                  </div>
@@ -257,13 +259,12 @@ function ResultadosContent() {
                   </div>
                 </div>
 
-                <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-full h-full bg-accent opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden">
                   <Info className="w-8 h-8 mx-auto opacity-40" />
-                  <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-80">Suporte e Recebimento Oficial</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-80">Suporte ao Apostador</p>
                   <p className="font-black text-4xl mt-1 tracking-tighter">(82) 99334-3941</p>
                   <p className="text-xs font-bold uppercase opacity-60 max-w-sm mx-auto leading-relaxed">
-                    Apresente seu código de 11 dígitos ao seu cambista ou solicite o resgate diretamente pelo botão acima.
+                    Problemas com o resgate? Entre em contato informando o ID do bilhete.
                   </p>
                 </div>
               </div>
@@ -272,18 +273,18 @@ function ResultadosContent() {
                 <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-8 opacity-20">
                    <XCircle className="w-12 h-12" />
                 </div>
-                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete não encontrado</h3>
+                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete Inexistente</h3>
                 <p className="text-sm font-bold text-muted-foreground mt-4 max-w-xs mx-auto opacity-60">
-                  Verifique o código de 11 dígitos. Sorteios em andamento podem levar alguns segundos para processar.
+                  Verifique o código de 11 dígitos no seu recibo. Apenas bilhetes validados pela banca aparecem aqui.
                 </p>
-                <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Tentar Novamente</Button>
+                <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Voltar</Button>
               </div>
             )}
           </CardContent>
         </Card>
         
         <p className="text-center text-[9px] font-black uppercase text-muted-foreground/40 tracking-[0.5em] pt-8">
-           LEOBET PRO © SISTEMA DE AUDITORIA PERMANENTE 365 DIAS
+           LEOBET PRO © AUDITORIA BLINDADA 365 DIAS
         </p>
       </div>
     </div>
