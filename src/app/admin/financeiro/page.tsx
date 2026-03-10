@@ -36,7 +36,8 @@ import {
   Lock,
   Unlock,
   Edit2,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -179,7 +180,7 @@ function FinanceiroContent() {
     let brutoRaw = 0;
 
     const filteredTickets = tickets.filter(t => {
-      const date = new Date(t.data).toISOString().split('T')[0];
+      const date = t.data.split('T')[0];
       return date >= startDate && date <= endDate && t.status === 'pago';
     });
 
@@ -201,10 +202,13 @@ function FinanceiroContent() {
       }
     });
 
+    // MATEMÁTICA RESIDUAL PARA 100% DE ACERTO
     const dBruto = Number(brutoRaw.toFixed(2));
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
     const dGerente = Number(gerenteRaw.toFixed(2));
+    
+    // O prêmio é o resíduo exato para que a soma feche sempre 100% do bruto
     const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
     return { org: dOrg, cambista: dCambista, gerente: dGerente, bruto: dBruto, premios: dPremios };

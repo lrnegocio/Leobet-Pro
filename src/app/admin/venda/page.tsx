@@ -85,6 +85,7 @@ export default function VendaPage() {
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
     
+    // INTELIGÊNCIA DE SALDO: Se não tem saldo, fica pendente
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -117,6 +118,7 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
+      // SÓ DEDUZ SALDO E PAGA COMISSÃO SE ESTIVER PAGO
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -134,15 +136,12 @@ export default function VendaPage() {
               newBal -= remaining;
             }
 
-            // Precisão Decimal: Admin 20%, Cambista 10%, Gerente 5%.
-            // Se gerente vende: 10% (seller) + 5% (manager) = 15%.
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.15 : 0;
             const myComm = formData.valorTotal * myCommRate;
             newComm += myComm;
 
             return { ...u, balance: newBal, commissionBalance: newComm };
           }
-          // Se cambista vende, o gerente dele ganha 5%
           if (user?.role === 'cambista' && user?.gerenteId && u.id === user.gerenteId) {
              const mgrComm = formData.valorTotal * 0.05;
              return { ...u, commissionBalance: (u.commissionBalance || 0) + mgrComm };
@@ -158,7 +157,7 @@ export default function VendaPage() {
       setLoading(false);
       
       if (statusVenda === 'pendente') {
-        toast({ variant: "destructive", title: "AGUARDANDO APROVAÇÃO MASTER", description: "Venda sem saldo. O bilhete só será válido após validação do Admin." });
+        toast({ variant: "destructive", title: "AGUARDANDO APROVAÇÃO MASTER", description: "Venda sem saldo. O bilhete só será válido após validação do Admin ou recarga de saldo." });
       } else {
         toast({ title: "VENDA REALIZADA COM SUCESSO!" });
       }
@@ -189,7 +188,7 @@ export default function VendaPage() {
                  SALDO TOTAL: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
               </Badge>
               {user?.role !== 'admin' && (
-                 <p className="text-[9px] font-black uppercase text-orange-600">Vendas sem saldo ficam bloqueadas até aprovação master.</p>
+                 <p className="text-[9px] font-black uppercase text-orange-600">Vendas sem saldo ficam bloqueadas até aprovação master ou recarga.</p>
               )}
             </div>
           </div>
@@ -281,7 +280,7 @@ export default function VendaPage() {
                    <div className="text-center space-y-2">
                       <p className="text-2xl font-black">R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6">
-                         {vendaRealizada.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO APROVAÇÃO'}
+                         {vendaRealizada.status === 'pago' ? '✓ VALIDADO' : '⚠ AGUARDANDO PAGAMENTO'}
                       </Badge>
                    </div>
 

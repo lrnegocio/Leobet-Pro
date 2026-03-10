@@ -76,7 +76,6 @@ export default function RelatoriosPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
-  // SISTEMA INTELIGENTE DE AUTOVALIDAÇÃO
   const handleValidatePending = (ticketId: string) => {
     if (!user) return;
     
@@ -99,7 +98,6 @@ export default function RelatoriosPage() {
     setTimeout(() => {
       const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
       const updatedUsers = allUsers.map((u: any) => {
-        // Deduz do usuário que está validando (ele é o vendedor)
         if (u.id === user.id) {
           let remaining = ticket.valorTotal;
           let newComm = u.commissionBalance || 0;
@@ -114,14 +112,12 @@ export default function RelatoriosPage() {
             newBal -= remaining;
           }
 
-          // Credita a comissão da própria venda que ele está validando agora
           const myCommRate = user.role === 'cambista' ? 0.10 : user.role === 'gerente' ? 0.15 : 0;
           newComm += (ticket.valorTotal * myCommRate);
 
           return { ...u, balance: newBal, commissionBalance: newComm };
         }
 
-        // Se o vendedor for cambista, o gerente dele ganha 5%
         if (user.role === 'cambista' && user.gerenteId && u.id === user.gerenteId) {
            return { ...u, commissionBalance: (u.commissionBalance || 0) + (ticket.valorTotal * 0.05) };
         }
