@@ -1,7 +1,8 @@
 
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,10 +23,13 @@ import {
   TrendingUp,
   Store,
   Wallet,
-  Globe
+  Globe,
+  UserPlus,
+  ArrowRightLeft,
+  UserCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { UserProfile } from '@/types/auth';
+import { UserProfile, UserRole } from '@/types/auth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,9 +41,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function FinanceiroPage() {
+function FinanceiroContent() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'depositos';
+
   const [tickets, setTickets] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [pendingSales, setPendingSales] = useState<any[]>([]);
@@ -48,6 +56,18 @@ export default function FinanceiroPage() {
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [companyPix, setCompanyPix] = useState('');
   
+  // Form para novo parceiro
+  const [newPartner, setNewPartner] = useState({
+    nome: '',
+    email: '',
+    role: 'cambista' as UserRole,
+    cpf: '',
+    birthDate: '',
+    phone: '',
+    pixKey: '',
+    gerenteId: 'admin-master'
+  });
+
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -87,6 +107,49 @@ export default function FinanceiroPage() {
     loadData();
   }, []);
 
+  const handleCreatePartner = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPhone = newPartner.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO", description: "Informe o telefone completo com DDD." });
+      return;
+    }
+
+    const newUser: UserProfile = {
+      id: Math.random().toString(36).substring(7),
+      ...newPartner,
+      phone: cleanPhone,
+      balance: 0,
+      commissionBalance: 0,
+      pendingBalance: 0,
+      status: 'approved',
+      createdAt: new Date().toISOString()
+    };
+
+    const existingUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    localStorage.setItem('leobet_users', JSON.stringify([...existingUsers, newUser]));
+    
+    toast({ title: "PARCEIRO CADASTRADO!", description: `${newUser.nome} agora faz parte da rede.` });
+    setNewPartner({
+      nome: '',
+      email: '',
+      role: 'cambista',
+      cpf: '',
+      birthDate: '',
+      phone: '',
+      pixKey: '',
+      gerenteId: 'admin-master'
+    });
+    loadData();
+  };
+
+  const transferCambista = (userId: string, newGerenteId: string) => {
+    const updated = allUsers.map(u => u.id === userId ? { ...u, gerenteId: newGerenteId } : u);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: "CAMBISTA TRANSFERIDO!", description: "A hierarquia da rede foi atualizada." });
+  };
+
   const saveSettings = () => {
     const settings = { companyPix };
     localStorage.setItem('leobet_settings', JSON.stringify(settings));
@@ -118,7 +181,6 @@ export default function FinanceiroPage() {
 
     filteredTickets.forEach(t => {
       bruto += t.valorTotal;
-      // Regra 20/10/5 Master
       if (t.vendedorRole === 'admin') {
         org += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
@@ -187,7 +249,6 @@ export default function FinanceiroPage() {
     const receipt = tickets.find(t => t.id === receiptId);
     if (!receipt) return;
 
-    // Quando aprova venda sem saldo, a comissão entra pro vendedor AGORA
     const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     const updatedUsers = allUsers.map((u: any) => {
       if (u.id === receipt.vendedorId) {
@@ -195,7 +256,6 @@ export default function FinanceiroPage() {
         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
         return { ...u, commissionBalance: newComm };
       }
-      // Se for cambista de gerente, o gerente tb ganha 5% na aprovação
       if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
          const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
          return { ...u, commissionBalance: newComm };
@@ -213,6 +273,8 @@ export default function FinanceiroPage() {
     loadData();
     toast({ title: "VENDA APROVADA!", description: "Bilhete validado e comissão creditada." });
   };
+
+  const gerentes = allUsers.filter(u => u.role === 'gerente');
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -259,12 +321,13 @@ export default function FinanceiroPage() {
             <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Total Bruto</p><p className="text-xl font-black">R$ {finance.bruto.toFixed(2)}</p></CardContent></Card>
           </div>
 
-          <Tabs defaultValue="depositos">
+          <Tabs defaultValue={defaultTab}>
             <TabsList className="bg-muted p-1 rounded-2xl w-full flex justify-start overflow-x-auto gap-2">
               <TabsTrigger value="depositos" className="font-bold rounded-xl whitespace-nowrap">Depósitos ({pendingDeposits.length})</TabsTrigger>
               <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Prêmios Ganhadores ({pendingPayouts.length})</TabsTrigger>
               <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques Rede ({pendingWithdrawals.length})</TabsTrigger>
               <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas s/ Saldo ({pendingSales.length})</TabsTrigger>
+              <TabsTrigger value="rede" className="font-bold rounded-xl whitespace-nowrap"><Users className="w-4 h-4 mr-2" /> Gestão de Rede</TabsTrigger>
               <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configurações</TabsTrigger>
             </TabsList>
             
@@ -342,6 +405,108 @@ export default function FinanceiroPage() {
                )}
             </TabsContent>
 
+            <TabsContent value="rede" className="mt-6 space-y-8">
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <Card className="lg:col-span-1 border-t-4 border-t-accent">
+                    <CardHeader><CardTitle className="text-sm font-black uppercase flex items-center gap-2"><UserPlus className="w-4 h-4" /> Novo Cadastro</CardTitle></CardHeader>
+                    <CardContent>
+                      <form onSubmit={handleCreatePartner} className="space-y-4">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">Role / Cargo</Label>
+                          <select 
+                            className="w-full h-10 border rounded-md px-3 font-bold text-xs"
+                            value={newPartner.role}
+                            onChange={e => setNewPartner({...newPartner, role: e.target.value as UserRole})}
+                          >
+                            <option value="gerente">Gerente</option>
+                            <option value="cambista">Cambista</option>
+                            <option value="cliente">Cliente</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">Nome Completo</Label>
+                          <Input value={newPartner.nome} onChange={e => setNewPartner({...newPartner, nome: e.target.value.toUpperCase()})} required className="h-9 text-xs font-bold" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase">CPF</Label>
+                             <Input value={newPartner.cpf} onChange={e => setNewPartner({...newPartner, cpf: e.target.value})} required className="h-9 text-xs font-bold" />
+                           </div>
+                           <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase">Nascimento</Label>
+                             <Input type="date" value={newPartner.birthDate} onChange={e => setNewPartner({...newPartner, birthDate: e.target.value})} required className="h-9 text-xs font-bold" />
+                           </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">WhatsApp (Com DDD)</Label>
+                          <Input value={newPartner.phone} onChange={e => setNewPartner({...newPartner, phone: e.target.value})} required className="h-9 text-xs font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">Chave PIX</Label>
+                          <Input value={newPartner.pixKey} onChange={e => setNewPartner({...newPartner, pixKey: e.target.value})} required className="h-9 text-xs font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">Usuário/Email</Label>
+                          <Input value={newPartner.email} onChange={e => setNewPartner({...newPartner, email: e.target.value})} required className="h-9 text-xs font-bold" />
+                        </div>
+                        {newPartner.role === 'cambista' && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-black uppercase">Vincular ao Gerente</Label>
+                            <select 
+                              className="w-full h-10 border rounded-md px-3 font-bold text-xs"
+                              value={newPartner.gerenteId}
+                              onChange={e => setNewPartner({...newPartner, gerenteId: e.target.value})}
+                            >
+                              <option value="admin-master">ADMIN MASTER (DIRETO)</option>
+                              {gerentes.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                            </select>
+                          </div>
+                        )}
+                        <Button type="submit" className="w-full h-12 bg-accent hover:bg-accent/90 font-black uppercase text-xs">Finalizar Cadastro</Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+
+                  <div className="lg:col-span-2 space-y-4">
+                     <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary"><Store className="w-4 h-4" /> Base de Parceiros</h3>
+                        <Badge variant="outline" className="font-black uppercase text-[9px]">{allUsers.length} Membros</Badge>
+                     </div>
+                     <div className="space-y-2">
+                        {allUsers.filter(u => u.id !== 'admin-master').map((u, i) => (
+                          <Card key={i} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-all">
+                             <div className="flex items-center gap-3 flex-1">
+                                <div className="bg-primary/5 p-2 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
+                                <div>
+                                   <p className="font-black uppercase text-xs">{u.nome}</p>
+                                   <p className="text-[9px] font-bold text-muted-foreground uppercase">{u.role} • {u.phone}</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                   <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo Total</p>
+                                   <p className="text-sm font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
+                                </div>
+                                {u.role === 'cambista' && (
+                                   <div className="flex items-center gap-2 border-l pl-4">
+                                      <select 
+                                        className="h-8 border rounded px-2 text-[9px] font-black uppercase"
+                                        value={u.gerenteId || 'admin-master'}
+                                        onChange={e => transferCambista(u.id, e.target.value)}
+                                      >
+                                        <option value="admin-master">MIGRAR P/ MASTER</option>
+                                        {gerentes.filter(g => g.id !== u.id).map(g => <option key={g.id} value={g.id}>TRANSFERIR P/ {g.nome}</option>)}
+                                      </select>
+                                   </div>
+                                )}
+                             </div>
+                          </Card>
+                        ))}
+                     </div>
+                  </div>
+               </div>
+            </TabsContent>
+
             <TabsContent value="settings" className="mt-6">
               <Card className="max-w-2xl border-none shadow-xl rounded-3xl overflow-hidden">
                 <CardHeader className="bg-primary text-white p-8">
@@ -368,5 +533,13 @@ export default function FinanceiroPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function FinanceiroPage() {
+  return (
+    <Suspense fallback={<div>Carregando Fluxo Financeiro...</div>}>
+      <FinanceiroContent />
+    </Suspense>
   );
 }

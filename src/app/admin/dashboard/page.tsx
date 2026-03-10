@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                   <ShoppingCart className="w-8 h-8 text-primary group-hover:text-white" />
                   <span className="text-[9px] font-black uppercase tracking-widest">Venda Rápida</span>
                 </Link>
-                <Link href="/admin/financeiro?tab=novocadastro" className="p-4 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white transition-all flex flex-col items-center gap-2 group">
+                <Link href="/admin/financeiro?tab=rede" className="p-4 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white transition-all flex flex-col items-center gap-2 group">
                   <UserPlus className="w-8 h-8 text-accent group-hover:text-white" />
                   <span className="text-[9px] font-black uppercase tracking-widest">Cadastrar Parceiro</span>
                 </Link>
