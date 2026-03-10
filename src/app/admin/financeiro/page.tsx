@@ -16,7 +16,8 @@ import {
   ReceiptText,
   Search,
   Trophy,
-  DollarSign
+  DollarSign,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/types/auth';
@@ -52,7 +53,7 @@ export default function FinanceiroPage() {
 
   const handleValidatePrize = () => {
     if (validationCode.length < 11) {
-      toast({ variant: "destructive", title: "Erro", description: "Código inválido." });
+      toast({ variant: "destructive", title: "Erro", description: "Insira o código completo de 11 dígitos." });
       return;
     }
 
@@ -66,20 +67,26 @@ export default function FinanceiroPage() {
 
     if (found) {
       setValidatedTicket(found);
-      if (found.status === 'ganhou') {
-        toast({ title: "Bilhete Premiado!", description: "Este bilhete é um vencedor." });
-      } else if (found.status === 'pago') {
-        toast({ variant: "destructive", title: "Já Pago", description: "Este prêmio já foi resgatado." });
+      if (found.status === 'pago') {
+        toast({ 
+          variant: "destructive", 
+          title: "PRÊMIO JÁ PAGO", 
+          description: "Este bilhete já foi baixado no sistema anteriormente.",
+          duration: 5000 
+        });
+      } else if (found.status === 'ganhou') {
+        toast({ title: "BILHETE PREMIADO!", description: "O prêmio está disponível para baixa." });
       } else {
-        toast({ variant: "destructive", title: "Não Premiado", description: "Este bilhete não possui prêmios." });
+        toast({ variant: "destructive", title: "NÃO PREMIADO", description: "Este código não possui prêmios pendentes." });
       }
     } else {
-      toast({ variant: "destructive", title: "Não Encontrado", description: "Código não localizado no sistema." });
+      toast({ variant: "destructive", title: "CÓDIGO INVÁLIDO", description: "Nenhum bilhete encontrado com este código." });
+      setValidatedTicket(null);
     }
   };
 
   const handlePayPrize = () => {
-    if (!validatedTicket) return;
+    if (!validatedTicket || validatedTicket.status === 'pago') return;
 
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const updatedReceipts = allReceipts.map((receipt: any) => {
@@ -94,7 +101,11 @@ export default function FinanceiroPage() {
     localStorage.setItem('leobet_tickets', JSON.stringify(updatedReceipts));
     setTickets(updatedReceipts);
     setValidatedTicket({ ...validatedTicket, status: 'pago' });
-    toast({ title: "Sucesso!", description: "Prêmio baixado e marcado como PAGO." });
+    toast({ 
+      title: "SUCESSO!", 
+      description: "O prêmio foi BAIXADO e marcado como PAGO no sistema.",
+      className: "bg-green-600 text-white"
+    });
   };
 
   const calculateFinance = () => {
@@ -142,9 +153,9 @@ export default function FinanceiroPage() {
               <Tabs defaultValue="vendas">
                 <TabsList className="mb-6 bg-muted p-1">
                   <TabsTrigger value="vendas" className="font-bold gap-2"><ReceiptText className="w-4 h-4" /> Vendas</TabsTrigger>
-                  <TabsTrigger value="sorteios" className="font-bold gap-2"><History className="w-4 h-4" /> Sorteios</TabsTrigger>
+                  <TabsTrigger value="sorteios" className="font-bold gap-2"><History className="w-4 h-4" /> Histórico Sorteios</TabsTrigger>
                   <TabsTrigger value="cambistas" className="font-bold gap-2"><UserPlus className="w-4 h-4" /> Aprovações</TabsTrigger>
-                  <TabsTrigger value="resgate" className="font-bold gap-2"><Trophy className="w-4 h-4" /> Validar Prêmio</TabsTrigger>
+                  <TabsTrigger value="resgate" className="font-bold gap-2 text-accent"><Trophy className="w-4 h-4" /> Validar & Pagar</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="vendas">
@@ -171,54 +182,87 @@ export default function FinanceiroPage() {
                    </div>
                 </TabsContent>
 
+                <TabsContent value="sorteios">
+                   <div className="space-y-4">
+                      {bingosFinalizados.length === 0 ? (
+                        <div className="text-center py-20 border rounded-xl opacity-30">Nenhum sorteio finalizado</div>
+                      ) : (
+                        bingosFinalizados.map((b, i) => (
+                          <div key={i} className="p-4 bg-white border rounded-xl">
+                             <div className="flex justify-between items-center mb-4">
+                               <h4 className="font-black uppercase text-primary">{b.nome}</h4>
+                               <Badge className="bg-green-600">FINALIZADO</Badge>
+                             </div>
+                             <div className="grid grid-cols-10 gap-1">
+                                {b.bolasSorteadas?.map((num: number) => (
+                                  <div key={num} className="aspect-square flex items-center justify-center bg-accent text-white rounded-full text-[9px] font-bold">
+                                    {num}
+                                  </div>
+                                ))}
+                             </div>
+                          </div>
+                        ))
+                      )}
+                   </div>
+                </TabsContent>
+
                 <TabsContent value="resgate">
                   <div className="max-w-2xl mx-auto py-10 space-y-6">
                     <div className="text-center space-y-2">
                       <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                         <Search className="w-8 h-8 text-primary" />
                       </div>
-                      <h3 className="font-black uppercase text-lg">Validação de Bilhetes</h3>
-                      <p className="text-xs text-muted-foreground font-bold">Insira o código de 11 dígitos para conferir e baixar prêmios.</p>
+                      <h3 className="font-black uppercase text-lg">Validação de Bilhetes Premiados</h3>
+                      <p className="text-xs text-muted-foreground font-bold italic">A baixa do prêmio é definitiva e impede duplicidade de pagamento.</p>
                     </div>
 
                     <div className="flex gap-2">
                       <Input 
                         placeholder="CÓDIGO DE 11 DÍGITOS" 
-                        className="h-14 font-black text-center text-xl tracking-[0.2em]" 
+                        className="h-14 font-black text-center text-xl tracking-[0.2em] border-2 focus:border-accent" 
                         maxLength={11}
                         value={validationCode}
                         onChange={(e) => setValidationCode(e.target.value.toUpperCase())}
                       />
-                      <Button onClick={handleValidatePrize} className="h-14 font-black uppercase px-8 shadow-lg">Validar</Button>
+                      <Button onClick={handleValidatePrize} className="h-14 font-black uppercase px-8 shadow-lg bg-accent hover:bg-accent/90">Validar</Button>
                     </div>
 
                     {validatedTicket && (
-                      <Card className="border-2 border-primary animate-in zoom-in-95">
+                      <Card className={`border-2 animate-in zoom-in-95 ${validatedTicket.status === 'pago' ? 'border-blue-600 bg-blue-50/30' : 'border-green-600'}`}>
                         <CardContent className="p-6 space-y-4">
                           <div className="flex justify-between border-b pb-4">
                             <div>
-                              <p className="text-[10px] font-black uppercase text-muted-foreground">Status do Bilhete</p>
-                              <Badge className={validatedTicket.status === 'ganhou' ? "bg-green-600" : "bg-muted text-muted-foreground"}>
-                                {validatedTicket.status?.toUpperCase() || 'EM ABERTO'}
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">Status Atual</p>
+                              <Badge className={
+                                validatedTicket.status === 'pago' ? "bg-blue-600" : 
+                                validatedTicket.status === 'ganhou' ? "bg-green-600" : "bg-muted text-muted-foreground"
+                              }>
+                                {validatedTicket.status === 'pago' ? 'PRÊMIO JÁ BAIXADO (PAGO)' : 
+                                 validatedTicket.status === 'ganhou' ? 'AGUARDANDO BAIXA (GANHOU)' : 'NÃO PREMIADO'}
                               </Badge>
                             </div>
                             <div className="text-right">
                               <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Estimado</p>
-                              <p className="font-black text-primary">R$ {validatedTicket.receiptInfo?.valorTotal.toFixed(2)}</p>
+                              <p className="font-black text-primary text-xl">R$ {validatedTicket.receiptInfo?.valorTotal.toFixed(2)}</p>
                             </div>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            <p><strong>Cliente:</strong> {validatedTicket.receiptInfo?.cliente}</p>
-                            <p><strong>Vendedor:</strong> {validatedTicket.receiptInfo?.vendedorRole}</p>
-                            <p className="col-span-2"><strong>Evento:</strong> {validatedTicket.receiptInfo?.eventoNome}</p>
+                          <div className="grid grid-cols-2 gap-4 text-xs font-bold">
+                            <p className="flex flex-col"><span className="text-[9px] uppercase text-muted-foreground">Cliente:</span> {validatedTicket.receiptInfo?.cliente}</p>
+                            <p className="flex flex-col"><span className="text-[9px] uppercase text-muted-foreground">Vendedor:</span> {validatedTicket.receiptInfo?.vendedorRole}</p>
+                            <p className="col-span-2 flex flex-col"><span className="text-[9px] uppercase text-muted-foreground">Concurso:</span> {validatedTicket.receiptInfo?.eventoNome}</p>
                           </div>
 
-                          {validatedTicket.status === 'ganhou' && (
-                            <Button onClick={handlePayPrize} className="w-full bg-green-600 hover:bg-green-700 h-12 font-black uppercase">
-                              Baixar Prêmio e Confirmar Pagamento
+                          {validatedTicket.status === 'ganhou' ? (
+                            <Button onClick={handlePayPrize} className="w-full bg-green-600 hover:bg-green-700 h-14 font-black uppercase shadow-xl group">
+                              <CheckCircle2 className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                              Efetuar Baixa e Liberar Saldo
                             </Button>
-                          )}
+                          ) : validatedTicket.status === 'pago' ? (
+                            <div className="flex items-center justify-center gap-2 p-4 bg-blue-100 rounded-xl text-blue-700 font-black uppercase text-sm border-2 border-blue-200">
+                               <AlertCircle className="w-5 h-5" /> OPERAÇÃO JÁ REALIZADA
+                            </div>
+                          ) : null}
                         </CardContent>
                       </Card>
                     )}
@@ -232,3 +276,4 @@ export default function FinanceiroPage() {
     </div>
   );
 }
+
