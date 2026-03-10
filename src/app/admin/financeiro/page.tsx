@@ -9,17 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { 
-  Filter, 
   UserCheck, 
-  Users, 
-  DollarSign, 
   CheckCircle2, 
-  XCircle,
   UserPlus,
-  ShieldCheck,
   History,
-  TrendingUp,
-  ReceiptText
+  ReceiptText,
+  Search,
+  Trophy,
+  DollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/types/auth';
@@ -29,13 +26,12 @@ export default function FinanceiroPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [bingosFinalizados, setBingosFinalizados] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
-  const [gerentes, setGerentes] = useState<UserProfile[]>([]);
-  const [newGerente, setNewGerente] = useState({ nome: '', email: '' });
+  const [validationCode, setValidationCode] = useState('');
+  const [validatedTicket, setValidatedTicket] = useState<any>(null);
 
   useEffect(() => {
     const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    setPendingUsers(allUsers.filter((u: UserProfile) => u.status === 'pending' && u.role === 'cambista'));
-    setGerentes(allUsers.filter((u: UserProfile) => u.role === 'gerente'));
+    setPendingUsers(allUsers.filter((u: UserProfile) => u.status === 'pending' && (u.role === 'cambista' || u.role === 'gerente')));
 
     const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     setTickets(allTickets);
@@ -51,10 +47,57 @@ export default function FinanceiroPage() {
     );
     localStorage.setItem('leobet_users', JSON.stringify(updated));
     setPendingUsers(pendingUsers.filter(u => u.id !== userId));
-    toast({ title: "Cambista Aprovado!", description: "O acesso agora está liberado." });
+    toast({ title: "Acesso Aprovado!", description: "O usuário agora está liberado." });
   };
 
-  const calculateCommissions = () => {
+  const handleValidatePrize = () => {
+    if (validationCode.length < 11) {
+      toast({ variant: "destructive", title: "Erro", description: "Código inválido." });
+      return;
+    }
+
+    const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    let found = null;
+
+    allReceipts.forEach((receipt: any) => {
+      const ticket = receipt.tickets.find((t: any) => t.id === validationCode);
+      if (ticket) found = { ...ticket, receiptInfo: receipt };
+    });
+
+    if (found) {
+      setValidatedTicket(found);
+      if (found.status === 'ganhou') {
+        toast({ title: "Bilhete Premiado!", description: "Este bilhete é um vencedor." });
+      } else if (found.status === 'pago') {
+        toast({ variant: "destructive", title: "Já Pago", description: "Este prêmio já foi resgatado." });
+      } else {
+        toast({ variant: "destructive", title: "Não Premiado", description: "Este bilhete não possui prêmios." });
+      }
+    } else {
+      toast({ variant: "destructive", title: "Não Encontrado", description: "Código não localizado no sistema." });
+    }
+  };
+
+  const handlePayPrize = () => {
+    if (!validatedTicket) return;
+
+    const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const updatedReceipts = allReceipts.map((receipt: any) => {
+      return {
+        ...receipt,
+        tickets: receipt.tickets.map((t: any) => 
+          t.id === validatedTicket.id ? { ...t, status: 'pago' } : t
+        )
+      };
+    });
+
+    localStorage.setItem('leobet_tickets', JSON.stringify(updatedReceipts));
+    setTickets(updatedReceipts);
+    setValidatedTicket({ ...validatedTicket, status: 'pago' });
+    toast({ title: "Sucesso!", description: "Prêmio baixado e marcado como PAGO." });
+  };
+
+  const calculateFinance = () => {
     let org = 0;
     let cambista = 0;
     let gerente = 0;
@@ -66,14 +109,14 @@ export default function FinanceiroPage() {
       if (t.vendedorRole === 'cambista') cambista += t.valorTotal * 0.10;
       if (t.vendedorRole === 'gerente') {
         gerente += t.valorTotal * 0.05;
-        cambista += t.valorTotal * 0.10; // Gerente ganha comissão de venda também
+        cambista += t.valorTotal * 0.10;
       }
     });
 
-    return { org, totalComissao: cambista + gerente, bruto, premios: bruto * 0.65 };
+    return { org, cambista, gerente, bruto, premios: bruto * 0.65 };
   };
 
-  const finance = calculateCommissions();
+  const finance = calculateFinance();
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -82,47 +125,26 @@ export default function FinanceiroPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black font-headline uppercase text-primary leading-tight">Gestão Financeira Master</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Controle Total: Organizador (20%) | Cambista (10%) | Gerente (5%)</p>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Controle Master • LEOBET PRO</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-primary text-white">
-              <CardContent className="p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Meu Lucro (20%)</p>
-                <p className="text-2xl font-black">R$ {finance.org.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-accent text-white">
-              <CardContent className="p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Comissões (15%)</p>
-                <p className="text-2xl font-black">R$ {finance.totalComissao.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-green-600 text-white">
-              <CardContent className="p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados (65%)</p>
-                <p className="text-2xl font-black">R$ {finance.premios.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-600 text-white">
-              <CardContent className="p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Faturamento Bruto</p>
-                <p className="text-2xl font-black">R$ {finance.bruto.toFixed(2)}</p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <Card className="bg-primary text-white"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Organizador (20%)</p><p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-blue-600 text-white"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Cambistas (10%)</p><p className="text-xl font-black">R$ {finance.cambista.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-purple-600 text-white"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Gerentes (5%)</p><p className="text-xl font-black">R$ {finance.gerente.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-green-600 text-white"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Prêmios (65%)</p><p className="text-xl font-black">R$ {finance.premios.toFixed(2)}</p></CardContent></Card>
+            <Card className="bg-orange-600 text-white"><CardContent className="p-4"><p className="text-[9px] font-black uppercase opacity-60">Bruto Total</p><p className="text-xl font-black">R$ {finance.bruto.toFixed(2)}</p></CardContent></Card>
           </div>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-black uppercase">Painel Administrativo</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-sm font-black uppercase">Painel de Operações</CardTitle></CardHeader>
             <CardContent>
               <Tabs defaultValue="vendas">
                 <TabsList className="mb-6 bg-muted p-1">
                   <TabsTrigger value="vendas" className="font-bold gap-2"><ReceiptText className="w-4 h-4" /> Vendas</TabsTrigger>
                   <TabsTrigger value="sorteios" className="font-bold gap-2"><History className="w-4 h-4" /> Sorteios</TabsTrigger>
                   <TabsTrigger value="cambistas" className="font-bold gap-2"><UserPlus className="w-4 h-4" /> Aprovações</TabsTrigger>
-                  <TabsTrigger value="resgate" className="font-bold gap-2"><CheckCircle2 className="w-4 h-4" /> Baixar Prêmio</TabsTrigger>
+                  <TabsTrigger value="resgate" className="font-bold gap-2"><Trophy className="w-4 h-4" /> Validar Prêmio</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="vendas">
@@ -138,7 +160,10 @@ export default function FinanceiroPage() {
                              </div>
                              <div className="text-right space-y-1">
                                 <p className="font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
-                                <Badge variant="outline" className="text-[8px] font-black uppercase">{t.vendedorRole}</Badge>
+                                <div className="flex gap-1 justify-end">
+                                  <Badge variant="outline" className="text-[7px] font-black">ORG: R$ {(t.valorTotal * 0.2).toFixed(2)}</Badge>
+                                  <Badge variant="secondary" className="text-[7px] font-black">CAMB: R$ {(t.valorTotal * 0.1).toFixed(2)}</Badge>
+                                </div>
                              </div>
                           </div>
                         ))
@@ -146,63 +171,57 @@ export default function FinanceiroPage() {
                    </div>
                 </TabsContent>
 
-                <TabsContent value="sorteios">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {bingosFinalizados.map(b => (
-                        <Card key={b.id} className="border-l-4 border-l-green-600">
-                          <CardContent className="p-4 space-y-3">
-                             <div className="flex justify-between items-center">
-                               <p className="font-black uppercase text-sm">{b.nome}</p>
-                               <Badge className="bg-green-600 font-black text-[9px] uppercase">Finalizado</Badge>
-                             </div>
-                             <div className="bg-muted p-2 rounded text-[10px] font-mono leading-relaxed">
-                                B_O_L_A_S: {b.bolasSorteadas?.join(', ')}
-                             </div>
-                             <p className="text-[9px] font-bold text-muted-foreground uppercase">Sorteio em: {new Date(b.dataSorteio).toLocaleString('pt-BR')}</p>
-                          </CardContent>
-                        </Card>
-                      ))}
-                      {bingosFinalizados.length === 0 && <div className="col-span-2 text-center py-20 opacity-30 italic">Nenhum sorteio finalizado no histórico</div>}
-                   </div>
-                </TabsContent>
-
-                <TabsContent value="cambistas">
-                   {pendingUsers.length === 0 ? (
-                      <div className="text-center py-20 border rounded-xl bg-white">
-                        <UserPlus className="w-12 h-12 mx-auto text-muted-foreground opacity-20 mb-4" />
-                        <p className="font-black uppercase tracking-widest text-xs text-muted-foreground">Sem solicitações pendentes</p>
+                <TabsContent value="resgate">
+                  <div className="max-w-2xl mx-auto py-10 space-y-6">
+                    <div className="text-center space-y-2">
+                      <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                        <Search className="w-8 h-8 text-primary" />
                       </div>
-                   ) : (
-                      <div className="space-y-4">
-                        {pendingUsers.map(user => (
-                          <div key={user.id} className="flex items-center justify-between p-4 bg-white border rounded-xl">
+                      <h3 className="font-black uppercase text-lg">Validação de Bilhetes</h3>
+                      <p className="text-xs text-muted-foreground font-bold">Insira o código de 11 dígitos para conferir e baixar prêmios.</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="CÓDIGO DE 11 DÍGITOS" 
+                        className="h-14 font-black text-center text-xl tracking-[0.2em]" 
+                        maxLength={11}
+                        value={validationCode}
+                        onChange={(e) => setValidationCode(e.target.value.toUpperCase())}
+                      />
+                      <Button onClick={handleValidatePrize} className="h-14 font-black uppercase px-8 shadow-lg">Validar</Button>
+                    </div>
+
+                    {validatedTicket && (
+                      <Card className="border-2 border-primary animate-in zoom-in-95">
+                        <CardContent className="p-6 space-y-4">
+                          <div className="flex justify-between border-b pb-4">
                             <div>
-                              <p className="font-black uppercase">{user.nome}</p>
-                              <p className="text-xs text-muted-foreground font-bold">{user.email}</p>
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">Status do Bilhete</p>
+                              <Badge className={validatedTicket.status === 'ganhou' ? "bg-green-600" : "bg-muted text-muted-foreground"}>
+                                {validatedTicket.status?.toUpperCase() || 'EM ABERTO'}
+                              </Badge>
                             </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" className="bg-green-600 font-black uppercase" onClick={() => approveUser(user.id)}>Aprovar</Button>
-                              <Button size="sm" variant="destructive" className="font-black uppercase">Recusar</Button>
+                            <div className="text-right">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Estimado</p>
+                              <p className="font-black text-primary">R$ {validatedTicket.receiptInfo?.valorTotal.toFixed(2)}</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                   )}
-                </TabsContent>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <p><strong>Cliente:</strong> {validatedTicket.receiptInfo?.cliente}</p>
+                            <p><strong>Vendedor:</strong> {validatedTicket.receiptInfo?.vendedorRole}</p>
+                            <p className="col-span-2"><strong>Evento:</strong> {validatedTicket.receiptInfo?.eventoNome}</p>
+                          </div>
 
-                <TabsContent value="resgate">
-                  <div className="max-w-md mx-auto py-10 space-y-6 text-center">
-                    <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
-                      <UserCheck className="w-10 h-10 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-black uppercase text-lg">Resgate de Código Premiado</h3>
-                      <p className="text-xs text-muted-foreground mt-1 font-bold">Solicite o código de 11 dígitos ao cliente para validar o prêmio.</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input placeholder="CÓDIGO DE 11 DÍGITOS" className="h-14 font-black text-center text-xl tracking-[0.2em]" maxLength={11} />
-                      <Button className="h-14 font-black uppercase px-8 shadow-lg">Validar</Button>
-                    </div>
+                          {validatedTicket.status === 'ganhou' && (
+                            <Button onClick={handlePayPrize} className="w-full bg-green-600 hover:bg-green-700 h-12 font-black uppercase">
+                              Baixar Prêmio e Confirmar Pagamento
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

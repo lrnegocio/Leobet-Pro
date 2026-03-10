@@ -11,7 +11,7 @@ import {
   Grid3X3, 
   LogOut,
   Wallet,
-  QrCode,
+  Search,
   ShoppingCart,
   Users
 } from 'lucide-react';
@@ -30,9 +30,9 @@ const navItems: NavItem[] = [
   { label: 'Vendas', href: '/cambista/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cambista'] },
   { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Terminal Vendas', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente'] },
+  { label: 'Conferir Bilhete', href: '/resultados', icon: <Search className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Bingo', href: '/admin/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Bolão', href: '/admin/bolao', icon: <Trophy className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Baixar Bilhete', href: '/cambista/resgate', icon: <QrCode className="w-5 h-5" />, roles: ['cambista', 'admin'] },
   { label: 'Financeiro', href: '/admin/financeiro', icon: <Wallet className="w-5 h-5" />, roles: ['admin'] },
 ];
 
