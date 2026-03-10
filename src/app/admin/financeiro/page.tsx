@@ -31,7 +31,11 @@ import {
   Youtube,
   UserCheck,
   AlertCircle,
-  Key
+  Key,
+  Trash2,
+  Lock,
+  Unlock,
+  Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -158,6 +162,23 @@ function FinanceiroContent() {
       gerenteId: 'admin-master'
     });
     loadData();
+  };
+
+  const deleteUser = (userId: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.filter((u: any) => u.id !== userId);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: "USUÁRIO EXCLUÍDO!" });
+  };
+
+  const toggleUserStatus = (userId: string, currentStatus: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const newStatus = currentStatus === 'approved' ? 'pending' : 'approved';
+    const updated = users.map((u: any) => u.id === userId ? { ...u, status: newStatus } : u);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: `USUÁRIO ${newStatus === 'approved' ? 'ATIVADO' : 'BLOQUEADO'}!` });
   };
 
   const approveUser = (userId: string) => {
@@ -482,40 +503,45 @@ function FinanceiroContent() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Nome Completo</Label>
-                          <Input value={newPartner.nome} onChange={e => setNewPartner({...newPartner, nome: e.target.value.toUpperCase()})} required className="h-9 text-xs font-bold" />
+                          <input 
+                            value={newPartner.nome} 
+                            onChange={e => setNewPartner({...newPartner, nome: e.target.value.toUpperCase()})} 
+                            required 
+                            className="w-full h-9 border rounded px-3 text-xs font-bold" 
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                            <div className="space-y-1">
                              <Label className="text-[10px] font-black uppercase">CPF</Label>
-                             <Input value={newPartner.cpf} onChange={e => setNewPartner({...newPartner, cpf: e.target.value})} required className="h-9 text-xs font-bold" />
+                             <input value={newPartner.cpf} onChange={e => setNewPartner({...newPartner, cpf: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                            </div>
                            <div className="space-y-1">
                              <Label className="text-[10px] font-black uppercase">Nascimento</Label>
-                             <Input type="date" value={newPartner.birthDate} onChange={e => setNewPartner({...newPartner, birthDate: e.target.value})} required className="h-9 text-xs font-bold" />
+                             <input type="date" value={newPartner.birthDate} onChange={e => setNewPartner({...newPartner, birthDate: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                            </div>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">WhatsApp (Com DDD)</Label>
-                          <Input value={newPartner.phone} onChange={e => setNewPartner({...newPartner, phone: e.target.value})} required className="h-9 text-xs font-bold" />
+                          <input value={newPartner.phone} onChange={e => setNewPartner({...newPartner, phone: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Chave PIX</Label>
-                          <Input value={newPartner.pixKey} onChange={e => setNewPartner({...newPartner, pixKey: e.target.value})} required className="h-9 text-xs font-bold" />
+                          <input value={newPartner.pixKey} onChange={e => setNewPartner({...newPartner, pixKey: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Usuário/Email</Label>
-                          <Input value={newPartner.email} onChange={e => setNewPartner({...newPartner, email: e.target.value})} required className="h-9 text-xs font-bold" />
+                          <input value={newPartner.email} onChange={e => setNewPartner({...newPartner, email: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Senha Inicial</Label>
                           <div className="relative">
                             <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input 
+                            <input 
                               type="text" 
                               value={newPartner.password} 
                               onChange={e => setNewPartner({...newPartner, password: e.target.value})} 
                               required 
-                              className="h-9 pl-9 text-xs font-bold" 
+                              className="w-full h-9 pl-9 border rounded px-3 text-xs font-bold" 
                             />
                           </div>
                         </div>
@@ -551,30 +577,60 @@ function FinanceiroContent() {
                                    <div className="flex items-center gap-2">
                                      <p className="font-black uppercase text-xs">{u.nome}</p>
                                      <Badge className={`${u.status === 'approved' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black`}>
-                                       {u.status === 'approved' ? 'ATIVO' : 'PENDENTE'}
+                                       {u.status === 'approved' ? 'ATIVO' : 'BLOQUEADO'}
                                      </Badge>
                                    </div>
                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">{u.role} • {u.phone}</p>
                                 </div>
                              </div>
-                             <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                   <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo Total</p>
-                                   <p className="text-sm font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
+                             <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right mr-4">
+                                   <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo</p>
+                                   <p className="text-xs font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
                                 </div>
-                                {u.role === 'cambista' && (
-                                   <div className="flex items-center gap-2 border-l pl-4">
-                                      <select 
-                                        className="h-8 border rounded px-2 text-[9px] font-black uppercase"
-                                        value={u.gerenteId || 'admin-master'}
-                                        onChange={e => transferCambista(u.id, e.target.value)}
-                                      >
-                                        <option value="admin-master">MIGRAR P/ MASTER</option>
-                                        {gerentes.filter(g => g.id !== u.id).map(g => <option key={g.id} value={g.id}>TRANSFERIR P/ {g.nome}</option>)}
-                                      </select>
-                                   </div>
-                                )}
+                                
+                                <div className="flex gap-1">
+                                   <Button 
+                                     size="icon" 
+                                     variant="ghost" 
+                                     className="h-8 w-8 text-primary" 
+                                     onClick={() => toggleUserStatus(u.id, u.status)}
+                                     title={u.status === 'approved' ? 'Bloquear' : 'Desbloquear'}
+                                   >
+                                     {u.status === 'approved' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                                   </Button>
+                                   
+                                   <AlertDialog>
+                                     <AlertDialogTrigger asChild>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Excluir">
+                                         <Trash2 className="w-4 h-4" />
+                                       </Button>
+                                     </AlertDialogTrigger>
+                                     <AlertDialogContent className="bg-white rounded-2xl">
+                                       <AlertDialogHeader>
+                                         <AlertDialogTitle className="font-black uppercase text-center">Excluir Parceiro?</AlertDialogTitle>
+                                         <AlertDialogDescription className="text-center font-bold">Isso removerá {u.nome} definitivamente da base.</AlertDialogDescription>
+                                       </AlertDialogHeader>
+                                       <AlertDialogFooter className="flex gap-2">
+                                         <AlertDialogCancel className="flex-1 uppercase font-black">Cancelar</AlertDialogCancel>
+                                         <AlertDialogAction onClick={() => deleteUser(u.id)} className="flex-1 bg-destructive uppercase font-black">Excluir Agora</AlertDialogAction>
+                                       </AlertDialogFooter>
+                                     </AlertDialogContent>
+                                   </AlertDialog>
+                                </div>
                              </div>
+                             {u.role === 'cambista' && (
+                                <div className="flex items-center gap-2 border-l pl-4 shrink-0">
+                                   <select 
+                                     className="h-8 border rounded px-2 text-[9px] font-black uppercase"
+                                     value={u.gerenteId || 'admin-master'}
+                                     onChange={e => transferCambista(u.id, e.target.value)}
+                                   >
+                                     <option value="admin-master">MIGRAR P/ MASTER</option>
+                                     {gerentes.filter(g => g.id !== u.id).map(g => <option key={g.id} value={g.id}>P/ {g.nome}</option>)}
+                                   </select>
+                                </div>
+                             )}
                           </Card>
                         ))}
                      </div>

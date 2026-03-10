@@ -74,12 +74,12 @@ export default function LoginContent() {
       return;
     }
 
-    // Verifica se a senha confere (trata senhas vazias de cadastros antigos como erro)
-    if (foundUser.password !== password || !foundUser.password) {
+    // Verifica se a senha confere
+    if (foundUser.password !== password) {
       toast({
         variant: "destructive",
         title: "Senha Incorreta",
-        description: "A senha informada não confere com nossos registros.",
+        description: "A senha informada não confere.",
       });
       setLoading(false);
       return;
@@ -90,7 +90,7 @@ export default function LoginContent() {
       toast({
         variant: "destructive",
         title: "Acesso Pendente",
-        description: "Sua conta ainda está em análise pelo administrador.",
+        description: "Sua conta ainda está em análise ou foi bloqueada.",
       });
       setLoading(false);
       return;
@@ -116,7 +116,7 @@ export default function LoginContent() {
             <Lock className="w-6 h-6 text-accent" />
           </div>
           <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tight">Login Sistema</CardTitle>
-          <CardDescription>Acesse seu painel de {roleFromUrl}</CardDescription>
+          <CardDescription>Acesse seu painel LEOBET</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
