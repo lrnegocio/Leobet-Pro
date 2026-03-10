@@ -121,6 +121,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   if (!bolao) return null;
 
+  const partidasArray = Array.isArray(bolao.partidas) ? bolao.partidas : Array(10).fill({ time1: 'Time A', time2: 'Time B' });
+
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
@@ -154,7 +156,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
-                 {bolao.partidas?.map((p: any, i: number) => (
+                 {partidasArray.map((p: any, i: number) => (
                    <div key={i} className="flex flex-col md:flex-row items-center gap-4 p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-accent transition-all">
                       <div className="flex-1 space-y-1">
                          <Badge className="font-black text-[9px] h-5 px-3 mb-1">JOGO #{i+1}</Badge>

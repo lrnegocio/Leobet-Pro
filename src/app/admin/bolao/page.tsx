@@ -23,6 +23,14 @@ export default function BolaoPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const deleteBolao = (id: string) => {
+    if (confirm("Deseja excluir este Bolão?")) {
+      const updated = boloes.filter(b => b.id !== id);
+      setBoloes(updated);
+      localStorage.setItem('leobet_boloes', JSON.stringify(updated));
+    }
+  };
+
   return (
     <div className="flex h-screen bg-muted/30">
       <SidebarNav />
@@ -47,6 +55,7 @@ export default function BolaoPage() {
               const limit = new Date(startDate.getTime() - 60000);
               const isSalesClosed = bolao.status === 'finalizado' || bolao.status === 'encerrado' || now >= limit;
               const isFinished = bolao.status === 'finalizado' || bolao.status === 'encerrado';
+              const numPartidas = Array.isArray(bolao.partidas) ? bolao.partidas.length : 0;
               
               return (
                 <Card key={bolao.id} className={`hover:shadow-md transition-all border-l-4 overflow-hidden ${isFinished ? 'border-l-green-600' : 'border-l-accent'}`}>
@@ -67,7 +76,7 @@ export default function BolaoPage() {
                           </div>
                           <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                             <Trophy className="w-3.5 h-3.5 text-accent" />
-                            <span>{bolao.partidas || 0} Jogos</span>
+                            <span>{numPartidas} Jogos</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                             <Users className="w-3.5 h-3.5 text-accent" />
@@ -86,8 +95,8 @@ export default function BolaoPage() {
                             {isFinished ? "Ver Auditoria" : "Lançar Placares"}
                           </Button>
                         </Link>
-                        <Button variant="outline" size="icon" className="h-10 w-10">
-                          <Settings2 className="w-4 h-4 text-primary" />
+                        <Button variant="ghost" size="icon" onClick={() => deleteBolao(bolao.id)} className="h-10 w-10 text-destructive hover:bg-destructive/10">
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>

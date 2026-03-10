@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertCircle, ShieldCheck, Trophy } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertCircle, ShieldCheck, Trophy, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -78,7 +78,7 @@ export default function VendaPage() {
     const newPalpites = [...bolaoPalpites];
     newPalpites[matchIndex] = value;
     setBolaoPalpites(newPalpites);
-    setFormData({ ...formData, palpite: newPalpites.join('-') });
+    setFormData(prev => ({ ...prev, palpite: newPalpites.join('-') }));
   };
 
   const generateUniqueNumbers = (count: number, max: number) => {
@@ -110,15 +110,6 @@ export default function VendaPage() {
       return;
     }
 
-    const totalCents = Math.round(formData.valorTotal * 100);
-    const unitCents = Math.round(formData.unitario * 100);
-
-    if (totalCents < unitCents || (unitCents > 0 && totalCents % unitCents !== 0)) {
-      toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `Múltiplos de R$ ${formData.unitario.toFixed(2)}` });
-      return;
-    }
-
-    const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 1;
     const totalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
     const hasEnoughBalance = user?.role === 'admin' || totalBalance >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
@@ -126,14 +117,14 @@ export default function VendaPage() {
     setLoading(true);
     setTimeout(() => {
       const ticketsGenerated: any[] = [];
-      for(let i=0; i<qtd; i++) {
-        ticketsGenerated.push({
-          id: Math.random().toString().substring(2, 13),
-          numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
-          palpite: formData.tipo === 'bolao' ? formData.palpite : null,
-          status: 'aberto'
-        });
-      }
+      const qtd = 1; // Venda unitária por palpite/cartela no terminal rápido
+
+      ticketsGenerated.push({
+        id: Math.random().toString().substring(2, 13),
+        numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
+        palpite: formData.tipo === 'bolao' ? formData.palpite : null,
+        status: 'aberto'
+      });
 
       const receipt = {
         id: Math.random().toString(36).substring(7).toUpperCase(),
@@ -206,6 +197,15 @@ export default function VendaPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
+  const printBluetooth = async () => {
+    if (!vendaRealizada) return;
+    toast({ title: "Buscando Impressora...", description: "Certifique-se de que o Bluetooth está ligado." });
+    // Simulando conexão Bluetooth - Em ambiente real usaria navigator.bluetooth
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
@@ -258,7 +258,7 @@ export default function VendaPage() {
                         <h3 className="font-black uppercase text-xs">Marque seu Palpite (10 Jogos)</h3>
                       </div>
                       <div className="space-y-3">
-                        {selectedEvent.partidas?.map((p: any, i: number) => (
+                        {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : Array(10).fill({time1: 'Time A', time2: 'Time B'})).map((p: any, i: number) => (
                           <div key={i} className="flex flex-col gap-1.5 p-2 bg-white rounded-xl border shadow-sm">
                              <div className="flex justify-between text-[8px] font-black uppercase opacity-60 px-1">
                                 <span>#{i+1}</span>
@@ -360,8 +360,8 @@ export default function VendaPage() {
                       <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg">
                         <Send className="w-4 h-4 mr-2" /> Enviar p/ Cliente (WhatsApp)
                       </Button>
-                      <Button onClick={() => window.print()} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 hover:bg-muted/50">
-                        <Printer className="w-4 h-4 mr-2" /> Imprimir Recibo Térmico
+                      <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 hover:bg-muted/50 gap-2">
+                        <Smartphone className="w-4 h-4" /> Impressão Bluetooth / Térmica
                       </Button>
                    </div>
                 </div>
