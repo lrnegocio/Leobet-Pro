@@ -1,13 +1,23 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Store, Loader2, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Grid3X3, Trophy } from 'lucide-react';
+import { Users, Store, ArrowUpCircle, ShoppingCart, Grid3X3, Trophy, Clock, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function AdminDashboard() {
   const [formattedDate, setFormattedDate] = useState<string>("");
+  const [pendingSales, setPendingSales] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalClientes: 0,
+    totalCambistas: 0,
+    pendentes: 0,
+  });
 
   useEffect(() => {
     setFormattedDate(
@@ -18,13 +28,19 @@ export default function AdminDashboard() {
         day: 'numeric' 
       })
     );
-  }, []);
 
-  const stats = {
-    totalClientes: 0,
-    totalCambistas: 0,
-    pendentes: 0,
-  };
+    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    
+    const pendings = allTickets.filter((t: any) => t.status === 'pendente');
+    setPendingSales(pendings);
+
+    setStats({
+      totalClientes: allUsers.filter((u: any) => u.role === 'cliente').length,
+      totalCambistas: allUsers.filter((u: any) => u.role === 'cambista').length,
+      pendentes: pendings.length + allUsers.filter((u: any) => u.status === 'pending').length
+    });
+  }, []);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -85,11 +101,32 @@ export default function AdminDashboard() {
             <Card className="bg-white">
               <CardHeader>
                 <CardTitle className="font-black uppercase text-sm flex items-center gap-2">
-                  <ArrowUpCircle className="w-4 h-4 text-primary" /> Aprovações Urgentes
+                  <Clock className="w-4 h-4 text-orange-600" /> Vendas Aguardando Aprovação
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-10 opacity-40 uppercase text-[10px] font-black tracking-widest">Em breve...</div>
+                <div className="space-y-4">
+                  {pendingSales.length === 0 ? (
+                    <div className="text-center py-10 opacity-40 uppercase text-[10px] font-black tracking-widest">Nenhuma venda pendente</div>
+                  ) : (
+                    pendingSales.slice(0, 5).map((sale, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border rounded-xl bg-orange-50/30">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-black uppercase">{sale.cliente}</p>
+                          <p className="text-[9px] font-bold text-muted-foreground">{sale.eventoNome} • R$ {sale.valorTotal.toFixed(2)}</p>
+                        </div>
+                        <Link href="/admin/financeiro">
+                          <Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Ver no Financeiro</Button>
+                        </Link>
+                      </div>
+                    ))
+                  )}
+                  {pendingSales.length > 5 && (
+                    <Link href="/admin/financeiro" className="block text-center text-[10px] font-black uppercase text-primary hover:underline pt-2">
+                      Ver todas as {pendingSales.length} pendências
+                    </Link>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -100,22 +137,22 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
-                <button className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
+                <Link href="/admin/venda" className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
                   <ShoppingCart className="w-10 h-10 text-primary group-hover:text-white" />
                   <span className="text-xs font-black uppercase tracking-widest">Nova Venda</span>
-                </button>
-                <button className="p-6 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white hover:border-accent transition-all flex flex-col items-center gap-3 group">
+                </Link>
+                <Link href="/admin/bingo/novo" className="p-6 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white hover:border-accent transition-all flex flex-col items-center gap-3 group">
                   <Grid3X3 className="w-10 h-10 text-accent group-hover:text-white" />
                   <span className="text-xs font-black uppercase tracking-widest">Novo Bingo</span>
-                </button>
-                <button className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
+                </Link>
+                <Link href="/admin/bolao/novo" className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
                   <Trophy className="w-10 h-10 text-primary group-hover:text-white" />
                   <span className="text-xs font-black uppercase tracking-widest">Novo Bolão</span>
-                </button>
-                <button className="p-6 border-2 border-dashed rounded-2xl hover:bg-destructive hover:text-white hover:border-destructive transition-all flex flex-col items-center gap-3 group">
+                </Link>
+                <Link href="/admin/financeiro" className="p-6 border-2 border-dashed rounded-2xl hover:bg-destructive hover:text-white hover:border-destructive transition-all flex flex-col items-center gap-3 group">
                   <ArrowUpCircle className="w-10 h-10 text-destructive group-hover:text-white" />
                   <span className="text-xs font-black uppercase tracking-widest">Financeiro</span>
-                </button>
+                </Link>
               </CardContent>
             </Card>
           </div>

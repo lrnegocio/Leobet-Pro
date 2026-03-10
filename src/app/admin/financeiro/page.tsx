@@ -17,7 +17,9 @@ import {
   Search,
   Trophy,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  ThumbsUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/types/auth';
@@ -27,18 +29,24 @@ export default function FinanceiroPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [bingosFinalizados, setBingosFinalizados] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
+  const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [validationCode, setValidationCode] = useState('');
   const [validatedTicket, setValidatedTicket] = useState<any>(null);
 
   useEffect(() => {
-    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    setPendingUsers(allUsers.filter((u: UserProfile) => u.status === 'pending' && (u.role === 'cambista' || u.role === 'gerente')));
+    const loadData = () => {
+      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+      setPendingUsers(allUsers.filter((u: UserProfile) => u.status === 'pending'));
 
-    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    setTickets(allTickets);
+      const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+      setTickets(allTickets);
+      setPendingSales(allTickets.filter((t: any) => t.status === 'pendente'));
 
-    const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
-    setBingosFinalizados(allBingos.filter((b: any) => b.status === 'finalizado'));
+      const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+      setBingosFinalizados(allBingos.filter((b: any) => b.status === 'finalizado'));
+    };
+    
+    loadData();
   }, []);
 
   const approveUser = (userId: string) => {
@@ -49,6 +57,23 @@ export default function FinanceiroPage() {
     localStorage.setItem('leobet_users', JSON.stringify(updated));
     setPendingUsers(pendingUsers.filter(u => u.id !== userId));
     toast({ title: "Acesso Aprovado!", description: "O usuário agora está liberado." });
+  };
+
+  const approveSale = (saleId: string) => {
+    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const updated = allTickets.map((t: any) => {
+      // Usamos uma lógica simples para encontrar a venda, já que o ID pode ser do bilhete ou do recibo
+      // Aqui estamos tratando 't' como o objeto do recibo que contém a lista de tickets
+      if (t.tickets.some((tk: any) => tk.id === saleId) || t.data === saleId) {
+        return { ...t, status: 'pago' };
+      }
+      return t;
+    });
+    
+    localStorage.setItem('leobet_tickets', JSON.stringify(updated));
+    setTickets(updated);
+    setPendingSales(updated.filter((t: any) => t.status === 'pendente'));
+    toast({ title: "Venda Aprovada!", description: "O bilhete agora é válido para o sorteio." });
   };
 
   const handleValidatePrize = () => {
@@ -114,7 +139,8 @@ export default function FinanceiroPage() {
     let gerente = 0;
     let bruto = 0;
 
-    tickets.forEach(t => {
+    // Apenas vendas pagas entram no cálculo financeiro real
+    tickets.filter(t => t.status === 'pago').forEach(t => {
       bruto += t.valorTotal;
       org += t.valorTotal * 0.20;
       if (t.vendedorRole === 'cambista') cambista += t.valorTotal * 0.10;
@@ -150,24 +176,55 @@ export default function FinanceiroPage() {
           <Card>
             <CardHeader><CardTitle className="text-sm font-black uppercase">Painel de Operações</CardTitle></CardHeader>
             <CardContent>
-              <Tabs defaultValue="vendas">
+              <Tabs defaultValue="pendentes">
                 <TabsList className="mb-6 bg-muted p-1">
-                  <TabsTrigger value="vendas" className="font-bold gap-2"><ReceiptText className="w-4 h-4" /> Vendas</TabsTrigger>
+                  <TabsTrigger value="pendentes" className="font-bold gap-2 text-orange-600"><Clock className="w-4 h-4" /> Vendas Pendentes ({pendingSales.length})</TabsTrigger>
+                  <TabsTrigger value="vendas" className="font-bold gap-2"><ReceiptText className="w-4 h-4" /> Todas as Vendas</TabsTrigger>
                   <TabsTrigger value="sorteios" className="font-bold gap-2"><History className="w-4 h-4" /> Histórico Sorteios</TabsTrigger>
-                  <TabsTrigger value="cambistas" className="font-bold gap-2"><UserPlus className="w-4 h-4" /> Aprovações</TabsTrigger>
+                  <TabsTrigger value="cambistas" className="font-bold gap-2"><UserPlus className="w-4 h-4" /> Aprovar Cambistas ({pendingUsers.length})</TabsTrigger>
                   <TabsTrigger value="resgate" className="font-bold gap-2 text-accent"><Trophy className="w-4 h-4" /> Validar & Pagar</TabsTrigger>
                 </TabsList>
                 
+                <TabsContent value="pendentes">
+                   <div className="space-y-4">
+                      {pendingSales.length === 0 ? (
+                        <div className="text-center py-20 border rounded-xl opacity-30">Nenhuma venda aguardando aprovação</div>
+                      ) : (
+                        pendingSales.map((t, i) => (
+                          <div key={i} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-xl text-xs shadow-sm">
+                             <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-[8px] border-orange-400 text-orange-600 font-black">AGUARDANDO PIX/DEPÓSITO</Badge>
+                                  <p className="font-black uppercase text-sm">{t.cliente}</p>
+                                </div>
+                                <p className="text-muted-foreground font-bold">{t.eventoNome} • {t.data}</p>
+                                <p className="text-[10px] italic">Vendido por: {t.vendedorRole || 'Admin'}</p>
+                             </div>
+                             <div className="flex items-center gap-4">
+                               <div className="text-right space-y-1 mr-4">
+                                  <p className="font-black text-orange-600 text-lg">R$ {t.valorTotal.toFixed(2)}</p>
+                               </div>
+                               <Button onClick={() => approveSale(t.data)} className="bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] h-10 px-6 gap-2">
+                                 <ThumbsUp className="w-4 h-4" /> Aprovar Venda
+                               </Button>
+                             </div>
+                          </div>
+                        ))
+                      )}
+                   </div>
+                </TabsContent>
+
                 <TabsContent value="vendas">
                    <div className="space-y-4">
                       {tickets.length === 0 ? (
                         <div className="text-center py-20 border rounded-xl opacity-30">Sem vendas registradas</div>
                       ) : (
                         tickets.map((t, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 bg-white border rounded-xl text-xs">
+                          <div key={i} className={`flex items-center justify-between p-4 bg-white border rounded-xl text-xs ${t.status === 'pendente' ? 'opacity-60 grayscale' : ''}`}>
                              <div className="space-y-1">
                                 <p className="font-black uppercase">{t.cliente}</p>
                                 <p className="text-muted-foreground">{t.eventoNome} • {t.data}</p>
+                                {t.status === 'pendente' && <Badge className="bg-orange-500 text-[8px]">PENDENTE</Badge>}
                              </div>
                              <div className="text-right space-y-1">
                                 <p className="font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
@@ -204,6 +261,26 @@ export default function FinanceiroPage() {
                         ))
                       )}
                    </div>
+                </TabsContent>
+
+                <TabsContent value="cambistas">
+                  <div className="space-y-4">
+                    {pendingUsers.length === 0 ? (
+                      <div className="text-center py-20 border rounded-xl opacity-30">Nenhum cambista aguardando aprovação</div>
+                    ) : (
+                      pendingUsers.map((u, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm">
+                          <div className="space-y-1">
+                            <p className="font-black uppercase text-primary">{u.nome}</p>
+                            <p className="text-xs text-muted-foreground">{u.email} • {u.role.toUpperCase()}</p>
+                          </div>
+                          <Button onClick={() => approveUser(u.id)} className="bg-primary font-black uppercase text-[10px] h-9 gap-2">
+                            <UserCheck className="w-4 h-4" /> Aprovar Acesso
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="resgate">
@@ -276,4 +353,3 @@ export default function FinanceiroPage() {
     </div>
   );
 }
-

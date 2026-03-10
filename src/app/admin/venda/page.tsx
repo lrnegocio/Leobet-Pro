@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Ticket, Printer, Send, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Ticket, Printer, Send, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -61,6 +61,11 @@ export default function VendaPage() {
     }
 
     const qtd = formData.unitario > 0 ? Math.floor(formData.valorTotal / formData.unitario) : 0;
+    
+    // Verificação de Saldo Inteligente
+    const hasEnoughBalance = user?.role === 'admin' || (user?.balance || 0) >= formData.valorTotal;
+    const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
+
     setLoading(true);
     
     setTimeout(() => {
@@ -69,13 +74,14 @@ export default function VendaPage() {
         tickets.push({
           id: Math.random().toString().substring(2, 13), // 11 dígitos
           numeros: formData.tipo === 'bingo' ? generateBingoTicket() : null,
-          palpite: formData.tipo === 'bolao' ? formData.palpite : null
+          palpite: formData.tipo === 'bolao' ? formData.palpite : null,
+          status: statusVenda === 'pago' ? 'aberto' : 'pendente'
         });
       }
       
       const receipt = {
-        data: new Date().toLocaleString('pt-BR'),
-        status: 'pago', // Admin sempre aprovado
+        data: new Date().toISOString(),
+        status: statusVenda,
         qtd,
         tickets,
         vendedorId: user?.id,
@@ -86,23 +92,44 @@ export default function VendaPage() {
       const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...allTickets, receipt]));
 
-      const storageKey = formData.tipo === 'bingo' ? 'leobet_bingos' : 'leobet_boloes';
-      const eventos = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const updatedEventos = eventos.map((ev: any) => 
-        ev.id === formData.eventoId ? { ...ev, vendidas: (ev.vendidas || 0) + qtd } : ev
-      );
-      localStorage.setItem(storageKey, JSON.stringify(updatedEventos));
+      if (hasEnoughBalance && user?.role !== 'admin') {
+        // Reduz saldo do cambista se for pago na hora
+        const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+        const updatedUsers = allUsers.map((u: any) => 
+          u.id === user?.id ? { ...u, balance: u.balance - formData.valorTotal } : u
+        );
+        localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+      }
+
+      // Atualiza contagem de vendidas se estiver pago
+      if (statusVenda === 'pago') {
+        const storageKey = formData.tipo === 'bingo' ? 'leobet_bingos' : 'leobet_boloes';
+        const eventos = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const updatedEventos = eventos.map((ev: any) => 
+          ev.id === formData.eventoId ? { ...ev, vendidas: (ev.vendidas || 0) + qtd } : ev
+        );
+        localStorage.setItem(storageKey, JSON.stringify(updatedEventos));
+      }
       
       setVendaRealizada(receipt);
       setLoading(false);
-      toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s).` });
+      
+      if (statusVenda === 'pendente') {
+        toast({ 
+          variant: "destructive", 
+          title: "VENDA PENDENTE", 
+          description: "Saldo insuficiente. A venda aguarda aprovação do Admin.",
+          duration: 10000
+        });
+      } else {
+        toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s).` });
+      }
     }, 600);
   };
 
   const shareWhatsApp = () => {
     if (!vendaRealizada) return;
     
-    // Prêmios baseados em 65% do bruto
     const evento = eventosAtivos.find(ev => ev.id === vendaRealizada.eventoId);
     const totalBruto = (evento?.vendidas || 0) * (evento?.preco || 0);
     const premioLiquido = totalBruto * 0.65;
@@ -119,7 +146,7 @@ export default function VendaPage() {
       `💰 *VALOR TOTAL:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
       `📌 *STATUS:* ${vendaRealizada.status.toUpperCase()}\n` +
       `--------------------------\n` +
-      `🏆 *PRÊMIO LÍQUIDO ATUAL: R$ ${premioLiquido.toFixed(2)}*\n` +
+      (vendaRealizada.status === 'pendente' ? `⚠️ *AGUARDANDO APROVAÇÃO FINANCEIRA*\n` : `🏆 *PRÊMIO LÍQUIDO ATUAL: R$ ${premioLiquido.toFixed(2)}*\n`) +
       `--------------------------\n` +
       ticketInfo +
       `\n📲 *Dúvidas/Suporte:* (82) 99334-3941\n` +
@@ -141,7 +168,7 @@ export default function VendaPage() {
             <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-primary/20 flex items-center gap-3">
                <div className="text-right">
                   <p className="text-[9px] font-black uppercase text-muted-foreground">Meu Saldo</p>
-                  <p className="text-sm font-black text-primary">ILIMITADO</p>
+                  <p className="text-sm font-black text-primary">{user?.role === 'admin' ? 'ILIMITADO' : `R$ ${user?.balance.toFixed(2)}`}</p>
                </div>
                <ShoppingCart className="w-5 h-5 text-accent" />
             </div>
@@ -214,22 +241,30 @@ export default function VendaPage() {
               </CardContent>
             </Card>
 
-            <Card className={vendaRealizada ? "border-accent border-2 shadow-2xl animate-in zoom-in-95" : "opacity-40"}>
+            <Card className={vendaRealizada ? `border-2 shadow-2xl animate-in zoom-in-95 ${vendaRealizada.status === 'pendente' ? 'border-orange-500' : 'border-accent'}` : "opacity-40"}>
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Printer className="w-4 h-4 text-accent" /> Comprovante Master</span>
+                  <span className="flex items-center gap-2">
+                    {vendaRealizada?.status === 'pendente' ? <AlertTriangle className="w-4 h-4 text-orange-600" /> : <Printer className="w-4 h-4 text-accent" />}
+                    Comprovante {vendaRealizada?.status === 'pendente' ? 'PENDENTE' : 'MASTER'}
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {vendaRealizada ? (
                   <div className="p-6 space-y-6">
                     <div className="bg-white p-6 border-4 border-double border-primary/20 font-code text-[11px] leading-relaxed relative shadow-inner">
+                       {vendaRealizada.status === 'pendente' && (
+                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 rotate-12">
+                           <p className="text-4xl font-black text-orange-600 border-8 border-orange-600 p-4">PENDENTE</p>
+                         </div>
+                       )}
                        <div className="text-center border-b-2 pb-4 mb-4">
                           <p className="font-black text-2xl tracking-tighter text-primary">LEOBET PRO</p>
                           <p className="text-[8px] font-bold text-muted-foreground">SISTEMA OFICIAL DE APOSTAS</p>
                        </div>
                        <div className="space-y-2">
-                          <p className="flex justify-between"><span>DATA:</span> <span>{vendaRealizada.data}</span></p>
+                          <p className="flex justify-between"><span>DATA:</span> <span>{new Date(vendaRealizada.data).toLocaleString('pt-BR')}</span></p>
                           <p className="flex justify-between"><span>CLIENTE:</span> <span className="font-black">{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>EVENTO:</span> <span className="font-black uppercase">{vendaRealizada.eventoNome}</span></p>
                           
@@ -251,9 +286,10 @@ export default function VendaPage() {
                           </div>
 
                           <div className="flex justify-between border-t-2 border-primary pt-2 mt-2">
-                             <span className="text-sm font-black uppercase">TOTAL PAGO:</span> 
+                             <span className="text-sm font-black uppercase">TOTAL:</span> 
                              <span className="text-sm font-black text-primary">R$ {vendaRealizada.valorTotal.toFixed(2)}</span>
                           </div>
+                          <p className="text-center text-[9px] font-black uppercase mt-2">Status: {vendaRealizada.status.toUpperCase()}</p>
                        </div>
                        <div className="text-center mt-6 pt-4 border-t border-dashed opacity-60">
                           <p className="font-bold">Dúvidas? (82) 99334-3941</p>
@@ -261,7 +297,7 @@ export default function VendaPage() {
                     </div>
                     <div className="flex flex-col gap-3">
                       <Button onClick={shareWhatsApp} className="w-full bg-green-600 hover:bg-green-700 font-black uppercase gap-2 h-12 shadow-md">
-                        <Send className="w-4 h-4" /> WhatsApp do Cliente
+                        <Send className="w-4 h-4" /> Enviar Recibo WhatsApp
                       </Button>
                       <div className="grid grid-cols-2 gap-3">
                         <Button variant="outline" className="font-black uppercase gap-2 h-11" onClick={() => window.print()}><Printer className="w-4 h-4" /> Imprimir</Button>
