@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,14 +31,13 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
-    // Trava de 1 minuto antes do sorteio (Bingo) ou 1 min antes da 1ª partida (Bolão)
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       const limit = new Date(drawDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     });
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      const startDate = new Date(b.dataFim); // dataFim no Bolão é o início dos jogos
+      const startDate = new Date(b.dataFim);
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     });
@@ -47,13 +46,25 @@ export default function VendaPage() {
 
   useEffect(() => {
     loadEventos();
-    const interval = setInterval(loadEventos, 10000); // Atualiza travas a cada 10s
+    const interval = setInterval(loadEventos, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const handleVenda = (e: React.FormEvent) => {
     e.preventDefault();
-    const ev = eventosAtivos.find(e => e.id === formData.eventoId);
+    
+    // Validação de WhatsApp com DDD
+    const cleanPhone = formData.whatsapp.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      toast({ 
+        variant: "destructive", 
+        title: "WHATSAPP INVÁLIDO", 
+        description: "Informe o telefone completo com DDD (ex: 82993343941)" 
+      });
+      return;
+    }
+
+    const ev = eventosAtivos.find(evItem => evItem.id === formData.eventoId);
     if (!ev) {
       toast({ variant: "destructive", title: "CONCURSO ENCERRADO OU TRAVADO" });
       return;
@@ -92,6 +103,7 @@ export default function VendaPage() {
         vendedorNome: user?.nome,
         gerenteId: user?.gerenteId || (user?.role === 'cambista' ? 'admin-master' : undefined),
         ...formData,
+        whatsapp: cleanPhone,
         tickets,
         qtd
       };
@@ -116,6 +128,33 @@ export default function VendaPage() {
     window.print();
   };
 
+  const handleWhatsApp = () => {
+    if (!vendaRealizada) return;
+    
+    const host = window.location.origin;
+    const link = `${host}/resultados?c=${vendaRealizada.tickets[0].id}`;
+    
+    let message = `*LEOBET PRO - RECIBO OFICIAL*%0A%0A`;
+    message += `👤 *CLIENTE:* ${vendaRealizada.cliente.toUpperCase()}%0A`;
+    message += `🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A`;
+    message += `💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A`;
+    message += `✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}%0A`;
+    message += `--------------------------%0A`;
+    message += `📊 *ACOMPANHAR EM TEMPO REAL:*%0A${link}%0A`;
+    message += `--------------------------%0A`;
+    
+    vendaRealizada.tickets.forEach((t: any, idx: number) => {
+      message += `%0A🎫 *BILHETE ${idx + 1}:* ${t.id}%0A`;
+      if (t.numeros) message += `🔢 *NÚMEROS:* ${t.numeros.join('-')}%0A`;
+      if (t.palpite) message += `⚽ *PALPITE:* ${t.palpite}%0A`;
+    });
+
+    message += `%0A📞 *Suporte:* (82) 99334-3941%0A`;
+    message += `🍀 *Boa sorte!*`;
+
+    window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
+  };
+
   return (
     <div className="flex h-screen bg-muted/30">
       <SidebarNav />
@@ -133,9 +172,10 @@ export default function VendaPage() {
               <CardContent className="p-8">
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Apostador</Label>
+                    <Label className="uppercase text-[10px] font-black">Nome Completo do Cliente</Label>
                     <Input placeholder="NOME DO CLIENTE" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} required />
-                    <Input placeholder="WHATSAPP" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required />
+                    <Label className="uppercase text-[10px] font-black mt-2">WhatsApp (Com DDD)</Label>
+                    <Input placeholder="82993343941" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required />
                   </div>
 
                   <div className="space-y-2">
@@ -164,7 +204,7 @@ export default function VendaPage() {
                   {formData.tipo === 'bolao' && (
                     <div className="space-y-2">
                        <Label className="uppercase text-[10px] font-black">Palpite da Rodada (Ex: 1-X-2-1...)</Label>
-                       <Input placeholder="DIXITE OS 10 PALPITES" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required />
+                       <Input placeholder="DIGITE OS 10 PALPITES" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required />
                     </div>
                   )}
 
@@ -237,7 +277,7 @@ export default function VendaPage() {
                       <Button onClick={handlePrint} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px] gap-2">
                         <Printer className="w-4 h-4" /> PDF/Imprimir
                       </Button>
-                      <Button className="flex-1 h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] gap-2">
+                      <Button onClick={handleWhatsApp} className="flex-1 h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] gap-2 text-white">
                         <Send className="w-4 h-4" /> Enviar WhatsApp
                       </Button>
                    </div>

@@ -21,29 +21,42 @@ export default function RegisterContent() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Bloqueia cadastro de Admin e Gerente via formulário público
   const isBlockedRole = roleFromUrl === 'admin' || roleFromUrl === 'gerente';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isBlockedRole) return;
     
+    // Validação básica de telefone com DDD (Brasil: 11 dígitos)
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      toast({
+        variant: "destructive",
+        title: "Telefone Inválido",
+        description: "Informe o telefone completo com DDD (ex: 82993343941)",
+      });
+      return;
+    }
+
     setLoading(true);
 
-    // Simulação de cadastro
     const newUser: UserProfile = {
       id: Math.random().toString(36).substring(7),
       nome,
       email,
+      cpf,
+      birthDate,
+      phone: cleanPhone,
       role: roleFromUrl,
       balance: 0,
       commissionBalance: 0,
       pendingBalance: 0,
-      // Se for cambista vindo do site, o Gerente é o ADMIN MASTER
       gerenteId: roleFromUrl === 'cambista' ? 'admin-master' : undefined,
-      // Clientes são aprovados direto, Cambistas ficam pendentes
       status: roleFromUrl === 'cliente' ? 'approved' : 'pending',
       createdAt: new Date().toISOString(),
     };
@@ -102,21 +115,39 @@ export default function RegisterContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Nome Completo</Label>
-              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" required disabled={loading} />
+              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome completo" required disabled={loading} />
             </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>CPF</Label>
+                <Input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" required disabled={loading} />
+              </div>
+              <div className="space-y-2">
+                <Label>Nascimento</Label>
+                <Input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required disabled={loading} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Telefone (WhatsApp com DDD)</Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: 82993343941" required disabled={loading} />
+            </div>
+
             <div className="space-y-2">
               <Label>Email ou Usuário</Label>
               <Input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex: joao.silva" required disabled={loading} />
             </div>
+            
             <div className="space-y-2">
               <Label>Senha</Label>
               <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required disabled={loading} />
             </div>
 
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-black uppercase h-12" disabled={loading}>
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-black uppercase h-12 mt-2" disabled={loading}>
               {loading ? <Loader2 className="animate-spin mr-2" /> : "Finalizar Cadastro"}
             </Button>
           </form>
