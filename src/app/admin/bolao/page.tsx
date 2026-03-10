@@ -6,15 +6,21 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History } from 'lucide-react';
+import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function BolaoPage() {
   const [boloes, setBoloes] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadData = () => {
     const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
     setBoloes(stored);
+  };
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -25,7 +31,7 @@ export default function BolaoPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bolões</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Resultados Auditados</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Fechamento 1 min Antes</p>
             </div>
             <Link href="/admin/bolao/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
@@ -35,50 +41,55 @@ export default function BolaoPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {boloes.map((bolao) => {
+            {boloes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((bolao) => {
+              const now = new Date();
+              const startDate = new Date(bolao.dataFim); // dataFim no Bolão é o início dos jogos
+              const limit = new Date(startDate.getTime() - 60000);
+              const isSalesClosed = bolao.status === 'finalizado' || bolao.status === 'encerrado' || now >= limit;
               const isFinished = bolao.status === 'finalizado' || bolao.status === 'encerrado';
+              
               return (
-                <Card key={bolao.id} className={`hover:shadow-md transition-all border-l-4 overflow-hidden ${isFinished ? 'border-l-green-600 opacity-80' : 'border-l-accent'}`}>
+                <Card key={bolao.id} className={`hover:shadow-md transition-all border-l-4 overflow-hidden ${isFinished ? 'border-l-green-600' : 'border-l-accent'}`}>
                   <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                       <div className="space-y-3 flex-1">
                         <div className="flex items-center gap-3">
                           <h3 className="text-xl font-black uppercase text-primary leading-none">{bolao.nome}</h3>
-                          <Badge variant={isFinished ? 'secondary' : 'default'} className="font-black text-[10px] uppercase">
-                            {isFinished ? 'Encerrado' : 'Em Aberto'}
+                          <Badge variant={isFinished ? 'secondary' : (isSalesClosed ? 'destructive' : 'default')} className="font-black text-[10px] uppercase">
+                            {isFinished ? 'Encerrado' : (isSalesClosed ? 'Vendas Encerradas' : 'Em Aberto')}
                           </Badge>
                         </div>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
-                            <Calendar className="w-3.5 h-3.5 text-accent" />
-                            <span>Início: {new Date(bolao.dataFim).toLocaleDateString('pt-BR')}</span>
+                            <Clock className="w-3.5 h-3.5 text-accent" />
+                            <span>Início: {startDate.toLocaleString('pt-BR')}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                             <Trophy className="w-3.5 h-3.5 text-accent" />
-                            <span>{bolao.partidas || 0} Partidas</span>
+                            <span>{bolao.partidas || 0} Jogos</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
                             <Users className="w-3.5 h-3.5 text-accent" />
                             <span>{bolao.vendidas || 0} Apostas</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs font-black uppercase text-primary">
-                            <span className="bg-primary/10 px-2 py-1 rounded">R$ {(bolao.preco || 0).toFixed(2)}</span>
+                            <span className="bg-primary/10 px-2 py-1 rounded">Preço R$ {(bolao.preco || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         <Link href={isFinished ? "/admin/financeiro" : "#"}>
-                          <Button variant="outline" className={`gap-2 font-black uppercase text-xs h-10 ${isFinished ? 'border-green-600 text-green-600' : ''}`}>
+                          <Button variant="outline" className={`gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'border-green-600 text-green-600' : ''}`}>
                             {isFinished ? <History className="w-4 h-4" /> : <Eye className="w-4 h-4 text-accent" />}
-                            {isFinished ? "Ver Resultados" : "Lançar Placar"}
+                            {isFinished ? "Auditar Ganhadores" : "Lançar Placares"}
                           </Button>
                         </Link>
-                        <Button variant="outline" size="icon" title="Editar" className="hover:border-primary h-10 w-10">
+                        <Button variant="outline" size="icon" className="hover:border-primary h-10 w-10">
                           <Settings2 className="w-4 h-4 text-primary" />
                         </Button>
-                        <p className="text-[8px] font-black uppercase text-muted-foreground/30 ml-2">ID: {bolao.id.substring(0, 4)}</p>
+                        <p className="text-[8px] font-black uppercase text-muted-foreground/30 ml-2">ID: {bolao.id}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -90,7 +101,7 @@ export default function BolaoPage() {
               <Card>
                 <CardContent className="py-20 text-center text-muted-foreground">
                   <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo no momento</p>
+                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo</p>
                   <Link href="/admin/bolao/novo" className="mt-4 block">
                     <Button variant="link" className="text-accent font-black uppercase text-xs">Criar Primeiro Bolão</Button>
                   </Link>

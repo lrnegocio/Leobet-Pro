@@ -14,7 +14,34 @@ function ResultadosContent() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState('');
   const [result, setResult] = useState<any>(null);
+  const [receipt, setReceipt] = useState<any>(null);
   const [searched, setSearched] = useState(false);
+
+  const handleSearch = (searchCode?: string) => {
+    const codeToSearch = searchCode || code;
+    if (codeToSearch.length < 11) return;
+
+    const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    let foundReceipt = null;
+    let foundTicket = null;
+
+    allReceipts.forEach((r: any) => {
+      const ticket = r.tickets.find((t: any) => t.id === codeToSearch);
+      if (ticket) {
+        foundReceipt = r;
+        foundTicket = ticket;
+      }
+    });
+
+    if (foundReceipt) {
+      setReceipt(foundReceipt);
+      setResult(foundTicket);
+    } else {
+      setReceipt(null);
+      setResult(null);
+    }
+    setSearched(true);
+  };
 
   useEffect(() => {
     const ticketCode = searchParams.get('c');
@@ -23,28 +50,6 @@ function ResultadosContent() {
       handleSearch(ticketCode);
     }
   }, [searchParams]);
-
-  const handleSearch = (searchCode?: string) => {
-    const codeToSearch = searchCode || code;
-    if (codeToSearch.length < 11) return;
-
-    const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    let found = null;
-
-    allReceipts.forEach((receipt: any) => {
-      const ticket = receipt.tickets.find((t: any) => t.id === codeToSearch);
-      if (ticket) {
-        found = { 
-          ...ticket, 
-          receiptInfo: receipt,
-          currentStatus: ticket.status || receipt.status 
-        };
-      }
-    });
-
-    setResult(found);
-    setSearched(true);
-  };
 
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center">
@@ -58,16 +63,16 @@ function ResultadosContent() {
              <Trophy className="w-8 h-8" />
           </div>
           <h1 className="text-4xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Resultados</h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em]">Confira seu prêmio em tempo real</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em]">Confira suas apostas em tempo real</p>
         </div>
 
         <Card className="border-t-8 border-t-accent shadow-2xl overflow-hidden rounded-3xl">
           <CardContent className="p-8 space-y-8">
             <div className="space-y-4">
-               <label className="text-xs font-black uppercase text-muted-foreground block text-center">Insira o código do seu bilhete</label>
+               <label className="text-xs font-black uppercase text-muted-foreground block text-center">Insira o código de qualquer bilhete do seu recibo</label>
                <div className="flex gap-2">
                 <Input 
-                  placeholder="DIGITE OS 11 DÍGITOS" 
+                  placeholder="DIGITE OS 11 DÍDIGITOS" 
                   className="h-16 font-black text-center text-2xl tracking-[0.3em] border-2 focus:border-primary rounded-2xl uppercase" 
                   maxLength={11}
                   value={code}
@@ -79,87 +84,69 @@ function ResultadosContent() {
               </div>
             </div>
 
-            {result ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-                <div className={`p-8 rounded-3xl border-4 border-dashed relative overflow-hidden ${
-                  result.currentStatus === 'ganhou' ? 'bg-green-50 border-green-200' : 
-                  result.currentStatus === 'pago' ? 'bg-blue-50 border-blue-200' : 'bg-muted/50 border-muted'
-                }`}>
-                  <div className="flex justify-between items-center relative z-10">
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Status do Bilhete</p>
-                      {result.currentStatus === 'ganhou' ? (
-                        <div className="flex items-center gap-3 text-green-600 font-black uppercase text-2xl">
-                          <Trophy className="w-8 h-8 animate-bounce" /> VOCÊ GANHOU!
-                        </div>
-                      ) : result.currentStatus === 'pago' ? (
-                        <div className="flex items-center gap-3 text-blue-600 font-black uppercase text-2xl">
-                          <CheckCircle2 className="w-8 h-8" /> PRÊMIO PAGO
-                        </div>
-                      ) : result.currentStatus === 'perdeu' ? (
-                        <div className="flex items-center gap-3 text-destructive font-black uppercase text-2xl">
-                          <XCircle className="w-8 h-8" /> NÃO PREMIADO
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 text-orange-600 font-black uppercase text-2xl">
-                          <Clock className="w-8 h-8" /> EM ABERTO
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Estimado</p>
-                      <p className={`font-black text-3xl ${result.currentStatus === 'ganhou' || result.currentStatus === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
-                        R$ {result.receiptInfo.valorTotal.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="bg-white p-6 rounded-2xl border-2 border-primary/10 shadow-sm flex flex-col items-center gap-2">
-                      <p className="text-[9px] font-black uppercase text-muted-foreground">Concurso</p>
-                      <p className="font-black text-primary uppercase text-center leading-tight">{result.receiptInfo.eventoNome}</p>
+            {receipt ? (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
+                   <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">Cliente</p>
+                        <p className="font-black text-primary text-lg">{receipt.cliente.toUpperCase()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Total</p>
+                        <p className="font-black text-primary text-lg">R$ {receipt.valorTotal.toFixed(2)}</p>
+                      </div>
                    </div>
-                   <div className="bg-white p-6 rounded-2xl border-2 border-primary/10 shadow-sm flex flex-col items-center gap-2">
-                      <p className="text-[9px] font-black uppercase text-muted-foreground">Identificação</p>
-                      <p className="font-black text-primary uppercase">{result.id}</p>
+                   <div className="border-t pt-4">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground">Concurso</p>
+                      <p className="font-black uppercase text-sm">{receipt.eventoNome}</p>
                    </div>
                 </div>
 
-                {result.numeros && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-center gap-4">
-                       <div className="h-[2px] bg-muted flex-1"></div>
-                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground">Sua Cartela</p>
-                       <div className="h-[2px] bg-muted flex-1"></div>
-                    </div>
-                    <div className="grid grid-cols-5 gap-3">
-                      {result.numeros.map((n: number) => (
-                        <div key={n} className="aspect-square flex items-center justify-center bg-white border-2 border-primary/20 rounded-2xl font-black text-xl text-primary shadow-sm hover:border-accent hover:scale-105 transition-all">
-                          {n.toString().padStart(2, '0')}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-4">
+                  <h3 className="text-center text-xs font-black uppercase text-muted-foreground tracking-widest">Suas Apostas ({receipt.tickets.length})</h3>
+                  {receipt.tickets.map((t: any, idx: number) => {
+                    const status = t.status || receipt.status;
+                    return (
+                      <div key={idx} className={`p-6 rounded-2xl border-2 transition-all ${
+                        status === 'ganhou' ? 'bg-green-50 border-green-200 shadow-md' : 
+                        status === 'pago' ? 'bg-blue-50 border-blue-200' : 'bg-white border-muted'
+                      }`}>
+                         <div className="flex justify-between items-center mb-4">
+                            <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-primary/20">BILHETE {idx + 1} - {t.id}</Badge>
+                            {status === 'ganhou' ? (
+                              <Badge className="bg-green-600 font-black uppercase text-[9px]">GANHOU!</Badge>
+                            ) : status === 'pago' ? (
+                              <Badge className="bg-blue-600 font-black uppercase text-[9px]">PAGO</Badge>
+                            ) : status === 'perdeu' ? (
+                              <Badge variant="destructive" className="font-black uppercase text-[9px]">PERDEU</Badge>
+                            ) : (
+                              <Badge className="bg-orange-500 font-black uppercase text-[9px]">ABERTO</Badge>
+                            )}
+                         </div>
 
-                {result.palpite && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-center gap-4">
-                       <div className="h-[2px] bg-muted flex-1"></div>
-                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground">Seu Palpite (1-X-2)</p>
-                       <div className="h-[2px] bg-muted flex-1"></div>
-                    </div>
-                    <div className="p-6 bg-primary text-white text-center rounded-3xl font-mono text-4xl tracking-[0.5em] shadow-xl border-4 border-white/20">
-                      {result.palpite}
-                    </div>
-                  </div>
-                )}
+                         {t.numeros ? (
+                           <div className="grid grid-cols-5 gap-2">
+                             {t.numeros.map((n: number) => (
+                               <div key={n} className="aspect-square flex items-center justify-center bg-white border rounded-xl font-bold text-sm text-primary shadow-sm">
+                                 {n.toString().padStart(2, '0')}
+                               </div>
+                             ))}
+                           </div>
+                         ) : (
+                           <div className="p-4 bg-muted rounded-xl text-center font-mono font-black text-xl tracking-[0.3em]">
+                             {t.palpite}
+                           </div>
+                         )}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <div className="p-8 bg-accent text-white rounded-3xl text-center shadow-xl space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Suporte e Recebimento</p>
                   <p className="font-black text-2xl mt-1 tracking-tighter">(82) 99334-3941</p>
-                  <p className="text-[9px] font-bold uppercase opacity-60">Procure um cambista oficial com seu código de 11 dígitos.</p>
+                  <p className="text-[9px] font-bold uppercase opacity-60">Vá até o seu cambista ou entre em contato direto.</p>
                 </div>
               </div>
             ) : searched && code.length === 11 && (
@@ -169,9 +156,8 @@ function ResultadosContent() {
                 </div>
                 <h3 className="font-black uppercase text-muted-foreground tracking-widest text-lg">Bilhete não encontrado</h3>
                 <p className="text-xs font-bold text-muted-foreground mt-2 max-w-xs mx-auto">
-                  Verifique se digitou corretamente o código de 11 dígitos impresso no seu recibo.
+                  Verifique se digitou corretamente o código impresso no seu recibo.
                 </p>
-                <Button variant="link" onClick={() => setSearched(false)} className="mt-4 text-primary font-black uppercase">Tentar novamente</Button>
               </div>
             )}
           </CardContent>

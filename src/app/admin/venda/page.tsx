@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, FileText } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, FileText, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -30,13 +30,24 @@ export default function VendaPage() {
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
   const loadEventos = () => {
-    const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => b.status === 'aberto');
-    const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => b.status === 'aberto');
+    const now = new Date();
+    const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
+      const drawDate = new Date(b.dataSorteio);
+      const limit = new Date(drawDate.getTime() - 60000);
+      return b.status === 'aberto' && now < limit;
+    });
+    const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
+      const drawDate = new Date(b.dataFim);
+      const limit = new Date(drawDate.getTime() - 60000);
+      return b.status === 'aberto' && now < limit;
+    });
     setEventosAtivos([...bingos.map(b => ({...b, tipo: 'bingo'})), ...boloes.map(b => ({...b, tipo: 'bolao'}))]);
   };
 
   useEffect(() => {
     loadEventos();
+    const interval = setInterval(loadEventos, 10000); // Atualiza a cada 10s para checar travas
+    return () => clearInterval(interval);
   }, []);
 
   const generateBingoTicket = () => {
@@ -55,7 +66,21 @@ export default function VendaPage() {
         return;
     }
 
-    // Validação inteligente usando centavos para evitar erros de float
+    const ev = eventosAtivos.find(e => e.id === formData.eventoId);
+    if (!ev) {
+      toast({ variant: "destructive", title: "Vendas Encerradas", description: "Este evento não aceita mais apostas." });
+      return;
+    }
+
+    // Trava de 1 minuto
+    const now = new Date();
+    const drawTime = new Date(formData.tipo === 'bingo' ? ev.dataSorteio : ev.dataFim);
+    if (now >= new Date(drawTime.getTime() - 60000)) {
+      toast({ variant: "destructive", title: "Tempo Esgotado", description: "Vendas encerradas 1 minuto antes do início." });
+      loadEventos();
+      return;
+    }
+
     const totalCents = Math.round(formData.valorTotal * 100);
     const unitCents = Math.round(formData.unitario * 100);
 
@@ -69,6 +94,11 @@ export default function VendaPage() {
     }
 
     const qtd = unitCents > 0 ? Math.floor(totalCents / unitCents) : 0;
+    if (qtd === 0) {
+      toast({ variant: "destructive", title: "Erro", description: "Quantidade de bilhetes não pode ser zero." });
+      return;
+    }
+
     const hasEnoughBalance = user?.role === 'admin' || (user?.balance || 0) >= formData.valorTotal;
     const statusVenda = hasEnoughBalance ? 'pago' : 'pendente';
 
@@ -102,7 +132,6 @@ export default function VendaPage() {
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...allReceipts, receipt]));
 
-      // Atualiza saldo se não for admin
       if (hasEnoughBalance && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => 
@@ -111,12 +140,11 @@ export default function VendaPage() {
         localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
       }
 
-      // Atualiza contador de vendas no evento se estiver pago
       if (statusVenda === 'pago') {
         const storageKey = formData.tipo === 'bingo' ? 'leobet_bingos' : 'leobet_boloes';
         const eventos = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        const updatedEventos = eventos.map((ev: any) => 
-          ev.id === formData.eventoId ? { ...ev, vendidas: (ev.vendidas || 0) + qtd } : ev
+        const updatedEventos = eventos.map((evItem: any) => 
+          evItem.id === formData.eventoId ? { ...evItem, vendidas: (evItem.vendidas || 0) + qtd } : evItem
         );
         localStorage.setItem(storageKey, JSON.stringify(updatedEventos));
         loadEventos();
@@ -128,14 +156,16 @@ export default function VendaPage() {
       if (statusVenda === 'pendente') {
         toast({ variant: "destructive", title: "VENDA PENDENTE", description: "Saldo insuficiente. Aguardando aprovação administrativa." });
       } else {
-        toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s) com sucesso.` });
+        toast({ title: "Sucesso!", description: `${qtd} bilhete(s) emitido(s) em um único recibo.` });
       }
     }, 600);
   };
 
   const getDynamicPrizes = () => {
     if (!formData.eventoId) return { quadra: 0, quina: 0, bingo: 0, total: 0 };
-    const ev = eventosAtivos.find(e => e.id === formData.eventoId);
+    const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+    const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+    const ev = [...allBingos, ...allBoloes].find(e => e.id === formData.eventoId);
     if (!ev) return { quadra: 0, quina: 0, bingo: 0, total: 0 };
     
     const bruto = (ev.vendidas || 0) * (ev.preco || 0);
@@ -153,11 +183,13 @@ export default function VendaPage() {
     
     const prizes = getDynamicPrizes();
     let ticketInfo = "";
+    
+    // Link único para o recibo completo
+    const trackingLink = `${window.location.origin}/resultados?c=${vendaRealizada.tickets[0].id}`;
+
     vendaRealizada.tickets.forEach((t: any, i: number) => {
-      const trackingLink = `${window.location.origin}/resultados?c=${t.id}`;
-      ticketInfo += `\n🎫 *BILHETE ${i+1}:* ${t.id}\n` +
-                   (t.numeros ? `🔢 *B-I-N-G-O:* ${t.numeros.join('-')}\n` : `⚽ *PALPITE:* ${t.palpite}\n`) +
-                   `🔗 *Acompanhar em tempo real:* ${trackingLink}\n`;
+      ticketInfo += `\n🎫 *JOGO ${i+1}:* ${t.id}\n` +
+                   (t.numeros ? `🔢 *B-I-N-G-O:* ${t.numeros.join('-')}\n` : `⚽ *PALPITE:* ${t.palpite}\n`);
     });
 
     let premiosMsg = `🏆 *PRÊMIO ACUMULADO: R$ ${prizes.total.toFixed(2)}*\n`;
@@ -169,23 +201,19 @@ export default function VendaPage() {
 
     const text = `*LEOBET PRO - RECIBO DE APOSTA*\n` +
       `👤 *CLIENTE:* ${vendaRealizada.cliente}\n` +
-      `🤝 *COLABORADOR:* ${vendaRealizada.vendedorNome || 'Diretoria'}\n` +
       `🎯 *CONCURSO:* ${vendaRealizada.eventoNome}\n` +
-      `💰 *TOTAL PAGO:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
+      `💰 *VALOR TOTAL:* R$ ${vendaRealizada.valorTotal.toFixed(2)}\n` +
       `📌 *STATUS:* ${vendaRealizada.status.toUpperCase()}\n` +
       `--------------------------\n` +
       premiosMsg +
       `--------------------------\n` +
       ticketInfo +
+      `\n🔗 *Acompanhar em tempo real:* \n${trackingLink}\n` +
       `\n🍀 *BOA SORTE!*\n` +
       `📲 *Suporte/Dúvidas:* (82) 99334-3941\n` +
       `*Credibilidade É A Nossa MARCA*`;
     
     window.open(`https://wa.me/55${vendaRealizada.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const prizes = getDynamicPrizes();
@@ -216,7 +244,7 @@ export default function VendaPage() {
               <Card className="border-none shadow-2xl rounded-3xl overflow-hidden h-fit">
                 <CardHeader className="bg-primary text-white p-6">
                   <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                    <TicketIcon className="w-4 h-4" /> Nova Aposta Inteligente
+                    <TicketIcon className="w-4 h-4" /> Nova Aposta Agrupada
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
@@ -243,7 +271,7 @@ export default function VendaPage() {
                         className="w-full h-12 px-4 border-2 rounded-xl text-sm font-black outline-none focus:ring-4 focus:ring-primary/10 transition-all appearance-none bg-white"
                         value={formData.eventoId}
                         onChange={e => {
-                          const ev = eventosAtivos.find(ev => ev.id === e.target.value);
+                          const ev = eventosAtivos.find(evItem => evItem.id === e.target.value);
                           setFormData({
                             ...formData, 
                             eventoId: e.target.value,
@@ -255,10 +283,15 @@ export default function VendaPage() {
                         required
                       >
                         <option value="">-- Selecione o Concurso --</option>
-                        {eventosAtivos.filter(ev => ev.tipo === formData.tipo).map((e: any) => (
-                          <option key={e.id} value={e.id}>{e.nome} (Un: R$ {e.preco.toFixed(2)})</option>
+                        {eventosAtivos.filter(evItem => evItem.tipo === formData.tipo).map((e: any) => (
+                          <option key={e.id} value={e.id}>{e.nome} (Preço: R$ {e.preco.toFixed(2)})</option>
                         ))}
                       </select>
+                      {eventosAtivos.filter(evItem => evItem.tipo === formData.tipo).length === 0 && (
+                        <p className="text-[9px] font-black uppercase text-destructive flex items-center gap-1 mt-1">
+                          <AlertTriangle className="w-3 h-3" /> Nenhum concurso aberto para vendas no momento.
+                        </p>
+                      )}
                     </div>
 
                     {formData.tipo === 'bolao' && (
@@ -280,7 +313,7 @@ export default function VendaPage() {
                       {formData.unitario > 0 && (
                         <div className="flex justify-between items-center px-2">
                            <p className="text-[10px] font-black text-muted-foreground uppercase">
-                             Emitindo: <span className="text-primary">{(formData.valorTotal / formData.unitario).toFixed(0)}</span> bilhete(s)
+                             Emitindo: <span className="text-primary">{Math.floor(formData.valorTotal / formData.unitario)}</span> bilhete(s)
                            </p>
                            <p className="text-[10px] font-black text-primary uppercase">
                              Preço Unitário: R$ {formData.unitario.toFixed(2)}
@@ -289,8 +322,8 @@ export default function VendaPage() {
                       )}
                     </div>
 
-                    <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 font-black uppercase text-lg shadow-xl rounded-2xl group transition-all" disabled={loading}>
-                      {loading ? "PROCESSANDO..." : "EMITIR RECIBO TÉRMICO"}
+                    <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 font-black uppercase text-lg shadow-xl rounded-2xl group transition-all" disabled={loading || eventosAtivos.filter(evItem => evItem.tipo === formData.tipo).length === 0}>
+                      {loading ? "PROCESSANDO..." : "EMITIR RECIBO ÚNICO"}
                       <ShoppingCart className="w-5 h-5 ml-2 group-hover:rotate-12 transition-transform" />
                     </Button>
                   </form>
@@ -300,76 +333,46 @@ export default function VendaPage() {
               <div className="space-y-6">
                 {vendaRealizada ? (
                   <div className="space-y-4 animate-in fade-in zoom-in-95">
-                    {/* Visual de Recibo Estilo Banca */}
-                    <div className="bg-[#FFFFF0] p-6 shadow-2xl border border-black/10 rounded-sm font-mono text-[11px] leading-tight text-black max-w-sm mx-auto receipt-view">
+                    <div className="bg-[#FFFFF0] p-6 shadow-2xl border border-black/10 rounded-sm font-mono text-[11px] leading-tight text-black max-w-sm mx-auto">
                       <div className="text-center border-b border-dashed border-black pb-4 mb-4">
                         <p className="text-lg font-black tracking-tight">LEOBET PRO</p>
                         <p className="text-[9px] uppercase tracking-widest">{window.location.host}</p>
                         <p className="text-[9px] mt-1 font-bold">-------------------------------</p>
-                        <p className="text-[10px] font-bold uppercase">Recibo de Aposta Oficial</p>
+                        <p className="text-[10px] font-bold uppercase">Recibo Agrupado de Aposta</p>
                       </div>
 
                       <div className="space-y-1">
                         <p>DATA: {new Date(vendaRealizada.data).toLocaleString('pt-BR')}</p>
-                        <p>COLABORADOR: {(vendaRealizada.vendedorNome || 'DIRETORIA').toUpperCase()}</p>
                         <p>CLIENTE: {vendaRealizada.cliente.toUpperCase()}</p>
-                      </div>
-
-                      <div className="mt-4 border-t border-dashed border-black pt-4">
-                        <div className="flex justify-between font-black mb-1">
-                          <span>CONCURSO</span>
-                          <span>TIPO</span>
-                        </div>
-                        <div className="flex justify-between uppercase">
-                          <span className="truncate max-w-[150px]">{vendaRealizada.eventoNome}</span>
-                          <span>{vendaRealizada.tipo}</span>
-                        </div>
+                        <p>CONCURSO: {vendaRealizada.eventoNome.toUpperCase()}</p>
                       </div>
 
                       <div className="mt-4 border-b border-dashed border-black pb-2 mb-2 text-center">
-                        <p className="font-black text-xs">PRÊMIO ACUMULADO: R$ {prizes.total.toFixed(2)}</p>
+                        <p className="font-black text-xs text-primary">VALOR TOTAL: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
+                        <p className="text-[10px] font-black uppercase mt-1">Estimativa Prêmio: R$ {prizes.total.toFixed(2)}</p>
                       </div>
 
                       <div className="mt-4 space-y-4">
                         {vendaRealizada.tickets.map((t: any, idx: number) => (
                           <div key={idx} className="space-y-1 border-b border-black/5 pb-2">
-                            <div className="flex justify-between font-bold">
-                              <span>BILHETE {idx + 1}</span>
-                              <span className="text-xs">{t.id}</span>
-                            </div>
+                            <p className="font-bold">BILHETE {idx + 1}: {t.id}</p>
                             {t.numeros ? (
-                              <div className="space-y-1">
-                                <p className="text-center font-black opacity-40">B - I - N - G - O</p>
-                                <p className="text-center bg-black/5 p-1 tracking-tighter text-sm font-black">
-                                  {t.numeros.join(' - ')}
-                                </p>
-                              </div>
+                              <p className="text-center bg-black/5 p-1 tracking-tighter text-sm font-black">
+                                {t.numeros.join(' - ')}
+                              </p>
                             ) : (
-                              <p className="text-center bg-black/5 p-1 font-black">
+                              <p className="text-center bg-black/5 p-1 font-black uppercase">
                                 PALPITE: {t.palpite}
                               </p>
                             )}
-                            <p className="text-[8px] italic text-center text-muted-foreground">
-                              Acompanhar: {window.location.origin}/resultados?c={t.id}
-                            </p>
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-6 border-t-2 border-double border-black pt-4 space-y-1">
-                        <div className="flex justify-between font-black text-sm">
-                          <span>TOTAL PAGO:</span>
-                          <span>R$ {vendaRealizada.valorTotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-[10px]">
-                          <span>QUANTIDADE JOGOS:</span>
-                          <span>{vendaRealizada.qtd}</span>
-                        </div>
-                      </div>
-
                       <div className="text-center mt-6 border-t border-dashed border-black pt-4">
-                        <p className="font-bold">BOA SORTE!</p>
-                        <p className="text-[9px] mt-1">Credibilidade É A Nossa MARCA</p>
+                        <p className="font-black">LINK DE ACOMPANHAMENTO:</p>
+                        <p className="text-[9px] break-all">{window.location.origin}/resultados?c={vendaRealizada.tickets[0].id}</p>
+                        <p className="font-bold mt-4">BOA SORTE!</p>
                         <p className="text-[10px] font-black mt-2">Dúvidas: (82) 99334-3941</p>
                       </div>
                     </div>
@@ -378,8 +381,8 @@ export default function VendaPage() {
                        <Button onClick={shareWhatsApp} className="bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] h-14 rounded-xl gap-2 shadow-lg">
                          <Send className="w-4 h-4" /> WhatsApp
                        </Button>
-                       <Button onClick={handlePrint} variant="outline" className="font-black uppercase text-[10px] h-14 rounded-xl gap-2 border-2">
-                         <Printer className="w-4 h-4" /> Impressão
+                       <Button onClick={() => window.print()} variant="outline" className="font-black uppercase text-[10px] h-14 rounded-xl gap-2 border-2">
+                         <Printer className="w-4 h-4" /> Imprimir
                        </Button>
                        <Button variant="secondary" className="font-black uppercase text-[10px] h-14 rounded-xl" onClick={() => setVendaRealizada(null)}>
                          Nova Venda
@@ -400,42 +403,26 @@ export default function VendaPage() {
         </main>
       </div>
 
-      {/* Versão exclusiva para Impressão */}
       <div className="hidden print:block w-full p-4 text-black bg-white font-mono text-xs">
          {vendaRealizada && (
-            <div className="max-w-[300px] mx-auto space-y-4">
-               <div className="text-center border-b border-black pb-4">
+            <div className="max-w-[300px] mx-auto">
+               <div className="text-center border-b border-black pb-4 mb-4">
                   <h1 className="text-xl font-bold">LEOBET PRO</h1>
-                  <p className="text-[10px]">{window.location.host}</p>
+                  <p>RECIBO DE APOSTA</p>
                </div>
-               <div className="space-y-1">
-                  <p>DATA: {new Date(vendaRealizada.data).toLocaleString('pt-BR')}</p>
-                  <p>COLAB: {(vendaRealizada.vendedorNome || 'DIR').toUpperCase()}</p>
-                  <p>CLI: {vendaRealizada.cliente.toUpperCase()}</p>
-               </div>
-               <div className="border-t border-black pt-2 text-center">
-                  <p className="font-bold uppercase">{vendaRealizada.eventoNome}</p>
-                  <p className="text-[10px]">PRÊMIO ACUMULADO: R$ {prizes.total.toFixed(2)}</p>
-               </div>
-               <div className="space-y-4 py-4">
+               <p>DATA: {new Date(vendaRealizada.data).toLocaleString('pt-BR')}</p>
+               <p>CLIENTE: {vendaRealizada.cliente.toUpperCase()}</p>
+               <p>CONCURSO: {vendaRealizada.eventoNome.toUpperCase()}</p>
+               <div className="border-t border-black my-4 py-4 space-y-4">
                   {vendaRealizada.tickets.map((t: any, i: number) => (
                     <div key={i} className="border border-black p-2">
                        <p className="font-bold">BILHETE {i+1}: {t.id}</p>
-                       <p className="break-all font-black text-sm">{t.numeros ? t.numeros.join(' - ') : `PALPITE: ${t.palpite}`}</p>
+                       <p className="font-black text-sm">{t.numeros ? t.numeros.join(' - ') : `PALPITE: ${t.palpite}`}</p>
                     </div>
                   ))}
                </div>
-               <div className="border-t-2 border-double border-black pt-4 font-bold">
-                  <div className="flex justify-between">
-                     <span>TOTAL PAGO:</span>
-                     <span>R$ {vendaRealizada.valorTotal.toFixed(2)}</span>
-                  </div>
-               </div>
-               <div className="text-center pt-8">
-                  <p>BOA SORTE!</p>
-                  <p className="text-[10px] mt-2 tracking-widest uppercase">Credibilidade E A Nossa MARCA</p>
-                  <p className="mt-4 text-[10px] font-bold">CONTATO: (82) 99334-3941</p>
-               </div>
+               <p className="font-bold text-lg text-center">TOTAL PAGO: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
+               <p className="text-center mt-8">BOA SORTE! CONTATO: (82) 99334-3941</p>
             </div>
          )}
       </div>
