@@ -31,7 +31,7 @@ export default function BolaoPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bolões</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Fechamento 1 min Antes</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Trava 1 min antes da 1ª partida</p>
             </div>
             <Link href="/admin/bolao/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">

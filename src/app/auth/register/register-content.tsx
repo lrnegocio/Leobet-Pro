@@ -41,6 +41,8 @@ export default function RegisterContent() {
       balance: 0,
       commissionBalance: 0,
       pendingBalance: 0,
+      // Se for cambista vindo do site, o Gerente é o ADMIN MASTER
+      gerenteId: roleFromUrl === 'cambista' ? 'admin-master' : undefined,
       // Clientes são aprovados direto, Cambistas ficam pendentes
       status: roleFromUrl === 'cliente' ? 'approved' : 'pending',
       createdAt: new Date().toISOString(),
@@ -54,7 +56,7 @@ export default function RegisterContent() {
       if (newUser.status === 'pending') {
         toast({
           title: "Cadastro Realizado!",
-          description: "Sua conta de cambista está em análise pelo administrador.",
+          description: "Sua conta de cambista está em análise pelo administrador master.",
         });
         router.push('/');
       } else {
@@ -95,7 +97,7 @@ export default function RegisterContent() {
           <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tight">Criar Conta</CardTitle>
           <CardDescription>
             {roleFromUrl === 'cambista' 
-              ? 'Solicite seu acesso como cambista parceiro' 
+              ? 'Solicite seu acesso como cambista parceiro LEOBET' 
               : 'Cadastre-se para começar a apostar'}
           </CardDescription>
         </CardHeader>

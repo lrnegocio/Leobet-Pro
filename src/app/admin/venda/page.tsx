@@ -31,14 +31,15 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
+    // Trava de 1 minuto antes do sorteio (Bingo) ou 1 min antes da 1ª partida (Bolão)
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       const limit = new Date(drawDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     });
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      const drawDate = new Date(b.dataFim);
-      const limit = new Date(drawDate.getTime() - 60000);
+      const startDate = new Date(b.dataFim); // dataFim no Bolão é o início dos jogos
+      const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
     });
     setEventosAtivos([...bingos.map(b => ({...b, tipo: 'bingo'})), ...boloes.map(b => ({...b, tipo: 'bolao'}))]);
@@ -46,13 +47,15 @@ export default function VendaPage() {
 
   useEffect(() => {
     loadEventos();
+    const interval = setInterval(loadEventos, 10000); // Atualiza travas a cada 10s
+    return () => clearInterval(interval);
   }, []);
 
   const handleVenda = (e: React.FormEvent) => {
     e.preventDefault();
     const ev = eventosAtivos.find(e => e.id === formData.eventoId);
     if (!ev) {
-      toast({ variant: "destructive", title: "CONCURSO ENCERRADO" });
+      toast({ variant: "destructive", title: "CONCURSO ENCERRADO OU TRAVADO" });
       return;
     }
 
@@ -60,7 +63,7 @@ export default function VendaPage() {
     const unitCents = Math.round(formData.unitario * 100);
 
     if (totalCents % unitCents !== 0) {
-      toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: "O valor deve ser múltiplo exato do preço." });
+      toast({ variant: "destructive", title: "VALOR INVÁLIDO", description: `O valor deve ser múltiplo de R$ ${formData.unitario.toFixed(2)}` });
       return;
     }
 
@@ -87,7 +90,7 @@ export default function VendaPage() {
         vendedorId: user?.id,
         vendedorRole: user?.role,
         vendedorNome: user?.nome,
-        gerenteId: user?.gerenteId,
+        gerenteId: user?.gerenteId || (user?.role === 'cambista' ? 'admin-master' : undefined),
         ...formData,
         tickets,
         qtd
@@ -109,18 +112,24 @@ export default function VendaPage() {
     }, 800);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="flex h-screen bg-muted/30">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex justify-between items-end">
+          <div className="flex justify-between items-end print:hidden">
             <h1 className="text-3xl font-black uppercase text-primary">Terminal de Vendas</h1>
-            <Badge className="bg-primary text-white font-black px-4 py-2">SALDO: {user?.role === 'admin' ? 'ILIMITADO' : `R$ ${user?.balance.toFixed(2)}`}</Badge>
+            <Badge className="bg-primary text-white font-black px-4 py-2">
+               SALDO: {user?.role === 'admin' ? 'ILIMITADO' : `R$ ${user?.balance.toFixed(2)}`}
+            </Badge>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="rounded-2xl border-none shadow-xl">
+            <Card className="rounded-2xl border-none shadow-xl print:hidden">
               <CardContent className="p-8">
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="space-y-2">
@@ -130,55 +139,114 @@ export default function VendaPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Concurso</Label>
+                    <Label className="uppercase text-[10px] font-black">Concurso (Sorteios Ativos)</Label>
                     <select 
-                      className="w-full h-10 border rounded-md px-3 font-bold bg-white"
+                      className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white"
                       value={formData.eventoId}
                       onChange={e => {
                         const ev = eventosAtivos.find(evItem => evItem.id === e.target.value);
-                        setFormData({...formData, eventoId: e.target.value, eventoNome: ev?.nome || '', unitario: ev?.preco || 0, valorTotal: ev?.preco || 0});
+                        setFormData({
+                          ...formData, 
+                          eventoId: e.target.value, 
+                          eventoNome: ev?.nome || '', 
+                          unitario: ev?.preco || 0, 
+                          valorTotal: ev?.preco || 0,
+                          tipo: ev?.tipo || 'bingo'
+                        });
                       }}
+                      required
                     >
-                      <option value="">-- SELECIONE --</option>
+                      <option value="">-- SELECIONE O EVENTO --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {e.preco.toFixed(2)})</option>)}
                     </select>
                   </div>
 
+                  {formData.tipo === 'bolao' && (
+                    <div className="space-y-2">
+                       <Label className="uppercase text-[10px] font-black">Palpite da Rodada (Ex: 1-X-2-1...)</Label>
+                       <Input placeholder="DIXITE OS 10 PALPITES" value={formData.palpite} onChange={e => setFormData({...formData, palpite: e.target.value})} required />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-black">Valor Total (Múltiplos de R$ {formData.unitario.toFixed(2)})</Label>
-                    <Input type="number" step="0.01" value={formData.valorTotal} onChange={e => setFormData({...formData, valorTotal: Number(e.target.value)})} className="h-16 text-2xl font-black text-center" />
+                    <Label className="uppercase text-[10px] font-black">Valor da Aposta (Total)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      value={formData.valorTotal} 
+                      onChange={e => setFormData({...formData, valorTotal: Number(e.target.value)})} 
+                      className="h-16 text-3xl font-black text-center border-primary/20 bg-primary/5" 
+                    />
+                    <p className="text-[9px] font-bold text-center text-muted-foreground uppercase">
+                       {formData.unitario > 0 ? `Equivale a ${Math.floor(formData.valorTotal / formData.unitario)} bilhetes` : 'Selecione um evento'}
+                    </p>
                   </div>
 
-                  <Button type="submit" className="w-full h-14 font-black uppercase text-lg" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "EMITIR RECIBO"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl" disabled={loading}>
+                    {loading ? "PROCESSANDO..." : "EMITIR BILHETES"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF0] p-6 shadow-xl border rounded-sm font-mono text-[10px]">
-                   <div className="text-center border-b border-dashed pb-4 mb-4">
-                      <p className="text-lg font-black">LEOBET PRO</p>
-                      <p>RECIBO ÚNICO DE APOSTA</p>
+                <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] relative overflow-hidden receipt-thermal">
+                   <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
+                      <p className="text-xl font-black">LEOBET PRO</p>
+                      <p className="font-bold">RECIBO OFICIAL DE APOSTA</p>
                    </div>
-                   <p>DATA: {new Date(vendaRealizada.data).toLocaleString()}</p>
-                   <p>CLIENTE: {vendaRealizada.cliente.toUpperCase()}</p>
-                   <p>EVENTO: {vendaRealizada.eventoNome.toUpperCase()}</p>
-                   <div className="my-4 border-y border-dashed py-4">
+                   
+                   <div className="space-y-1 mb-4">
+                      <p>DATA: {new Date(vendaRealizada.data).toLocaleString()}</p>
+                      <p>CLIENTE: {vendaRealizada.cliente.toUpperCase()}</p>
+                      <p>EVENTO: {vendaRealizada.eventoNome.toUpperCase()}</p>
+                      <p>VENDEDOR: {vendaRealizada.vendedorNome.toUpperCase()}</p>
+                   </div>
+
+                   <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-4">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
-                        <div key={i} className="mb-2">
-                          <p className="font-bold">BILHETE {i+1}: {t.id}</p>
-                          <p>{t.numeros ? t.numeros.join('-') : t.palpite}</p>
+                        <div key={i} className="space-y-1 bg-black/5 p-2 rounded">
+                          <p className="font-bold flex justify-between">
+                            <span>BILHETE #{i+1}</span>
+                            <span>ID: {t.id}</span>
+                          </p>
+                          <p className="text-xs break-all">
+                             {t.numeros ? `NÚMEROS: ${t.numeros.join('-')}` : `PALPITES: ${t.palpite}`}
+                          </p>
                         </div>
                       ))}
                    </div>
-                   <p className="font-black text-center">VALOR TOTAL: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
-                   <p className="text-center mt-4">ACOMPANHE: {window.location.host}/resultados?c={vendaRealizada.tickets[0].id}</p>
+
+                   <div className="text-center space-y-2 mb-4">
+                      <p className="text-lg font-black">TOTAL: R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
+                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black">
+                         {vendaRealizada.status === 'pago' ? 'APOSTA CONFIRMADA' : 'AGUARDANDO PAGAMENTO'}
+                      </Badge>
+                   </div>
+
+                   <div className="border-t-2 border-dashed border-black/20 pt-4 text-center space-y-2">
+                      <p className="font-bold">ACOMPANHE EM TEMPO REAL:</p>
+                      <p className="text-[9px] bg-white p-2 border rounded break-all select-all">
+                         {window.location.host}/resultados?c={vendaRealizada.tickets[0].id}
+                      </p>
+                      <p className="text-[8px] opacity-60">Válido por 365 dias para auditoria.</p>
+                   </div>
+
+                   <div className="mt-8 flex gap-2 print:hidden">
+                      <Button onClick={handlePrint} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px] gap-2">
+                        <Printer className="w-4 h-4" /> PDF/Imprimir
+                      </Button>
+                      <Button className="flex-1 h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-[10px] gap-2">
+                        <Send className="w-4 h-4" /> Enviar WhatsApp
+                      </Button>
+                   </div>
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center border-2 border-dashed rounded-2xl opacity-20 italic">Aguardando Aposta...</div>
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-3xl opacity-20 bg-white">
+                   <TicketIcon className="w-20 h-20 mb-4" />
+                   <p className="font-black uppercase tracking-widest text-xs">Terminal Aguardando...</p>
+                </div>
               )}
             </div>
           </div>
