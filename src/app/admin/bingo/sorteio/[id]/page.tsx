@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -36,9 +37,9 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     setBingo(current);
 
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    // Filtra apenas os recibos/tickets deste evento específico
-    const eventTickets = allReceipts.filter((r: any) => r.eventoId === params.id);
-    setTickets(eventTickets);
+    // Filtra apenas os recibos/tickets deste evento específico que estão PAGOS
+    const eventReceipts = allReceipts.filter((r: any) => r.eventoId === params.id && r.status === 'pago');
+    setTickets(eventReceipts);
   }, [params.id]);
 
   const updateTicketStatus = (ticketId: string, status: string) => {
@@ -52,60 +53,76 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
   };
 
+  const speak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'pt-BR';
+      msg.rate = 0.9;
+      window.speechSynthesis.speak(msg);
+    }
+  };
+
   const checkWinners = useCallback((drawn: number[]) => {
+    if (finished) return;
+
     const newWinners = { ...winners };
-    let foundNewWinner = false;
-    let isBingoWinner = false;
+    let foundBingoWinner = false;
+    let foundAnyWinner = false;
 
     tickets.forEach(receipt => {
       receipt.tickets.forEach((t: any) => {
-        if (t.status === 'pago' || t.status === 'ganhou') {
-           // Se já ganhou mas é de nível menor, continua checando níveis maiores
-           // Se já ganhou o Bingo, ignora
-           if (newWinners.bingo.some(w => w.ticketId === t.id)) return;
-        }
+        // Ignora se já ganhou o prêmio máximo (Bingo)
+        if (newWinners.bingo.some(w => w.ticketId === t.id)) return;
         
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        // Regra do Bingo (15 pontos) - PRIORIDADE MÁXIMA
+        // Prioridade 1: Bingo (15 pontos)
         if (hits === 15 && !newWinners.bingo.some(w => w.ticketId === t.id)) {
           newWinners.bingo.push({ ticketId: t.id, cliente: receipt.cliente });
           updateTicketStatus(t.id, 'ganhou');
-          isBingoWinner = true;
-          foundNewWinner = true;
+          foundBingoWinner = true;
+          foundAnyWinner = true;
+          speak(`BINGO! Temos um ganhador do prêmio máximo: ${receipt.cliente}`);
         }
         
-        // Regra da Quina (5 pontos)
+        // Prioridade 2: Quina (5 pontos)
         else if (hits >= 5 && !newWinners.quina.some(w => w.ticketId === t.id)) {
           newWinners.quina.push({ ticketId: t.id, cliente: receipt.cliente });
           updateTicketStatus(t.id, 'ganhou');
-          if (currentPrizeLevel === 'quina') foundNewWinner = true;
+          if (currentPrizeLevel === 'quina') {
+            foundAnyWinner = true;
+            speak(`QUINA! Ganhador: ${receipt.cliente}`);
+          }
         }
         
-        // Regra da Quadra (4 pontos)
+        // Prioridade 3: Quadra (4 pontos)
         else if (hits >= 4 && !newWinners.quadra.some(w => w.ticketId === t.id)) {
           newWinners.quadra.push({ ticketId: t.id, cliente: receipt.cliente });
           updateTicketStatus(t.id, 'ganhou');
-          if (currentPrizeLevel === 'quadra') foundNewWinner = true;
+          if (currentPrizeLevel === 'quadra') {
+            foundAnyWinner = true;
+            speak(`QUADRA! Ganhador: ${receipt.cliente}`);
+          }
         }
       });
     });
 
-    if (foundNewWinner) {
-      setIsAuto(false); // Pausa automática ao encontrar ganhador
+    if (foundAnyWinner || foundBingoWinner) {
+      setIsAuto(false); // PAUSA AUTOMÁTICA
       setWinners(newWinners);
       
-      const latestWinner = isBingoWinner 
+      const title = foundBingoWinner ? "🏆 BINGO FINALIZADO!" : "🔥 NOVO GANHADOR!";
+      const latestWinner = foundBingoWinner 
         ? newWinners.bingo[newWinners.bingo.length - 1]
         : (currentPrizeLevel === 'quina' ? newWinners.quina[newWinners.quina.length - 1] : newWinners.quadra[newWinners.quadra.length - 1]);
 
       toast({
-        title: isBingoWinner ? "🏆 BINGO FINALIZADO!" : "🔥 NOVO GANHADOR!",
-        description: `${latestWinner?.cliente} ACABA DE GANHAR!`,
-        duration: 15000,
+        title,
+        description: `CLIENTE: ${latestWinner?.cliente} ACABA DE GANHAR!`,
+        duration: 10000,
       });
 
-      if (isBingoWinner) {
+      if (foundBingoWinner) {
         setFinished(true);
         const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
         const updated = allBingos.map((b: any) => 
@@ -114,7 +131,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         localStorage.setItem('leobet_bingos', JSON.stringify(updated));
       }
     }
-  }, [tickets, winners, currentPrizeLevel, toast, params.id]);
+  }, [tickets, winners, currentPrizeLevel, toast, params.id, finished]);
 
   const drawNumber = () => {
     if (drawnNumbers.length >= 90 || finished) return;
@@ -128,13 +145,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     setDrawnNumbers(newDrawn);
     setLastNumber(num);
     
-    // Voz do locutor
-    if ('speechSynthesis' in window) {
-      const msg = new SpeechSynthesisUtterance(`Bola número ${num}`);
-      msg.lang = 'pt-BR';
-      window.speechSynthesis.speak(msg);
-    }
-
+    speak(`Número ${num}`);
     checkWinners(newDrawn);
   };
 
@@ -154,12 +165,12 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       <main className="flex-1 overflow-auto p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <Link href="/admin/bingo" className="flex items-center gap-2 text-primary hover:underline font-bold">
-            <ArrowLeft className="w-4 h-4" /> Voltar ao Gerenciamento
+            <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
           </Link>
 
           <div className="flex flex-col md:flex-row justify-between items-stretch bg-white rounded-3xl shadow-xl border-t-8 border-t-accent overflow-hidden">
             <div className="p-8 space-y-2 flex-1">
-              <p className="text-[10px] font-black uppercase text-accent tracking-[0.3em]">Globo Oficial LEOBET PRO</p>
+              <p className="text-[10px] font-black uppercase text-accent tracking-[0.3em]">Globo Inteligente LEOBET PRO</p>
               <h1 className="text-4xl font-black font-headline uppercase text-primary leading-none">{bingo.nome}</h1>
               <p className="text-sm font-bold text-muted-foreground">{new Date(bingo.dataSorteio).toLocaleString('pt-BR')}</p>
             </div>
@@ -172,15 +183,15 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
                     {isAuto ? "Pausar" : "Automático"}
                   </Button>
                   <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-14 px-8 uppercase font-black rounded-2xl border-2 border-primary/20">
-                    Sorteio Manual
+                    Chamar Bola
                   </Button>
                 </div>
               ) : (
                 <div className="flex flex-col items-end gap-2">
                   <Badge className="bg-green-600 text-white py-3 px-6 font-black uppercase text-sm flex gap-3 rounded-2xl shadow-xl">
-                    <CheckCircle2 className="w-5 h-5" /> SORTEIO ENCERRADO
+                    <CheckCircle2 className="w-5 h-5" /> BINGO FINALIZADO
                   </Badge>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground">O Bingo foi finalizado com sucesso</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground">O evento foi encerrado com ganhadores</p>
                 </div>
               )}
             </div>
@@ -207,7 +218,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
             <div className="lg:col-span-2 space-y-8">
               <Card className="bg-white rounded-3xl shadow-lg border-none">
                 <CardHeader className="py-6 px-8 border-b">
-                  <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Painel de Conferência (1-90)</CardTitle>
+                  <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Mapa de Conferência (1-90)</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
                   <div className="grid grid-cols-10 gap-2">
