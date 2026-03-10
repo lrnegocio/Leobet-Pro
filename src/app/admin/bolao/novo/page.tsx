@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Trophy, Plus, Calendar } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, Trophy, Plus, Calendar, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -17,9 +18,9 @@ export default function NovoBolaoPage() {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState(10);
   const [drawDate, setDrawDate] = useState('');
+  const [regras, setRegras] = useState('Prêmio de 65% da arrecadação dividido entre quem mais acertar os 10 jogos.');
   const [saving, setSaving] = useState(false);
   
-  // Inicializa 10 partidas vazias
   const [partidas, setPartidas] = useState(Array(10).fill(null).map(() => ({ 
     time1: '', 
     time2: '', 
@@ -35,7 +36,7 @@ export default function NovoBolaoPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (partidas.some(p => !p.time1 || !p.time2)) {
-      alert("Preencha todos os times das 10 partidas.");
+      alert("Preencha todos os nomes dos times.");
       return;
     }
 
@@ -45,8 +46,9 @@ export default function NovoBolaoPage() {
       id: Math.random().toString(36).substring(7).toUpperCase(),
       nome: title,
       preco: price,
-      dataFim: drawDate, // Data da primeira partida (trava de vendas)
-      partidas: partidas, // Salva o array completo com nomes dos times
+      dataFim: drawDate,
+      partidas: partidas,
+      regras: regras,
       vendidas: 0,
       status: 'aberto',
       tipo: 'bolao',
@@ -80,42 +82,56 @@ export default function NovoBolaoPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-8 pb-20">
+          <form onSubmit={handleSave} className="space-y-8 pb-32">
             <Card className="border-t-8 border-t-primary shadow-2xl rounded-[2rem] overflow-hidden">
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
                   <Calendar className="w-4 h-4" /> Configurações Gerais
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 p-8">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome da Rodada</Label>
-                  <Input 
-                    value={title} 
-                    onChange={e => setTitle(e.target.value.toUpperCase())} 
-                    placeholder="EX: BRASILEIRÃO SÉRIE A" 
-                    required 
-                    className="h-12 font-bold border-2 focus:border-primary rounded-xl"
-                  />
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome da Rodada</Label>
+                    <Input 
+                      value={title} 
+                      onChange={e => setTitle(e.target.value.toUpperCase())} 
+                      placeholder="EX: BRASILEIRÃO SÉRIE A" 
+                      required 
+                      className="h-12 font-bold border-2 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Preço por Aposta (R$)</Label>
+                    <Input 
+                      type="number" 
+                      value={price} 
+                      onChange={e => setPrice(Number(e.target.value))} 
+                      required 
+                      className="h-12 font-black text-xl border-2 rounded-xl text-primary"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Data Início (Trava Vendas)</Label>
+                    <Input 
+                      type="datetime-local" 
+                      value={drawDate} 
+                      onChange={e => setDrawDate(e.target.value)} 
+                      required 
+                      className="h-12 font-bold border-2 rounded-xl"
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Preço por Aposta (R$)</Label>
-                  <Input 
-                    type="number" 
-                    value={price} 
-                    onChange={e => setPrice(Number(e.target.value))} 
-                    required 
-                    className="h-12 font-black text-xl border-2 focus:border-primary rounded-xl text-primary"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Data Início (Trava Vendas)</Label>
-                  <Input 
-                    type="datetime-local" 
-                    value={drawDate} 
-                    onChange={e => setDrawDate(e.target.value)} 
-                    required 
-                    className="h-12 font-bold border-2 focus:border-primary rounded-xl"
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                    <FileText className="w-3 h-3" /> Regras e Premiação (Bloco de Notas)
+                  </Label>
+                  <Textarea 
+                    value={regras}
+                    onChange={e => setRegras(e.target.value)}
+                    placeholder="Dite as regras aqui..."
+                    className="min-h-[100px] font-bold border-2 rounded-xl bg-primary/5"
                   />
                 </div>
               </CardContent>
@@ -123,7 +139,7 @@ export default function NovoBolaoPage() {
 
             <div className="space-y-4">
                <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary">
-                 <Plus className="w-5 h-5 text-accent" /> Lista de Partidas da Grade
+                 <Plus className="w-5 h-5 text-accent" /> Grade das 10 Partidas
                </h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {partidas.map((p, i) => (
@@ -142,7 +158,7 @@ export default function NovoBolaoPage() {
                              <div className="space-y-1 text-center">
                                <Label className="text-[8px] font-black uppercase opacity-40">Mandante</Label>
                                <Input 
-                                 placeholder="TIME A" 
+                                 placeholder="CASA" 
                                  className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
                                  value={p.time1}
                                  onChange={(e) => handleUpdatePartida(i, 'time1', e.target.value.toUpperCase())} 
@@ -155,7 +171,7 @@ export default function NovoBolaoPage() {
                              <div className="space-y-1 text-center">
                                <Label className="text-[8px] font-black uppercase opacity-40">Visitante</Label>
                                <Input 
-                                 placeholder="TIME B" 
+                                 placeholder="FORA" 
                                  className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
                                  value={p.time2}
                                  onChange={(e) => handleUpdatePartida(i, 'time2', e.target.value.toUpperCase())} 

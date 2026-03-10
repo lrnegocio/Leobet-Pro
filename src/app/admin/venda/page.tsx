@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertCircle, ShieldCheck, Trophy, Smartphone } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertCircle, ShieldCheck, Trophy, Smartphone, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -100,7 +100,7 @@ export default function VendaPage() {
     }
 
     if (formData.tipo === 'bolao' && bolaoPalpites.some(p => !p)) {
-      toast({ variant: "destructive", title: "GRADE INCOMPLETA", description: "Selecione o palpite para todos os 10 jogos." });
+      toast({ variant: "destructive", title: "GRADE INCOMPLETA", description: "Selecione o palpite para os 10 jogos." });
       return;
     }
 
@@ -117,7 +117,7 @@ export default function VendaPage() {
     setLoading(true);
     setTimeout(() => {
       const ticketsGenerated: any[] = [];
-      const qtd = 1; // Venda unitária por palpite/cartela no terminal rápido
+      const qtd = 1;
 
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
@@ -199,11 +199,8 @@ export default function VendaPage() {
 
   const printBluetooth = async () => {
     if (!vendaRealizada) return;
-    toast({ title: "Buscando Impressora...", description: "Certifique-se de que o Bluetooth está ligado." });
-    // Simulando conexão Bluetooth - Em ambiente real usaria navigator.bluetooth
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    toast({ title: "Buscando Impressora...", description: "Inicie o pareamento com o dispositivo Bluetooth." });
+    setTimeout(() => { window.print(); }, 500);
   };
 
   return (
@@ -246,19 +243,24 @@ export default function VendaPage() {
                       onChange={e => handleSelectEvent(e.target.value)}
                       required
                     >
-                      <option value="">-- CONCURSOS ABERTOS --</option>
+                      <option value="">-- SELECIONE --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.tipo.toUpperCase()}: {e.nome} (R$ {e.preco.toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   {selectedEvent?.tipo === 'bolao' && (
                     <div className="space-y-4 bg-muted/30 p-4 rounded-2xl border-2 border-dashed">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Trophy className="w-4 h-4 text-accent" />
-                        <h3 className="font-black uppercase text-xs">Marque seu Palpite (10 Jogos)</h3>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-accent" />
+                          <h3 className="font-black uppercase text-xs">Palpites (10 Jogos)</h3>
+                        </div>
+                        {selectedEvent.regras && (
+                          <Badge variant="outline" className="text-[7px] font-black bg-white">REGRAS ATIVAS</Badge>
+                        )}
                       </div>
                       <div className="space-y-3">
-                        {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : Array(10).fill({time1: 'Time A', time2: 'Time B'})).map((p: any, i: number) => (
+                        {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : []).map((p: any, i: number) => (
                           <div key={i} className="flex flex-col gap-1.5 p-2 bg-white rounded-xl border shadow-sm">
                              <div className="flex justify-between text-[8px] font-black uppercase opacity-60 px-1">
                                 <span>#{i+1}</span>
@@ -271,7 +273,7 @@ export default function VendaPage() {
                                   variant={bolaoPalpites[i] === '1' ? 'default' : 'outline'}
                                   className="h-8 text-[10px] font-black uppercase"
                                 >
-                                  1 (Casa)
+                                  1
                                 </Button>
                                 <Button 
                                   type="button" 
@@ -279,7 +281,7 @@ export default function VendaPage() {
                                   variant={bolaoPalpites[i] === 'X' ? 'default' : 'outline'}
                                   className="h-8 text-[10px] font-black uppercase"
                                 >
-                                  X (Empate)
+                                  X
                                 </Button>
                                 <Button 
                                   type="button" 
@@ -287,7 +289,7 @@ export default function VendaPage() {
                                   variant={bolaoPalpites[i] === '2' ? 'default' : 'outline'}
                                   className="h-8 text-[10px] font-black uppercase"
                                 >
-                                  2 (Fora)
+                                  2
                                 </Button>
                              </div>
                           </div>
@@ -297,7 +299,7 @@ export default function VendaPage() {
                   )}
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[9px] font-black opacity-60 text-center block">Valor Total do Jogo</Label>
+                    <Label className="uppercase text-[9px] font-black opacity-60 text-center block">Valor do Jogo</Label>
                     <div className="relative">
                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">R$</span>
                        <Input 
@@ -335,6 +337,13 @@ export default function VendaPage() {
                       <p className="flex justify-between"><span>DATA:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
 
+                   {selectedEvent?.regras && (
+                     <div className="mb-4 p-2 bg-black/5 rounded-lg border border-black/10 relative z-10">
+                        <p className="text-[7px] font-black uppercase opacity-40 mb-1 flex items-center gap-1"><FileText className="w-2 h-2" /> Regras do Concurso:</p>
+                        <p className="text-[8px] font-bold leading-tight">{selectedEvent.regras}</p>
+                     </div>
+                   )}
+
                    <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3 relative z-10">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
                         <div key={i} className="bg-black/5 p-3 rounded-xl border border-black/5">
@@ -361,7 +370,7 @@ export default function VendaPage() {
                         <Send className="w-4 h-4 mr-2" /> Enviar p/ Cliente (WhatsApp)
                       </Button>
                       <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 hover:bg-muted/50 gap-2">
-                        <Smartphone className="w-4 h-4" /> Impressão Bluetooth / Térmica
+                        <Smartphone className="w-4 h-4" /> Impressão Térmica
                       </Button>
                    </div>
                 </div>
@@ -371,7 +380,7 @@ export default function VendaPage() {
                       <TicketIcon className="w-24 h-24 text-primary" />
                    </div>
                    <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 leading-none mb-2">Aguardando Venda</h3>
-                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Selecione um concurso e preencha os dados do cliente</p>
+                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Selecione um concurso para começar</p>
                 </div>
               )}
             </div>
