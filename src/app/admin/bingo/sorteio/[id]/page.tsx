@@ -115,12 +115,11 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         if (!t.numeros) return;
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        if (hits === targetHits) {
-          const alreadyWinner = winners.quadra.some(w => w.ticketId === t.id) || 
-                               winners.quina.some(w => w.ticketId === t.id) || 
-                               winners.bingo.some(w => w.ticketId === t.id);
+        // Se atingiu os acertos necessários E ainda não ganhou ESTE nível específico
+        if (hits >= targetHits) {
+          const alreadyInThisLevel = (winners[level as keyof typeof winners] || []).some((w: any) => w.ticketId === t.id);
           
-          if (!alreadyWinner) {
+          if (!alreadyInThisLevel) {
             currentRoundWinners.push({ 
               ticketId: t.id, 
               cliente: receipt.cliente, 
@@ -134,13 +133,13 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     if (currentRoundWinners.length > 0) {
       setIsAuto(false);
       const newWinners = { ...winners };
-      newWinners[level] = [...newWinners[level], ...currentRoundWinners];
+      newWinners[level] = [...(newWinners[level] || []), ...currentRoundWinners];
       setWinners(newWinners);
 
       const premioTotalNivel = premios[level];
       const individual = premioTotalNivel / newWinners[level].length;
       
-      newWinners[level].forEach(w => {
+      currentRoundWinners.forEach(w => {
         updateTicketStatus(w.ticketId, 'ganhou', individual);
       });
 
