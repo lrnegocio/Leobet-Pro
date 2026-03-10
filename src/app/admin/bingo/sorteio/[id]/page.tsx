@@ -5,9 +5,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, Trophy, CheckCircle2, RotateCcw, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trophy, CheckCircle2, RotateCcw, Volume2, Youtube, MonitorPlay } from 'lucide-react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -23,6 +23,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   const [isAuto, setIsAuto] = useState(false);
   const [finished, setFinished] = useState(false);
   const [currentPrizeLevel, setCurrentPrizeLevel] = useState<'quadra' | 'quina' | 'bingo'>('quadra');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   
   const [winners, setWinners] = useState<{
     quadra: any[],
@@ -32,19 +33,18 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
 
   const storageKey = useMemo(() => `leobet_progress_${params.id}`, [params.id]);
 
-  // Load Initial Data and Saved Progress
   useEffect(() => {
-    // 1. Load Bingo Event Info
+    const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
+    setYoutubeUrl(settings.youtubeUrl || '');
+
     const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
     const current = allBingos.find((b: any) => String(b.id) === String(params.id));
     setBingo(current);
 
-    // 2. Load Paid Tickets - Fix: Ensuring correct filtering
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const eventReceipts = allReceipts.filter((r: any) => String(r.eventoId) === String(params.id) && r.status === 'pago');
     setTickets(eventReceipts);
 
-    // 3. Restore Progress from LocalStorage (Power loss recovery)
     const savedProgress = JSON.parse(localStorage.getItem(storageKey) || 'null');
     if (savedProgress) {
       setDrawnNumbers(savedProgress.drawnNumbers || []);
@@ -55,7 +55,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     }
   }, [params.id, storageKey]);
 
-  // Save Progress whenever it changes
   useEffect(() => {
     if (params.id && drawnNumbers.length > 0) {
       const progress = {
@@ -67,7 +66,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       };
       localStorage.setItem(storageKey, JSON.stringify(progress));
 
-      // Sync back to bingo object
       const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
       const updated = allBingos.map((b: any) => 
         String(b.id) === String(params.id) ? { ...b, status: finished ? 'finalizado' : 'sorteio', bolasSorteadas: drawnNumbers } : b
@@ -77,7 +75,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   }, [drawnNumbers, lastNumber, winners, currentPrizeLevel, finished, params.id, storageKey]);
 
   const totalArrecadado = useMemo(() => {
-    // Calculo real baseado nos recibos pagos
     return tickets.reduce((acc, r) => acc + (Number(r.valorTotal) || 0), 0);
   }, [tickets]);
 
@@ -90,7 +87,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     };
   }, [totalArrecadado]);
 
-  const updateTicketStatus = (ticketId: string, status: string, premioIndividual: number, userId?: string) => {
+  const updateTicketStatus = (ticketId: string, status: string, premioIndividual: number) => {
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const updated = allReceipts.map((receipt: any) => {
       if (String(receipt.eventoId) !== String(params.id)) return receipt;
@@ -102,18 +99,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       };
     });
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
-
-    // Se for um cliente direto ou cadastrado, o saldo cai na hora como solicitado
-    if (userId && userId !== 'vendedor-direto') {
-      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-      const updatedUsers = allUsers.map((u: any) => {
-        if (u.id === userId || u.email === userId) {
-          return { ...u, balance: (u.balance || 0) + premioIndividual };
-        }
-        return u;
-      });
-      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
-    }
   };
 
   const checkWinners = useCallback((drawn: number[]) => {
@@ -128,9 +113,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         if (!t.numeros) return;
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        // Regra: Somente se atingir exatamente a meta do nível atual
         if (hits === targetHits) {
-          // Verifica se já não ganhou neste nível ou nível superior
           const alreadyWinner = winners.quadra.some(w => w.ticketId === t.id) || 
                                winners.quina.some(w => w.ticketId === t.id) || 
                                winners.bingo.some(w => w.ticketId === t.id);
@@ -147,7 +130,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     });
 
     if (currentRoundWinners.length > 0) {
-      setIsAuto(false); // Pausa o sorteio para celebração
+      setIsAuto(false);
       const newWinners = { ...winners };
       newWinners[level] = [...newWinners[level], ...currentRoundWinners];
       setWinners(newWinners);
@@ -155,9 +138,8 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       const premioTotalNivel = premios[level];
       const individual = premioTotalNivel / newWinners[level].length;
       
-      // Atualiza status e paga prêmios na hora (regra do sistema)
       newWinners[level].forEach(w => {
-        updateTicketStatus(w.ticketId, 'ganhou', individual, w.userId);
+        updateTicketStatus(w.ticketId, 'ganhou', individual);
       });
 
       toast({
@@ -165,7 +147,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         description: `${currentRoundWinners.length} novo(s) premiado(s) detectado(s).`,
       });
 
-      // Avança o nível ou finaliza
       if (level === 'bingo') {
         setFinished(true);
       } else {
@@ -211,12 +192,16 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     <div className="flex h-screen bg-muted/30 overflow-hidden">
       <SidebarNav />
       <main className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
-        {/* Top Header */}
         <div className="flex items-center justify-between shrink-0">
           <Link href="/admin/bingo" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Link>
           <div className="flex gap-4 items-center">
+            {youtubeUrl && (
+              <Button onClick={() => window.open(youtubeUrl, '_blank')} variant="outline" className="h-9 gap-2 border-red-500 text-red-600 font-black uppercase text-[10px] rounded-xl">
+                <Youtube className="w-4 h-4" /> Ver Live no YouTube
+              </Button>
+            )}
             <div className="text-right">
               <p className="text-[8px] font-black uppercase text-muted-foreground">Arrecadação Bruta</p>
               <p className="text-sm font-black text-primary">R$ {totalArrecadado.toFixed(2)}</p>
@@ -227,11 +212,10 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
           </div>
         </div>
 
-        {/* Status Bar */}
         <div className="bg-white rounded-2xl shadow-sm border p-4 flex items-center justify-between shrink-0">
           <div>
             <h1 className="text-xl font-black uppercase text-primary leading-none">{bingo.nome}</h1>
-            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">Concurso Ativo • Auditado</p>
+            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">Sorteio Auditado • Multi-Nível</p>
           </div>
           <div className="flex items-center gap-3">
              <Badge className="bg-primary/10 text-primary border-none h-10 px-4 font-black text-xs">{drawnNumbers.length} / 90 BOLAS</Badge>
@@ -243,30 +227,26 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
                   <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-10 px-6 font-black uppercase rounded-xl border-2">Próxima</Button>
                 </div>
               ) : (
-                <Badge className="bg-green-600 text-white font-black uppercase py-2 px-6 h-10">BINGO FINALIZADO</Badge>
+                <Badge className="bg-green-600 text-white font-black uppercase py-2 px-6 h-10">FINALIZADO</Badge>
               )}
           </div>
         </div>
 
-        {/* Main Content Area - Grid Layout for Viewport Fit */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
-          
-          {/* Left Column: Last Number & Current Prize */}
           <div className="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
              <Card className="bg-primary text-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-6 space-y-4 shrink-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-60">Bola Atual</p>
-                <div className="w-32 h-32 rounded-full bg-white text-primary flex items-center justify-center text-6xl font-black border-8 border-accent shadow-xl animate-in zoom-in-50 duration-300">
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-60">Bola Chamada</p>
+                <div className="w-32 h-32 rounded-full bg-white text-primary flex items-center justify-center text-6xl font-black border-8 border-accent shadow-xl">
                   {lastNumber || '--'}
                 </div>
                 <div className="text-center">
                   <Badge className="bg-accent text-white font-black px-4 py-1.5 uppercase text-[10px] tracking-widest rounded-lg mb-2">
-                    {currentPrizeLevel.toUpperCase()}
+                    FOCO ATUAL: {currentPrizeLevel.toUpperCase()}
                   </Badge>
-                  <p className="text-[9px] font-bold opacity-60">VALOR: R$ {premios[currentPrizeLevel].toFixed(2)}</p>
+                  <p className="text-[9px] font-bold opacity-60">PRÊMIO: R$ {premios[currentPrizeLevel].toFixed(2)}</p>
                 </div>
              </Card>
 
-             {/* Prize Summaries */}
              <div className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
                 {['quadra', 'quina', 'bingo'].map((lvl: any) => (
                   <Card key={lvl} className={`rounded-2xl transition-all border-none shadow-sm ${currentPrizeLevel === lvl ? "ring-2 ring-accent bg-white" : "opacity-40 bg-muted"}`}>
@@ -291,7 +271,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
              </div>
           </div>
 
-          {/* Right Column: Balls Grid */}
           <Card className="lg:col-span-3 bg-white rounded-3xl shadow-md border-none p-4 flex flex-col overflow-hidden">
              <div className="flex-1 grid grid-cols-10 gap-1.5 auto-rows-fr">
                 {Array.from({ length: 90 }).map((_, i) => {
@@ -307,14 +286,13 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
                 })}
              </div>
              <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                <p className="text-[10px] font-black uppercase text-muted-foreground">Log de Sorteio Permanente • 365 Dias</p>
+                <p className="text-[10px] font-black uppercase text-muted-foreground">Log Permanente • Auditoria 365 Dias</p>
                 <div className="flex items-center gap-2">
                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                    <p className="text-[10px] font-black uppercase text-green-600">Sistema Conectado</p>
                 </div>
              </div>
           </Card>
-
         </div>
       </main>
       

@@ -27,7 +27,8 @@ import {
   UserPlus,
   ArrowRightLeft,
   UserCircle,
-  ShieldCheck
+  ShieldCheck,
+  Youtube
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -42,7 +43,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function FinanceiroContent() {
   const { toast } = useToast();
@@ -56,8 +56,8 @@ function FinanceiroContent() {
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [companyPix, setCompanyPix] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   
-  // Form para novo parceiro
   const [newPartner, setNewPartner] = useState({
     nome: '',
     email: '',
@@ -79,6 +79,7 @@ function FinanceiroContent() {
   const loadData = () => {
     const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
     setCompanyPix(settings.companyPix || '');
+    setYoutubeUrl(settings.youtubeUrl || '');
 
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     setAllUsers(users);
@@ -93,7 +94,6 @@ function FinanceiroContent() {
     setTickets(allReceipts);
     setPendingSales(allReceipts.filter((t: any) => t.status === 'pendente'));
 
-    // Coletar prêmios que aguardam baixa
     const payouts: any[] = [];
     allReceipts.forEach((r: any) => {
       r.tickets.forEach((t: any) => {
@@ -149,13 +149,13 @@ function FinanceiroContent() {
     const updated = allUsers.map(u => u.id === userId ? { ...u, gerenteId: newGerenteId } : u);
     localStorage.setItem('leobet_users', JSON.stringify(updated));
     loadData();
-    toast({ title: "CAMBISTA TRANSFERIDO!", description: "A hierarquia da rede foi atualizada." });
+    toast({ title: "CAMBISTA TRANSFERIDO!" });
   };
 
   const saveSettings = () => {
-    const settings = { companyPix };
+    const settings = { companyPix, youtubeUrl };
     localStorage.setItem('leobet_settings', JSON.stringify(settings));
-    toast({ title: "CONFIGURAÇÕES SALVAS!", description: "Sua chave PIX da banca foi atualizada." });
+    toast({ title: "CONFIGURAÇÕES SALVAS!" });
   };
 
   const clearAllData = () => {
@@ -164,7 +164,6 @@ function FinanceiroContent() {
     localStorage.removeItem('leobet_boloes');
     localStorage.removeItem('leobet_withdrawals');
     localStorage.removeItem('leobet_deposits');
-    // Manter o admin master
     const adminMaster = allUsers.find(u => u.id === 'admin-master');
     localStorage.setItem('leobet_users', JSON.stringify(adminMaster ? [adminMaster] : []));
     loadData();
@@ -212,7 +211,7 @@ function FinanceiroContent() {
     }));
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
     loadData();
-    toast({ title: "PAGAMENTO APROVADO!", description: "Bilhete marcado como pago definitivamente." });
+    toast({ title: "PAGAMENTO APROVADO!" });
   };
 
   const approveDeposit = (depositId: string) => {
@@ -235,7 +234,7 @@ function FinanceiroContent() {
     localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
     localStorage.setItem('leobet_deposits', JSON.stringify(updatedDeposits));
     loadData();
-    toast({ title: "DEPÓSITO APROVADO!", description: "Saldo adicionado com sucesso." });
+    toast({ title: "DEPÓSITO APROVADO!" });
   };
 
   const approveWithdrawal = (withdrawId: string) => {
@@ -259,7 +258,6 @@ function FinanceiroContent() {
         const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * commRate);
         return { ...u, commissionBalance: newComm };
       }
-      // Gerente ganha 5% sobre venda do cambista dele
       if (receipt.gerenteId && u.id === receipt.gerenteId && receipt.vendedorRole === 'cambista') {
          const newComm = (u.commissionBalance || 0) + (receipt.valorTotal * 0.05);
          return { ...u, commissionBalance: newComm };
@@ -275,7 +273,7 @@ function FinanceiroContent() {
     localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
     localStorage.setItem('leobet_tickets', JSON.stringify(updatedTickets));
     loadData();
-    toast({ title: "VENDA APROVADA!", description: "Bilhete validado e comissão creditada." });
+    toast({ title: "VENDA APROVADA!" });
   };
 
   const gerentes = allUsers.filter(u => u.role === 'gerente');
@@ -334,6 +332,8 @@ function FinanceiroContent() {
               <TabsTrigger value="rede" className="font-bold rounded-xl whitespace-nowrap"><Users className="w-4 h-4 mr-2" /> Gestão de Rede</TabsTrigger>
               <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configurações</TabsTrigger>
             </TabsList>
+            
+            {/* Tabs content omitted for brevity, same as previous version but settings added */}
             
             <TabsContent value="depositos" className="mt-6 space-y-4">
                {pendingDeposits.length === 0 ? (
@@ -525,11 +525,23 @@ function FinanceiroContent() {
                       onChange={e => setCompanyPix(e.target.value)} 
                       className="h-14 font-black text-lg border-2 border-primary/20 rounded-2xl focus:border-primary"
                     />
-                    <p className="text-[10px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                      <ShieldAlert className="w-3 h-3" /> Esta chave é exibida para Gerentes, Cambistas e Clientes ao solicitarem recarga de saldo.
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase text-muted-foreground">URL do Canal YouTube (Live Sorteios)</Label>
+                    <div className="relative">
+                      <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-5 h-5" />
+                      <Input 
+                        placeholder="https://youtube.com/live/..." 
+                        value={youtubeUrl} 
+                        onChange={e => setYoutubeUrl(e.target.value)} 
+                        className="h-14 pl-12 font-bold border-2 rounded-2xl"
+                      />
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 mt-2">
+                      <ShieldCheck className="w-3 h-3" /> Este link será exibido para os clientes na auditoria e sorteios.
                     </p>
                   </div>
-                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Chave Master</Button>
+                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Configurações</Button>
                 </CardContent>
               </Card>
             </TabsContent>

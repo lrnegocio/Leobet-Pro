@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,7 @@ function ResultadosContent() {
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [pixKey, setPixKey] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
 
   const handleSearch = (searchCode?: string) => {
     const codeToSearch = searchCode || code;
@@ -33,7 +34,6 @@ function ResultadosContent() {
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       let foundReceipt = null;
 
-      // Busca o recibo que contém esse ticket específico
       allReceipts.forEach((r: any) => {
         const ticket = r.tickets.find((t: any) => t.id === codeToSearch);
         if (ticket) foundReceipt = r;
@@ -45,6 +45,9 @@ function ResultadosContent() {
   };
 
   useEffect(() => {
+    const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
+    setYoutubeUrl(settings.youtubeUrl || '');
+
     const ticketCode = searchParams.get('c');
     if (ticketCode) {
       setCode(ticketCode);
@@ -54,7 +57,7 @@ function ResultadosContent() {
 
   const handleClaim = (ticketId: string) => {
     if (!pixKey || pixKey.trim().length < 5) {
-      toast({ variant: "destructive", title: "CHAVE PIX OBRIGATÓRIA", description: "Informe sua chave PIX para receber o prêmio." });
+      toast({ variant: "destructive", title: "CHAVE PIX OBRIGATÓRIA" });
       return;
     }
 
@@ -73,54 +76,57 @@ function ResultadosContent() {
       localStorage.setItem('leobet_tickets', JSON.stringify(updated));
       handleSearch(ticketId);
       setClaiming(null);
-      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Sua chave PIX foi registrada. Aguarde a conferência e pagamento do Admin." });
+      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Aguarde a conferência e pagamento do Admin." });
     }, 1000);
   };
 
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-3xl w-full space-y-8">
-        <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase transition-all">
-          <ArrowLeft className="w-4 h-4" /> Voltar ao Início
-        </Link>
+        <div className="flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase transition-all">
+            <ArrowLeft className="w-4 h-4" /> Voltar ao Início
+          </Link>
+          {youtubeUrl && (
+            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-9 gap-2 rounded-xl shadow-lg">
+              <Youtube className="w-4 h-4" /> Assistir Sorteio ao Vivo
+            </Button>
+          )}
+        </div>
 
         <div className="text-center space-y-4">
           <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4">
              <Trophy className="w-10 h-10" />
           </div>
           <h1 className="text-5xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Auditoria</h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência de Bilhetes 365 Dias</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência em Tempo Real 365 Dias</p>
         </div>
 
         <Card className="border-t-[12px] border-t-accent shadow-2xl overflow-hidden rounded-[2.5rem] border-none">
           <CardContent className="p-8 md:p-12 space-y-10">
             <div className="space-y-4">
-               <label className="text-xs font-black uppercase text-muted-foreground block text-center opacity-60">Insira o código de 11 dígitos do seu bilhete</label>
+               <label className="text-xs font-black uppercase text-muted-foreground block text-center opacity-60">Insira o código do seu bilhete</label>
                <div className="flex flex-col md:flex-row gap-3">
                 <Input 
-                  placeholder="EX: 45151322893" 
+                  placeholder="CÓDIGO DO BILHETE" 
                   className="h-16 font-black text-center text-3xl tracking-[0.4em] border-2 focus:border-primary rounded-2xl uppercase shadow-inner" 
-                  maxLength={11}
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                 />
-                <Button onClick={() => handleSearch()} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
+                <Button onClick={() => handleSearch()} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-2xl shadow-xl" disabled={loading}>
                   {loading ? <Clock className="animate-spin w-6 h-6" /> : <Search className="w-7 h-7" />}
                 </Button>
               </div>
             </div>
 
             {loading ? (
-              <div className="py-20 flex flex-col items-center gap-4 animate-pulse">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                   <Clock className="w-8 h-8 text-primary" />
-                </div>
+              <div className="py-20 flex flex-col items-center gap-4">
+                <Clock className="w-12 h-12 text-primary animate-spin" />
                 <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Auditoria...</p>
               </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-8">
                 <div className="bg-primary/5 p-8 rounded-[2rem] border-2 border-primary/10 space-y-6 relative overflow-hidden">
-                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full"></div>
                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
                       <div className="text-center md:text-left">
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador</p>
@@ -174,9 +180,9 @@ function ResultadosContent() {
                                      {isWinner ? (
                                        <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 PREMIADO!</Badge>
                                      ) : isPaid ? (
-                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ PRÊMIO JÁ PAGO</Badge>
+                                       <Badge className="bg-blue-600 font-black uppercase text-[10px]">✓ PRÊMIO PAGO</Badge>
                                      ) : isPending ? (
-                                       <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE SOLICITADO</Badge>
+                                       <Badge className="bg-orange-600 font-black uppercase text-[10px]">⌚ RESGATE PENDENTE</Badge>
                                      ) : isLost ? (
                                        <Badge variant="destructive" className="font-black uppercase text-[10px]">NÃO PREMIADO</Badge>
                                      ) : (
@@ -224,7 +230,7 @@ function ResultadosContent() {
 
                                         <p className="text-[8px] font-bold text-white/50 flex items-start gap-1 leading-tight text-left">
                                           <AlertTriangle className="w-3 h-3 shrink-0" />
-                                          Atenção: A banca não se responsabiliza por chaves PIX digitadas incorretamente.
+                                          Atenção: A banca não se responsabiliza por erros de digitação.
                                         </p>
 
                                         <Button 
@@ -232,21 +238,19 @@ function ResultadosContent() {
                                           className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg"
                                           disabled={claiming === t.id}
                                         >
-                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR BAIXA DO PRÊMIO"}
+                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR PAGAMENTO"}
                                         </Button>
                                       </div>
                                     ) : isPaid ? (
                                       <>
                                         <CheckCircle2 className="w-10 h-10 mb-2" />
-                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">BILHETE JÁ PAGO!</p>
-                                        <p className="text-[8px] mt-2 opacity-60 uppercase font-black">Este bilhete não pode ser baixado novamente.</p>
+                                        <p className="font-black uppercase text-[10px] tracking-widest leading-tight">PREMIAÇÃO PAGA!</p>
                                       </>
                                     ) : (
                                       <>
                                         <Clock className="w-10 h-10 mb-2 animate-pulse" />
                                         <p className="font-black uppercase text-[10px] tracking-widest">RESGATE PENDENTE</p>
                                         <p className="text-[8px] mt-2 opacity-50 uppercase font-black">Chave: {t.pixResgate}</p>
-                                        <p className="text-[8px] opacity-40 uppercase font-black">Aguardando aprovação do Admin</p>
                                       </>
                                     )}
                                  </div>
@@ -263,29 +267,17 @@ function ResultadosContent() {
                   <Info className="w-8 h-8 mx-auto opacity-40" />
                   <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-80">Suporte ao Apostador</p>
                   <p className="font-black text-4xl mt-1 tracking-tighter">(82) 99334-3941</p>
-                  <p className="text-xs font-bold uppercase opacity-60 max-w-sm mx-auto leading-relaxed">
-                    Problemas com o resgate? Entre em contato informando o ID do bilhete.
-                  </p>
                 </div>
               </div>
-            ) : searched && code.length === 11 && (
-              <div className="text-center py-20 animate-in fade-in zoom-in-95 duration-500">
-                <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-8 opacity-20">
-                   <XCircle className="w-12 h-12" />
-                </div>
-                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete Inexistente</h3>
-                <p className="text-sm font-bold text-muted-foreground mt-4 max-w-xs mx-auto opacity-60">
-                  Verifique o código de 11 dígitos no seu recibo. Apenas bilhetes validados pela banca aparecem aqui.
-                </p>
-                <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Voltar</Button>
+            ) : searched && (
+              <div className="text-center py-20">
+                <XCircle className="w-24 h-24 mx-auto mb-8 opacity-20" />
+                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete Não Localizado</h3>
+                <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Tentar Novamente</Button>
               </div>
             )}
           </CardContent>
         </Card>
-        
-        <p className="text-center text-[9px] font-black uppercase text-muted-foreground/40 tracking-[0.5em] pt-8">
-           LEOBET PRO © AUDITORIA BLINDADA 365 DIAS
-        </p>
       </div>
     </div>
   );

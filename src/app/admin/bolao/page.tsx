@@ -6,7 +6,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock } from 'lucide-react';
+import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock, FileEdit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function BolaoPage() {
@@ -43,7 +43,7 @@ export default function BolaoPage() {
           <div className="grid grid-cols-1 gap-4">
             {boloes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((bolao) => {
               const now = new Date();
-              const startDate = new Date(bolao.dataFim); // dataFim no Bolão é o início dos jogos
+              const startDate = new Date(bolao.dataFim); 
               const limit = new Date(startDate.getTime() - 60000);
               const isSalesClosed = bolao.status === 'finalizado' || bolao.status === 'encerrado' || now >= limit;
               const isFinished = bolao.status === 'finalizado' || bolao.status === 'encerrado';
@@ -56,7 +56,7 @@ export default function BolaoPage() {
                         <div className="flex items-center gap-3">
                           <h3 className="text-xl font-black uppercase text-primary leading-none">{bolao.nome}</h3>
                           <Badge variant={isFinished ? 'secondary' : (isSalesClosed ? 'destructive' : 'default')} className="font-black text-[10px] uppercase">
-                            {isFinished ? 'Encerrado' : (isSalesClosed ? 'Vendas Encerradas' : 'Em Aberto')}
+                            {isFinished ? 'Auditado' : (isSalesClosed ? 'Aguardando Resultados' : 'Vendas Abertas')}
                           </Badge>
                         </div>
                         
@@ -74,22 +74,21 @@ export default function BolaoPage() {
                             <span>{bolao.vendidas || 0} Apostas</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs font-black uppercase text-primary">
-                            <span className="bg-primary/10 px-2 py-1 rounded">Preço R$ {(bolao.preco || 0).toFixed(2)}</span>
+                            <span className="bg-primary/10 px-2 py-1 rounded">R$ {(bolao.preco || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <Link href={isFinished ? "/admin/financeiro" : "#"}>
-                          <Button variant="outline" className={`gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'border-green-600 text-green-600' : ''}`}>
-                            {isFinished ? <History className="w-4 h-4" /> : <Eye className="w-4 h-4 text-accent" />}
-                            {isFinished ? "Auditar Ganhadores" : "Lançar Placares"}
+                        <Link href={`/admin/bolao/resultados/${bolao.id}`}>
+                          <Button className={`gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-accent hover:bg-accent/90'}`}>
+                            {isFinished ? <History className="w-4 h-4" /> : <FileEdit className="w-4 h-4" />}
+                            {isFinished ? "Ver Auditoria" : "Lançar Placares"}
                           </Button>
                         </Link>
-                        <Button variant="outline" size="icon" className="hover:border-primary h-10 w-10">
+                        <Button variant="outline" size="icon" className="h-10 w-10">
                           <Settings2 className="w-4 h-4 text-primary" />
                         </Button>
-                        <p className="text-[8px] font-black uppercase text-muted-foreground/30 ml-2">ID: {bolao.id}</p>
                       </div>
                     </div>
                   </CardContent>
