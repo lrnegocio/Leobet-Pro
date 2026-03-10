@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, AlertCircle, ShieldCheck, Trophy, Smartphone, FileText } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -39,13 +39,15 @@ export default function VendaPage() {
       const drawDate = new Date(b.dataSorteio);
       const limit = new Date(drawDate.getTime() - 60000); 
       return b.status === 'aberto' && now < limit;
-    });
+    }).map((b: any) => ({ ...b, tipo: 'bingo' }));
+
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
       const startDate = new Date(b.dataFim); 
       const limit = new Date(startDate.getTime() - 60000);
       return b.status === 'aberto' && now < limit;
-    });
-    setEventosAtivos([...bingos.map(b => ({...b, tipo: 'bingo'})), ...boloes.map(b => ({...b, tipo: 'bolao'}))]);
+    }).map((b: any) => ({ ...b, tipo: 'bolao' }));
+
+    setEventosAtivos([...bingos, ...boloes]);
   };
 
   useEffect(() => {
@@ -117,8 +119,6 @@ export default function VendaPage() {
     setLoading(true);
     setTimeout(() => {
       const ticketsGenerated: any[] = [];
-      const qtd = 1;
-
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
         numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
@@ -137,7 +137,7 @@ export default function VendaPage() {
         ...formData,
         whatsapp: cleanPhone,
         tickets: ticketsGenerated,
-        qtd
+        qtd: 1
       };
 
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
@@ -161,14 +161,12 @@ export default function VendaPage() {
             }
 
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.15 : 0;
-            const myComm = formData.valorTotal * myCommRate;
-            newComm += myComm;
+            newComm += (formData.valorTotal * myCommRate);
 
             return { ...u, balance: newBal, commissionBalance: newComm };
           }
           if (user?.role === 'cambista' && user?.gerenteId && u.id === user.gerenteId) {
-             const mgrComm = formData.valorTotal * 0.05;
-             return { ...u, commissionBalance: (u.commissionBalance || 0) + mgrComm };
+             return { ...u, commissionBalance: (u.commissionBalance || 0) + (formData.valorTotal * 0.05) };
           }
           return u;
         });
@@ -193,7 +191,13 @@ export default function VendaPage() {
     const host = window.location.origin;
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
-    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A%0A*CONFERIR:* ${link}`;
+    
+    let palpitesTexto = '';
+    if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite) {
+      palpitesTexto = `%0A%0A*MEUS PALPITES:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => `Jogo ${i+1}: [${p}]`).join('%0A')}`;
+    }
+
+    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}${palpitesTexto}%0A%0A*CONFERIR:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -255,42 +259,27 @@ export default function VendaPage() {
                           <Trophy className="w-4 h-4 text-accent" />
                           <h3 className="font-black uppercase text-xs">Palpites (10 Jogos)</h3>
                         </div>
-                        {selectedEvent.regras && (
-                          <Badge variant="outline" className="text-[7px] font-black bg-white">REGRAS ATIVAS</Badge>
-                        )}
+                        <Badge variant="outline" className="text-[7px] font-black bg-white">1-X-2</Badge>
                       </div>
                       <div className="space-y-3">
                         {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : []).map((p: any, i: number) => (
                           <div key={i} className="flex flex-col gap-1.5 p-2 bg-white rounded-xl border shadow-sm">
                              <div className="flex justify-between text-[8px] font-black uppercase opacity-60 px-1">
                                 <span>#{i+1}</span>
-                                <span>{p.time1} vs {p.time2}</span>
+                                <span className="truncate max-w-[150px]">{p.time1 || 'Casa'} vs {p.time2 || 'Fora'}</span>
                              </div>
                              <div className="grid grid-cols-3 gap-2">
-                                <Button 
-                                  type="button" 
-                                  onClick={() => handleSetPalpite(i, '1')} 
-                                  variant={bolaoPalpites[i] === '1' ? 'default' : 'outline'}
-                                  className="h-8 text-[10px] font-black uppercase"
-                                >
-                                  1
-                                </Button>
-                                <Button 
-                                  type="button" 
-                                  onClick={() => handleSetPalpite(i, 'X')} 
-                                  variant={bolaoPalpites[i] === 'X' ? 'default' : 'outline'}
-                                  className="h-8 text-[10px] font-black uppercase"
-                                >
-                                  X
-                                </Button>
-                                <Button 
-                                  type="button" 
-                                  onClick={() => handleSetPalpite(i, '2')} 
-                                  variant={bolaoPalpites[i] === '2' ? 'default' : 'outline'}
-                                  className="h-8 text-[10px] font-black uppercase"
-                                >
-                                  2
-                                </Button>
+                                {['1', 'X', '2'].map((val) => (
+                                  <Button 
+                                    key={val}
+                                    type="button" 
+                                    onClick={() => handleSetPalpite(i, val)} 
+                                    variant={bolaoPalpites[i] === val ? 'default' : 'outline'}
+                                    className="h-8 text-[10px] font-black uppercase"
+                                  >
+                                    {val}
+                                  </Button>
+                                ))}
                              </div>
                           </div>
                         ))}
@@ -304,9 +293,8 @@ export default function VendaPage() {
                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">R$</span>
                        <Input 
                         type="number" 
-                        step="0.01" 
                         value={formData.valorTotal} 
-                        onChange={e => setFormData({...formData, valorTotal: Number(e.target.value)})} 
+                        readOnly
                         className="h-20 text-4xl font-black text-center border-primary/20 bg-primary/5 rounded-2xl pl-12" 
                       />
                     </div>
@@ -322,10 +310,6 @@ export default function VendaPage() {
             <div className="space-y-6">
               {vendaRealizada ? (
                 <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2.5rem] relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-4 opacity-5">
-                      <ShoppingCart className="w-32 h-32 rotate-12" />
-                   </div>
-                   
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
                       <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
                       <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante Oficial de Aposta</p>
@@ -339,7 +323,7 @@ export default function VendaPage() {
 
                    {selectedEvent?.regras && (
                      <div className="mb-4 p-2 bg-black/5 rounded-lg border border-black/10 relative z-10">
-                        <p className="text-[7px] font-black uppercase opacity-40 mb-1 flex items-center gap-1"><FileText className="w-2 h-2" /> Regras do Concurso:</p>
+                        <p className="text-[7px] font-black uppercase opacity-40 mb-1 flex items-center gap-1"><FileText className="w-2 h-2" /> Regras:</p>
                         <p className="text-[8px] font-bold leading-tight">{selectedEvent.regras}</p>
                      </div>
                    )}
@@ -367,10 +351,10 @@ export default function VendaPage() {
 
                    <div className="mt-8 flex flex-col gap-2 print:hidden relative z-10">
                       <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg">
-                        <Send className="w-4 h-4 mr-2" /> Enviar p/ Cliente (WhatsApp)
+                        <Send className="w-4 h-4 mr-2" /> Enviar WhatsApp
                       </Button>
-                      <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 hover:bg-muted/50 gap-2">
-                        <Smartphone className="w-4 h-4" /> Impressão Térmica
+                      <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 gap-2">
+                        <Smartphone className="w-4 h-4" /> Impressão Bluetooth
                       </Button>
                    </div>
                 </div>

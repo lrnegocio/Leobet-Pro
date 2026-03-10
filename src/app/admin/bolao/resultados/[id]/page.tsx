@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, CheckCircle2, History, AlertTriangle, Calendar, FileText } from 'lucide-react';
+import { ArrowLeft, Trophy, AlertTriangle, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       let maxHitsFound = 0;
       const participantsData: any[] = [];
 
-      // Passo 1: Calcular acertos de todos
       tickets.forEach(receipt => {
         receipt.tickets.forEach((t: any) => {
           if (!t.palpite) return;
@@ -72,16 +71,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         });
       });
 
-      // Passo 2: Identificar ganhadores (Top Scorers)
       const topScorers = participantsData.filter(p => p.hits === maxHitsFound && p.hits > 0);
       const premioIndividual = topScorers.length > 0 ? premioLiquidoTotal / topScorers.length : 0;
 
-      // Passo 3: Atualizar recibos
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       const updatedReceipts = allReceipts.map((r: any) => {
         if (String(r.eventoId) !== String(params.id)) return r;
-        if (r.status !== 'pago') return r; 
-
         return {
           ...r,
           tickets: r.tickets.map((t: any) => {
@@ -132,7 +127,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
               </div>
             </div>
             <div className="text-right bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Arrecadação Líquida (Paga)</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Total do Acertador (65%)</p>
               <p className="text-2xl font-black text-green-600">R$ {premioLiquidoTotal.toFixed(2)}</p>
             </div>
           </div>
@@ -150,9 +145,9 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                       <div className="flex-1 space-y-1">
                          <Badge className="font-black text-[9px] h-5 px-3 mb-1">JOGO #{i+1}</Badge>
                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black uppercase truncate max-w-[140px]">{p.time1}</span>
+                            <span className="text-xs font-black uppercase truncate max-w-[140px]">{p.time1 || 'Casa'}</span>
                             <span className="text-[10px] font-black text-accent">VS</span>
-                            <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time2}</span>
+                            <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time2 || 'Fora'}</span>
                          </div>
                       </div>
                       
