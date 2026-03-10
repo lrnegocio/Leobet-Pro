@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Wallet, UserCircle } from 'lucide-react';
+import { UserPlus, Wallet, UserCircle, ShieldCheck } from 'lucide-react';
 
 export default function MeusCambistasPage() {
   const { user } = useAuthStore();
@@ -19,9 +19,11 @@ export default function MeusCambistasPage() {
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
+    password: '',
     cpf: '',
     phone: '',
-    birthDate: ''
+    birthDate: '',
+    pixKey: ''
   });
 
   const loadData = () => {
@@ -42,11 +44,12 @@ export default function MeusCambistasPage() {
     }
 
     const newUser = {
-      id: Math.random().toString(36).substring(7),
+      id: Math.random().toString(36).substring(7).toUpperCase(),
       ...formData,
+      nome: formData.nome.toUpperCase(),
       phone: cleanPhone,
       role: 'cambista',
-      gerenteId: user?.id,
+      gerenteId: user?.id, // Vincula ao gerente logado
       balance: 0,
       commissionBalance: 0,
       pendingBalance: 0,
@@ -56,68 +59,93 @@ export default function MeusCambistasPage() {
 
     const all = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     localStorage.setItem('leobet_users', JSON.stringify([...all, newUser]));
-    toast({ title: "CAMBISTA CADASTRADO!" });
-    setFormData({ nome: '', email: '', cpf: '', phone: '', birthDate: '' });
+    toast({ title: "CAMBISTA CADASTRADO!", description: "Seu novo parceiro já pode vender." });
+    setFormData({ nome: '', email: '', password: '', cpf: '', phone: '', birthDate: '', pixKey: '' });
     loadData();
   };
 
   return (
-    <div className="flex h-screen bg-muted/30">
+    <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-8">
         <div className="max-w-6xl mx-auto space-y-8">
-          <h1 className="text-3xl font-black uppercase text-primary">Gestão de Cambistas</h1>
+          <div>
+            <h1 className="text-3xl font-black uppercase text-primary">Gestão de Equipe</h1>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Minha Rede de Cambistas Parceiros</p>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-1 border-t-4 border-t-accent shadow-xl">
-              <CardHeader><CardTitle className="text-sm font-black uppercase flex items-center gap-2"><UserPlus className="w-4 h-4 text-accent" /> Novo Cambista</CardTitle></CardHeader>
+            <Card className="lg:col-span-1 border-t-4 border-t-accent shadow-xl rounded-2xl">
+              <CardHeader><CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-primary"><UserPlus className="w-4 h-4 text-accent" /> Novo Parceiro</CardTitle></CardHeader>
               <CardContent>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Nome Completo</Label>
-                    <Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label>
+                    <Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value.toUpperCase()})} required className="font-bold h-10" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase opacity-60">CPF</Label>
+                      <Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} required className="font-bold h-10" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase opacity-60">Nascimento</Label>
+                      <Input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} required className="font-bold h-10" />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">CPF</Label>
-                    <Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp (DDD)</Label>
+                    <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required className="font-bold h-10" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Data de Nascimento</Label>
-                    <Input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label>
+                    <Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} required className="font-bold h-10" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">WhatsApp (Com DDD)</Label>
-                    <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Usuário/Email</Label>
+                    <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="font-bold h-10" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Usuário/Email</Label>
-                    <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Senha Inicial</Label>
+                    <Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="font-bold h-10" />
                   </div>
-                  <Button type="submit" className="w-full h-12 bg-accent hover:bg-accent/90 font-black uppercase shadow-lg">Cadastrar Parceiro</Button>
+                  <Button type="submit" className="w-full h-12 bg-accent hover:bg-accent/90 font-black uppercase shadow-lg rounded-xl transition-all active:scale-95">Cadastrar Cambista</Button>
                 </form>
               </CardContent>
             </Card>
 
             <div className="lg:col-span-2 space-y-4">
-              <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary">Minha Rede Ativa</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary">Minha Rede Ativa</h3>
+                <Badge variant="outline" className="font-black uppercase text-[10px]">{cambistas.length} Vendedores</Badge>
+              </div>
+              
               {cambistas.length === 0 ? (
-                <Card className="py-20 text-center border-dashed opacity-30"><p className="font-black uppercase text-xs">Sua base de cambistas está vazia</p></Card>
+                <Card className="py-20 text-center border-dashed opacity-30 rounded-2xl">
+                   <p className="font-black uppercase text-xs">Sua base de cambistas está vazia</p>
+                </Card>
               ) : (
-                cambistas.map((c, i) => (
-                  <Card key={i} className="flex justify-between items-center p-6 border-l-4 border-l-primary hover:shadow-md transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-primary/10 p-3 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
-                      <div>
-                        <p className="font-black uppercase text-sm">{c.nome}</p>
-                        <p className="text-[10px] text-muted-foreground font-bold">{c.email} • {c.phone}</p>
+                <div className="space-y-2">
+                  {cambistas.map((c, i) => (
+                    <Card key={i} className="flex justify-between items-center p-6 border-l-8 border-l-primary hover:shadow-md transition-all rounded-2xl">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-primary/10 p-3 rounded-full"><UserCircle className="w-8 h-8 text-primary" /></div>
+                        <div>
+                          <p className="font-black uppercase text-sm text-primary">{c.nome}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase">{c.email} • {c.phone}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                             <ShieldCheck className="w-3 h-3 text-green-600" />
+                             <span className="text-[9px] font-black uppercase text-green-600">Status: Ativo</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1 text-primary font-black"><Wallet className="w-3 h-3" /> R$ {c.balance.toFixed(2)}</div>
-                      <Badge variant="outline" className="text-[8px] uppercase font-black border-primary/20">Status: Ativo</Badge>
-                    </div>
-                  </Card>
-                ))
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">Saldo do Vendedor</p>
+                        <p className="text-lg font-black text-primary">R$ {((c.balance || 0) + (c.commissionBalance || 0)).toFixed(2)}</p>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               )}
             </div>
           </div>

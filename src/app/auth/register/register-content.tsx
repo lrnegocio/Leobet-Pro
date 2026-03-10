@@ -27,6 +27,7 @@ export default function RegisterContent() {
   const [pixKey, setPixKey] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // TRAVA DE SEGURANÇA: Apenas Clientes e Cambistas podem se cadastrar sozinhos
   const isBlockedRole = roleFromUrl === 'admin' || roleFromUrl === 'gerente';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +47,10 @@ export default function RegisterContent() {
     setLoading(true);
 
     const newUser: UserProfile = {
-      id: Math.random().toString(36).substring(7),
+      id: Math.random().toString(36).substring(7).toUpperCase(),
       nome: nome.toUpperCase(),
       email,
-      password, // Persistindo a senha informada
+      password,
       cpf,
       birthDate,
       phone: cleanPhone,
@@ -71,13 +72,13 @@ export default function RegisterContent() {
       if (newUser.status === 'pending') {
         toast({
           title: "Cadastro Realizado!",
-          description: "Sua conta de cambista está em análise pelo administrador master.",
+          description: "Sua conta está em análise pelo administrador master.",
         });
         router.push('/');
       } else {
         toast({
           title: "Bem-vindo!",
-          description: "Sua conta de cliente foi criada com sucesso.",
+          description: "Sua conta foi criada com sucesso.",
         });
         router.push('/auth/login?role=cliente');
       }
@@ -86,12 +87,17 @@ export default function RegisterContent() {
 
   if (isBlockedRole) {
     return (
-      <div className="min-h-screen bg-primary flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center p-8">
-          <h2 className="text-xl font-black uppercase text-destructive">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground mt-2">Cadastros de administradores e gerentes são realizados exclusivamente pela diretoria.</p>
+      <div className="min-h-screen bg-primary flex items-center justify-center p-4 font-body">
+        <Card className="max-w-md w-full text-center p-12 rounded-[2rem] border-none shadow-2xl">
+          <div className="bg-destructive/10 p-4 rounded-full w-fit mx-auto mb-6 text-destructive">
+             <UserPlus className="w-12 h-12" />
+          </div>
+          <h2 className="text-2xl font-black uppercase text-primary tracking-tighter">Acesso Restrito</h2>
+          <p className="text-sm font-bold text-muted-foreground mt-4 leading-relaxed">
+            Cadastros de <span className="text-destructive">ADMINISTRADORES</span> e <span className="text-destructive">GERENTES</span> são realizados exclusivamente pela diretoria através do painel master.
+          </p>
           <Link href="/">
-            <Button className="mt-6 w-full uppercase font-black">Voltar ao Início</Button>
+            <Button className="mt-8 w-full h-14 uppercase font-black bg-primary rounded-xl shadow-lg">Voltar ao Início</Button>
           </Link>
         </Card>
       </div>
@@ -99,69 +105,69 @@ export default function RegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary to-primary/90 flex flex-col items-center justify-center p-4">
-      <Link href="/" className="mb-8 flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+    <div className="min-h-screen bg-gradient-to-b from-primary to-primary/90 flex flex-col items-center justify-center p-4 font-body">
+      <Link href="/" className="mb-8 flex items-center gap-2 text-white/60 hover:text-white transition-colors font-black uppercase text-[10px] tracking-widest">
         <ArrowLeft className="w-4 h-4" /> Voltar
       </Link>
 
-      <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4">
-            <UserPlus className="w-6 h-6 text-accent" />
+      <Card className="w-full max-w-md shadow-2xl border-t-8 border-t-accent rounded-[2rem] overflow-hidden">
+        <CardHeader className="text-center pt-8">
+          <div className="mx-auto bg-accent/20 p-4 rounded-full w-fit mb-4">
+            <UserPlus className="w-8 h-8 text-accent" />
           </div>
-          <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tight">Criar Conta</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-3xl font-black uppercase tracking-tighter text-primary">Criar Conta</CardTitle>
+          <CardDescription className="font-bold text-[10px] uppercase tracking-widest opacity-60">
             {roleFromUrl === 'cambista' 
-              ? 'Solicite seu acesso como cambista parceiro LEOBET' 
+              ? 'Solicite seu acesso como cambista parceiro' 
               : 'Cadastre-se para começar a apostar'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-8 pb-8">
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <Label>Nome Completo</Label>
-              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome completo" required disabled={loading} />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label>
+              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="SEU NOME" required disabled={loading} className="font-bold h-11 rounded-xl" />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>CPF</Label>
-                <Input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" required disabled={loading} />
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase opacity-60">CPF</Label>
+                <Input value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" required disabled={loading} className="font-bold h-11 rounded-xl" />
               </div>
-              <div className="space-y-2">
-                <Label>Nascimento</Label>
-                <Input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required disabled={loading} />
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase opacity-60">Nascimento</Label>
+                <Input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required disabled={loading} className="font-bold h-11 rounded-xl" />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Telefone (WhatsApp com DDD)</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: 82993343941" required disabled={loading} />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp (Com DDD)</Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="EX: 82993343941" required disabled={loading} className="font-bold h-11 rounded-xl" />
             </div>
 
-            <div className="space-y-2">
-              <Label>Chave PIX para Recebimentos</Label>
-              <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="CPF, Email, Telefone ou Chave Aleatória" required disabled={loading} />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label>
+              <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="PIX PARA RECEBIMENTOS" required disabled={loading} className="font-bold h-11 rounded-xl" />
             </div>
 
-            <div className="space-y-2">
-              <Label>Usuário ou Email</Label>
-              <Input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex: joao.silva" required disabled={loading} />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase opacity-60">Usuário de Acesso</Label>
+              <Input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="EX: JOAO.SILVA" required disabled={loading} className="font-bold h-11 rounded-xl" />
             </div>
             
-            <div className="space-y-2">
-              <Label>Senha</Label>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required disabled={loading} />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase opacity-60">Senha</Label>
+              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required disabled={loading} className="font-bold h-11 rounded-xl" />
             </div>
 
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-black uppercase h-12 mt-2" disabled={loading}>
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-black uppercase h-14 mt-4 rounded-xl shadow-xl transition-all active:scale-95" disabled={loading}>
               {loading ? <Loader2 className="animate-spin mr-2" /> : "Finalizar Cadastro"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter>
-          <div className="text-center text-sm text-muted-foreground w-full">
-            Já possui conta? <Link href={`/auth/login?role=${roleFromUrl}`} className="text-accent hover:underline font-bold">Entrar agora</Link>
+        <CardFooter className="bg-muted/30 p-6">
+          <div className="text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground w-full">
+            Já possui conta? <Link href={`/auth/login?role=${roleFromUrl}`} className="text-primary hover:underline">Entrar agora</Link>
           </div>
         </CardFooter>
       </Card>

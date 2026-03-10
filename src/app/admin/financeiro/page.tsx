@@ -105,17 +105,14 @@ function FinanceiroContent() {
     setAllUsers(users);
     setPendingUsers(users.filter((u: UserProfile) => u.status === 'pending'));
 
-    // LOGICA DE SAQUE: Se o cambista vendeu e gastou o saldo, o pedido de saque some.
     const rawWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
     const validWithdrawals = rawWithdrawals.filter((w: any) => {
       if (w.status !== 'pendente') return true;
       const u = users.find((user: any) => user.id === w.userId);
       if (!u) return false;
-      // Só aparece se ele ainda tiver saldo para cobrir o saque
       return ((u.balance || 0) + (u.commissionBalance || 0)) >= w.amount;
     });
 
-    // Sincroniza se houve remoção automática por falta de saldo
     if (validWithdrawals.length !== rawWithdrawals.length) {
       localStorage.setItem('leobet_withdrawals', JSON.stringify(validWithdrawals));
     }
@@ -261,7 +258,6 @@ function FinanceiroContent() {
     const withdrawal = allWithdrawals.find((w: any) => w.id === withdrawId);
     if (!withdrawal) return;
 
-    // DEDUÇÃO DE SALDO NO MOMENTO DA APROVAÇÃO
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     const user = users.find((u: any) => u.id === withdrawal.userId);
     
