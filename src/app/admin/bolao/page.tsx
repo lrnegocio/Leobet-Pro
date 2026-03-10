@@ -6,11 +6,13 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock, FileEdit } from 'lucide-react';
+import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock, FileEdit, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BolaoPage() {
   const [boloes, setBoloes] = useState<any[]>([]);
+  const { toast } = useToast();
 
   const loadData = () => {
     const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
@@ -24,22 +26,23 @@ export default function BolaoPage() {
   }, []);
 
   const deleteBolao = (id: string) => {
-    if (confirm("Deseja excluir este Bolão?")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bolão? Esta ação não pode ser desfeita.")) {
       const updated = boloes.filter(b => b.id !== id);
       setBoloes(updated);
       localStorage.setItem('leobet_boloes', JSON.stringify(updated));
+      toast({ title: "BOLÃO EXCLUÍDO", variant: "destructive" });
     }
   };
 
   return (
-    <div className="flex h-screen bg-muted/30">
+    <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bolões</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Trava 1 min antes da 1ª partida</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Auditoria Independente</p>
             </div>
             <Link href="/admin/bolao/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
@@ -54,7 +57,7 @@ export default function BolaoPage() {
               const startDate = new Date(bolao.dataFim); 
               const limit = new Date(startDate.getTime() - 60000);
               const isSalesClosed = bolao.status === 'finalizado' || bolao.status === 'encerrado' || now >= limit;
-              const isFinished = bolao.status === 'finalizado' || bolao.status === 'encerrado';
+              const isFinished = bolao.status === 'finalizado';
               const numPartidas = Array.isArray(bolao.partidas) ? bolao.partidas.length : 0;
               
               return (
@@ -95,6 +98,15 @@ export default function BolaoPage() {
                             {isFinished ? "Ver Auditoria" : "Lançar Placares"}
                           </Button>
                         </Link>
+                        
+                        {!isFinished && (
+                          <Link href={`/admin/bolao/editar/${bolao.id}`}>
+                            <Button variant="outline" size="icon" className="h-10 w-10 text-primary border-primary/20 hover:bg-primary/10">
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                        )}
+
                         <Button variant="ghost" size="icon" onClick={() => deleteBolao(bolao.id)} className="h-10 w-10 text-destructive hover:bg-destructive/10">
                           <Trash2 className="w-4 h-4" />
                         </Button>
