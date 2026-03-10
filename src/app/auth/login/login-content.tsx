@@ -32,7 +32,7 @@ export default function LoginContent() {
     const MASTER_PASS = "135796lR@";
 
     // Lógica Master Admin
-    if (identifier === MASTER_USER && password === MASTER_PASS) {
+    if (identifier.toLowerCase() === MASTER_USER.toLowerCase() && password === MASTER_PASS) {
       const mockAdmin: UserProfile = {
         id: 'admin-master',
         nome: 'Administrador LEOBET',
@@ -57,36 +57,51 @@ export default function LoginContent() {
 
     // Busca usuário no LocalStorage
     const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    
     // Encontra por email ou por nome (usuário) ignorando case
     const foundUser = allUsers.find((u: UserProfile) => 
-      u.email.toLowerCase() === identifier.toLowerCase() || 
-      u.nome.toLowerCase() === identifier.toLowerCase()
+      (u.email && u.email.toLowerCase() === identifier.toLowerCase()) || 
+      (u.nome && u.nome.toLowerCase() === identifier.toLowerCase())
     );
 
-    // Verifica se o usuário existe e se a senha confere
-    if (foundUser && foundUser.password === password) {
-      if (foundUser.status === 'pending') {
-        toast({
-          variant: "destructive",
-          title: "Acesso Pendente",
-          description: "Sua conta ainda está em análise pelo administrador.",
-        });
-        setLoading(false);
-        return;
-      }
-
-      setUser(foundUser);
-      localStorage.setItem('logged_user', JSON.stringify(foundUser));
-      router.push(`/${foundUser.role}/dashboard`);
+    if (!foundUser) {
+      toast({
+        variant: "destructive",
+        title: "Usuário não encontrado",
+        description: "Verifique o usuário/email informado.",
+      });
+      setLoading(false);
       return;
     }
 
-    toast({
-      variant: "destructive",
-      title: "Erro no Login",
-      description: "Credenciais inválidas ou conta não aprovada.",
-    });
-    setLoading(false);
+    // Verifica se a senha confere (trata senhas vazias de cadastros antigos como erro)
+    if (foundUser.password !== password || !foundUser.password) {
+      toast({
+        variant: "destructive",
+        title: "Senha Incorreta",
+        description: "A senha informada não confere com nossos registros.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Verifica status
+    if (foundUser.status === 'pending') {
+      toast({
+        variant: "destructive",
+        title: "Acesso Pendente",
+        description: "Sua conta ainda está em análise pelo administrador.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Login Sucesso
+    setUser(foundUser);
+    localStorage.setItem('logged_user', JSON.stringify(foundUser));
+    
+    toast({ title: `Bem-vindo, ${foundUser.nome}!` });
+    router.push(`/${foundUser.role}/dashboard`);
   };
 
   return (

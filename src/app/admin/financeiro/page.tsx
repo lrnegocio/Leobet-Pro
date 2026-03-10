@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Youtube,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  Key
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -64,6 +65,7 @@ function FinanceiroContent() {
   const [newPartner, setNewPartner] = useState({
     nome: '',
     email: '',
+    password: '',
     role: 'cambista' as UserRole,
     cpf: '',
     birthDate: '',
@@ -123,9 +125,15 @@ function FinanceiroContent() {
       return;
     }
 
+    if (!newPartner.password) {
+      toast({ variant: "destructive", title: "SENHA OBRIGATÓRIA", description: "Defina uma senha inicial para o parceiro." });
+      return;
+    }
+
     const newUser: UserProfile = {
       id: Math.random().toString(36).substring(7),
       ...newPartner,
+      nome: newPartner.nome.toUpperCase(),
       phone: cleanPhone,
       balance: 0,
       commissionBalance: 0,
@@ -141,6 +149,7 @@ function FinanceiroContent() {
     setNewPartner({
       nome: '',
       email: '',
+      password: '',
       role: 'cambista',
       cpf: '',
       birthDate: '',
@@ -496,6 +505,19 @@ function FinanceiroContent() {
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Usuário/Email</Label>
                           <Input value={newPartner.email} onChange={e => setNewPartner({...newPartner, email: e.target.value})} required className="h-9 text-xs font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-black uppercase">Senha Inicial</Label>
+                          <div className="relative">
+                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input 
+                              type="text" 
+                              value={newPartner.password} 
+                              onChange={e => setNewPartner({...newPartner, password: e.target.value})} 
+                              required 
+                              className="h-9 pl-9 text-xs font-bold" 
+                            />
+                          </div>
                         </div>
                         {newPartner.role === 'cambista' && (
                           <div className="space-y-1">
