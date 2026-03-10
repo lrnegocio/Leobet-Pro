@@ -3,16 +3,25 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Search, Send, FileText, CheckCircle2, Clock, XCircle, TrendingUp, ShieldCheck, Trophy } from 'lucide-react';
+import { 
+  Calendar, 
+  Send, 
+  FileText, 
+  CheckCircle2, 
+  TrendingUp, 
+  Wallet,
+  AlertTriangle,
+  Zap
+} from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
 
 export default function RelatoriosPage() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const { toast } = useToast();
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -21,6 +30,7 @@ export default function RelatoriosPage() {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState<string | null>(null);
 
   const loadData = () => {
     const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
@@ -37,6 +47,8 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const filteredTickets = useMemo(() => {
@@ -54,18 +66,89 @@ export default function RelatoriosPage() {
 
   const handleShareValidation = (ticket: any) => {
     const host = window.location.origin;
-    // Usa o ID do Recibo para o link de conferência
     const link = `${host}/resultados?c=${ticket.id}`;
     
     let statusText = ticket.status === 'pago' ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
-    
-    // Verifica se algum bilhete dentro do recibo já ganhou ou foi pago
     const hasWinner = ticket.tickets.some((t: any) => t.status === 'ganhou' || t.status === 'pago' || t.status === 'pendente-resgate');
     if (hasWinner) statusText = '🔥 BILHETE PREMIADO';
 
     const message = `*LEOBET PRO - CONSULTA DE BILHETE*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A🆔 *RECIBO:* ${ticket.id}%0A%0A*Conferir em tempo real:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
+
+  // SISTEMA INTELIGENTE DE AUTOVALIDAÇÃO
+  const handleValidatePending = (ticketId: string) => {
+    if (!user) return;
+    
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    const totalBalance = (user.balance || 0) + (user.commissionBalance || 0);
+
+    if (totalBalance < ticket.valorTotal) {
+      toast({ 
+        variant: "destructive", 
+        title: "SALDO INSUFICIENTE", 
+        description: "Adicione saldo ou aguarde aprovação master." 
+      });
+      return;
+    }
+
+    setLoading(ticketId);
+    
+    setTimeout(() => {
+      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+      const updatedUsers = allUsers.map((u: any) => {
+        // Deduz do usuário que está validando (ele é o vendedor)
+        if (u.id === user.id) {
+          let remaining = ticket.valorTotal;
+          let newComm = u.commissionBalance || 0;
+          let newBal = u.balance || 0;
+
+          if (newComm >= remaining) {
+            newComm -= remaining;
+            remaining = 0;
+          } else {
+            remaining -= newComm;
+            newComm = 0;
+            newBal -= remaining;
+          }
+
+          // Credita a comissão da própria venda que ele está validando agora
+          const myCommRate = user.role === 'cambista' ? 0.10 : user.role === 'gerente' ? 0.15 : 0;
+          newComm += (ticket.valorTotal * myCommRate);
+
+          return { ...u, balance: newBal, commissionBalance: newComm };
+        }
+
+        // Se o vendedor for cambista, o gerente dele ganha 5%
+        if (user.role === 'cambista' && user.gerenteId && u.id === user.gerenteId) {
+           return { ...u, commissionBalance: (u.commissionBalance || 0) + (ticket.valorTotal * 0.05) };
+        }
+        return u;
+      });
+
+      const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+      const updatedTickets = allTickets.map((t: any) => 
+        t.id === ticketId ? { ...t, status: 'pago' } : t
+      );
+
+      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('leobet_tickets', JSON.stringify(updatedTickets));
+      
+      const me = updatedUsers.find((u: any) => u.id === user.id);
+      if (me) {
+        setUser(me);
+        localStorage.setItem('logged_user', JSON.stringify(me));
+      }
+
+      setLoading(null);
+      loadData();
+      toast({ title: "VENDA VALIDADA!", description: "O bilhete agora é oficial e as comissões foram pagas." });
+    }, 1000);
+  };
+
+  const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -132,7 +215,9 @@ export default function RelatoriosPage() {
                   filteredTickets.map((t, i) => {
                     const hasWinner = t.tickets.some((ticket: any) => ticket.status === 'ganhou' || ticket.status === 'pendente-resgate');
                     const hasPaid = t.tickets.some((ticket: any) => ticket.status === 'pago' && ticket.valorPremio > 0);
-                    
+                    const isVendedor = t.vendedorId === user?.id;
+                    const canValidate = isVendedor && t.status === 'pendente' && userTotalBalance >= t.valorTotal;
+
                     return (
                       <Card key={i} className={`p-4 hover:shadow-md transition-all border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'}`}>
                          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -157,9 +242,26 @@ export default function RelatoriosPage() {
                                   <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
                                 </div>
                                <div className="flex gap-2">
+                                  {canValidate ? (
+                                    <Button 
+                                      onClick={() => handleValidatePending(t.id)}
+                                      className="bg-accent hover:bg-accent/90 h-10 gap-2 font-black uppercase text-[10px] rounded-xl shadow-lg animate-pulse"
+                                      disabled={loading === t.id}
+                                    >
+                                      {loading === t.id ? <TrendingUp className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />} 
+                                      Validar com Saldo
+                                    </Button>
+                                  ) : t.status === 'pendente' && isVendedor && (
+                                    <div className="flex flex-col items-center">
+                                       <Badge variant="outline" className="text-[7px] font-black uppercase border-orange-200 text-orange-600">Aguardando Saldo</Badge>
+                                       <p className="text-[6px] font-black text-muted-foreground uppercase mt-0.5">Falta R$ {(t.valorTotal - userTotalBalance).toFixed(2)}</p>
+                                    </div>
+                                  )}
+                                  
                                   <Button 
                                     onClick={() => handleShareValidation(t)}
                                     className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl"
+                                    disabled={t.status === 'pendente'}
                                   >
                                     <Send className="w-3.5 h-3.5" /> Enviar p/ Cliente
                                   </Button>
