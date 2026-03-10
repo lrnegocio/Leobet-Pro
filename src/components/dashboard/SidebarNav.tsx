@@ -14,7 +14,6 @@ import {
   Search,
   ShoppingCart,
   Users,
-  Home,
   UserCircle
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -27,7 +26,6 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Início', href: '/', icon: <Home className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Meu Painel', href: '/gerente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['gerente'] },
   { label: 'Meus Cambistas', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },

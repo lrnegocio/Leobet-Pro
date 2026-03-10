@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
+import { useAuthStore } from '@/store/use-auth-store';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,8 +54,18 @@ import {
 
 function FinanceiroContent() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuthStore();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'depositos';
+
+  // Trava de segurança para Financeiro Master
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin') {
+      toast({ variant: "destructive", title: "ACESSO NEGADO", description: "Área exclusiva para Administradores Master." });
+      router.push('/' + currentUser.role + '/dashboard');
+    }
+  }, [currentUser, router]);
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -339,6 +350,8 @@ function FinanceiroContent() {
   };
 
   const gerentes = allUsers.filter(u => u.role === 'gerente');
+
+  if (currentUser?.role !== 'admin') return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">

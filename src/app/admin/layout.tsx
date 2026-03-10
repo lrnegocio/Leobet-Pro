@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useState } from 'react';
@@ -10,13 +11,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Tenta recuperar o estado de mestre para evitar tela branca
     const checkAuth = () => {
       const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
       
       if (isMaster) {
-        // Se for master, garante que a Store tenha os dados para evitar tela branca
         if (!user || user.id !== 'admin-master') {
           setUser({
             id: 'admin-master',
@@ -34,15 +33,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       if (!user && storedUser) {
         const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.role === 'admin') {
-          setUser(parsedUser);
-          setLoading(false);
-          return;
-        }
+        setUser(parsedUser);
+        setLoading(false);
+        return;
       }
 
-      if (!user || user.role !== 'admin') {
-        router.push('/auth/login?role=admin');
+      const allowedRoles = ['admin', 'cambista', 'gerente'];
+      if (!user || !allowedRoles.includes(user.role)) {
+        router.push('/auth/login');
       } else {
         setLoading(false);
       }
