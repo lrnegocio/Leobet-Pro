@@ -84,7 +84,7 @@ function ResultadosContent() {
         </Link>
 
         <div className="text-center space-y-4">
-          <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4 rotate-3 animate-bounce">
+          <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4">
              <Trophy className="w-10 h-10" />
           </div>
           <h1 className="text-5xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Auditoria</h1>

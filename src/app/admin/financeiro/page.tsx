@@ -45,6 +45,7 @@ export default function FinanceiroPage() {
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
   const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [validationCode, setValidationCode] = useState('');
   const [validatedTicket, setValidatedTicket] = useState<any>(null);
   
@@ -59,6 +60,9 @@ export default function FinanceiroPage() {
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     setAllUsers(users);
     setPendingUsers(users.filter((u: UserProfile) => u.status === 'pending'));
+
+    const withdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+    setPendingWithdrawals(withdrawals.filter((w: any) => w.status === 'pendente'));
 
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     setTickets(allReceipts);
@@ -86,6 +90,7 @@ export default function FinanceiroPage() {
     localStorage.removeItem('leobet_tickets');
     localStorage.removeItem('leobet_bingos');
     localStorage.removeItem('leobet_boloes');
+    localStorage.removeItem('leobet_withdrawals');
     const adminMaster = allUsers.find(u => u.id === 'admin-master');
     localStorage.setItem('leobet_users', JSON.stringify(adminMaster ? [adminMaster] : []));
     loadData();
@@ -134,6 +139,35 @@ export default function FinanceiroPage() {
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
     loadData();
     toast({ title: "PAGAMENTO APROVADO!", description: "Bilhete marcado como pago definitivamente." });
+  };
+
+  const approveWithdrawal = (withdrawId: string) => {
+    const allWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+    const withdraw = allWithdrawals.find((w: any) => w.id === withdrawId);
+    
+    if (!withdraw) return;
+
+    // Deduz do saldo do usuário agora que foi aprovado
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updatedUsers = users.map((u: any) => {
+      if (u.id === withdraw.userId) {
+        if (u.balance < withdraw.amount) {
+           toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "O usuário não possui mais saldo para este saque." });
+           return u;
+        }
+        return { ...u, balance: u.balance - withdraw.amount };
+      }
+      return u;
+    });
+
+    const updatedWithdrawals = allWithdrawals.map((w: any) => 
+      w.id === withdrawId ? { ...w, status: 'pago' } : w
+    );
+
+    localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+    localStorage.setItem('leobet_withdrawals', JSON.stringify(updatedWithdrawals));
+    loadData();
+    toast({ title: "SAQUE APROVADO!", description: "Valor deduzido do saldo e marcado como pago." });
   };
 
   const approveSale = (saleData: string) => {
@@ -214,8 +248,9 @@ export default function FinanceiroPage() {
 
           <Tabs defaultValue="payouts">
             <TabsList className="bg-muted p-1 rounded-2xl w-full flex justify-start overflow-x-auto">
-              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Resgates ({pendingPayouts.length})</TabsTrigger>
-              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas ({pendingSales.length})</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Bilhetes Ganhadores ({pendingPayouts.length})</TabsTrigger>
+              <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques de Usuários ({pendingWithdrawals.length})</TabsTrigger>
+              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas Pendentes ({pendingSales.length})</TabsTrigger>
               <TabsTrigger value="resgate" className="font-bold rounded-xl whitespace-nowrap">Validador</TabsTrigger>
               <TabsTrigger value="rede" className="font-bold rounded-xl whitespace-nowrap">Gestão de Rede</TabsTrigger>
               <TabsTrigger value="sorteios" className="font-bold rounded-xl whitespace-nowrap">Histórico Sorteios</TabsTrigger>
@@ -223,7 +258,7 @@ export default function FinanceiroPage() {
             
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {pendingPayouts.length === 0 ? (
-                 <Card className="py-20 text-center border-dashed rounded-3xl"><CardContent className="opacity-30 font-black uppercase text-xs">Sem solicitações de prêmios</CardContent></Card>
+                 <Card className="py-20 text-center border-dashed rounded-3xl"><CardContent className="opacity-30 font-black uppercase text-xs">Sem solicitações de prêmios de bilhetes</CardContent></Card>
                ) : (
                  pendingPayouts.map((p, i) => (
                    <Card key={i} className="flex justify-between items-center p-6 bg-green-50 border-green-200 border-l-8 border-l-green-500 rounded-2xl shadow-md">
@@ -242,6 +277,29 @@ export default function FinanceiroPage() {
                        </div>
                      </div>
                      <Button onClick={() => approvePayout(p.id)} className="bg-green-600 hover:bg-green-700 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Confirmar Pagamento</Button>
+                   </Card>
+                 ))
+               )}
+            </TabsContent>
+
+            <TabsContent value="withdrawals" className="mt-6 space-y-4">
+               {pendingWithdrawals.length === 0 ? (
+                 <Card className="py-20 text-center border-dashed rounded-3xl"><CardContent className="opacity-30 font-black uppercase text-xs">Sem solicitações de saque de saldo</CardContent></Card>
+               ) : (
+                 pendingWithdrawals.map((w, i) => (
+                   <Card key={i} className="flex justify-between items-center p-6 bg-blue-50 border-blue-200 border-l-8 border-l-blue-500 rounded-2xl shadow-md">
+                     <div className="space-y-1">
+                       <p className="font-black uppercase text-lg text-blue-800">{w.userName}</p>
+                       <p className="text-xs font-bold text-blue-700/70 uppercase">Cargo: {w.userRole} • Data: {new Date(w.createdAt).toLocaleString()}</p>
+                       <div className="flex flex-col gap-1 mt-2">
+                          <Badge className="bg-blue-600 font-black text-xs uppercase px-4 py-1 w-fit">Valor: R$ {w.amount.toFixed(2)}</Badge>
+                          <div className="bg-white/50 p-2 rounded-lg border border-blue-200 mt-1">
+                             <p className="text-[10px] font-black uppercase text-blue-700">Chave PIX para Depósito:</p>
+                             <p className="text-sm font-black text-primary">{w.pixKey}</p>
+                          </div>
+                       </div>
+                     </div>
+                     <Button onClick={() => approveWithdrawal(w.id)} className="bg-blue-600 hover:bg-blue-700 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Aprovar Saque</Button>
                    </Card>
                  ))
                )}

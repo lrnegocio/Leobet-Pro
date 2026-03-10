@@ -53,7 +53,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     };
   }, [totalArrecadado]);
 
-  const updateTicketStatus = (ticketId: string, status: string, premioIndividual: number) => {
+  const updateTicketStatus = (ticketId: string, status: string, premioIndividual: number, clienteId?: string) => {
     const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const updated = allReceipts.map((receipt: any) => {
       if (receipt.eventoId !== params.id) return receipt;
@@ -65,6 +65,18 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       };
     });
     localStorage.setItem('leobet_tickets', JSON.stringify(updated));
+
+    // Se for usuário registrado, credita no saldo agora
+    if (clienteId) {
+      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+      const updatedUsers = allUsers.map((u: any) => {
+        if (u.id === clienteId || u.email === clienteId) {
+          return { ...u, balance: (u.balance || 0) + premioIndividual };
+        }
+        return u;
+      });
+      localStorage.setItem('leobet_users', JSON.stringify(updatedUsers));
+    }
   };
 
   const checkWinners = useCallback((drawn: number[]) => {
@@ -77,18 +89,18 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       receipt.tickets.forEach((t: any) => {
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        // LÓGICA SEQUENCIAL RESTRITA
+        // LÓGICA SEQUENCIAL RESTRITA - Ganhadores de níveis passados não contam novamente no nível atual
         if (level === 'bingo' && hits === 15) {
           if (!winners.bingo.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
           }
-        } else if (level === 'quina' && hits >= 5) {
+        } else if (level === 'quina' && hits === 5) {
           if (!winners.quina.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
           }
-        } else if (level === 'quadra' && hits >= 4) {
+        } else if (level === 'quadra' && hits === 4) {
           if (!winners.quadra.find(w => w.ticketId === t.id)) {
-            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
+            currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente, userId: receipt.vendedorId === 'cliente' ? receipt.vendedorId : null });
           }
         }
       });
@@ -104,7 +116,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       const individual = premioTotalNivel / newWinners[level].length;
       
       newWinners[level].forEach(w => {
-        updateTicketStatus(w.ticketId, 'ganhou', individual);
+        updateTicketStatus(w.ticketId, 'ganhou', individual, w.userId);
       });
 
       toast({
@@ -174,7 +186,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <Card className="bg-primary text-white rounded-[3rem] shadow-2xl flex flex-col items-center justify-center p-12 space-y-8">
               <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Bola Chamada</p>
-              <div className="w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center text-9xl font-black border-[12px] border-accent bingo-ball-pulse shadow-2xl">
+              <div className="w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center text-9xl font-black border-[12px] border-accent shadow-2xl">
                 {lastNumber || '--'}
               </div>
               <Badge className="bg-accent text-white font-black px-6 py-2 uppercase text-xs tracking-widest rounded-xl">
