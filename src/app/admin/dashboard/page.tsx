@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Store, ArrowUpCircle, ShoppingCart, Grid3X3, Trophy, Clock, UserPlus } from 'lucide-react';
+import { Users, Store, ArrowUpCircle, ShoppingCart, Grid3X3, Trophy, Clock, UserPlus, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalClientes: 0,
     totalCambistas: 0,
-    pendentes: 0,
+    pendencias: 0,
   });
 
   useEffect(() => {
@@ -28,17 +28,32 @@ export default function AdminDashboard() {
       })
     );
 
-    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    
-    const pendings = allTickets.filter((t: any) => t.status === 'pendente');
-    setPendingSales(pendings);
+    const loadData = () => {
+      const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+      const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+      const allWithdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
+      const allDeposits = JSON.parse(localStorage.getItem('leobet_deposits') || '[]');
+      
+      const pendingsSales = allTickets.filter((t: any) => t.status === 'pendente');
+      setPendingSales(pendingsSales);
 
-    setStats({
-      totalClientes: allUsers.filter((u: any) => u.role === 'cliente').length,
-      totalCambistas: allUsers.filter((u: any) => u.role === 'cambista').length,
-      pendentes: pendings.length + allUsers.filter((u: any) => u.status === 'pending').length
-    });
+      const pendingReg = allUsers.filter((u: any) => u.status === 'pending').length;
+      const pendingWith = allWithdrawals.filter((w: any) => w.status === 'pendente').length;
+      const pendingDep = allDeposits.filter((d: any) => d.status === 'pendente').length;
+      const pendingPrizes = allTickets.reduce((acc: number, r: any) => 
+        acc + r.tickets.filter((t: any) => t.status === 'pendente-resgate').length, 0
+      );
+
+      setStats({
+        totalClientes: allUsers.filter((u: any) => u.role === 'cliente').length,
+        totalCambistas: allUsers.filter((u: any) => u.role === 'cambista').length,
+        pendencias: pendingsSales.length + pendingReg + pendingWith + pendingDep + pendingPrizes
+      });
+    };
+
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -85,12 +100,12 @@ export default function AdminDashboard() {
 
             <Card className="bg-white border-none shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pendências</CardTitle>
+                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Total Pendências</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <span className="text-3xl font-black text-orange-600">{stats.pendentes}</span>
-                  <div className="bg-orange-100 p-3 rounded-2xl"><ArrowUpCircle className="w-5 h-5 text-orange-600" /></div>
+                  <span className={`text-3xl font-black ${stats.pendencias > 0 ? 'text-orange-600' : 'text-green-600'}`}>{stats.pendencias}</span>
+                  <div className="bg-orange-100 p-3 rounded-2xl"><ShieldAlert className="w-5 h-5 text-orange-600" /></div>
                 </div>
               </CardContent>
             </Card>
@@ -105,20 +120,27 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {pendingSales.length === 0 ? (
+                  {pendingSales.length === 0 && stats.pendencias === 0 ? (
                     <div className="text-center py-10 opacity-30 uppercase text-[10px] font-black tracking-widest">Tudo em dia!</div>
                   ) : (
-                    pendingSales.slice(0, 5).map((sale, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 border rounded-xl bg-orange-50/30">
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-black uppercase">{sale.cliente}</p>
-                          <p className="text-[9px] font-bold text-muted-foreground">{sale.eventoNome} • R$ {sale.valorTotal.toFixed(2)}</p>
+                    <div className="space-y-3">
+                      {pendingSales.slice(0, 3).map((sale, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 border rounded-xl bg-orange-50/30">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-black uppercase">{sale.cliente}</p>
+                            <p className="text-[9px] font-bold text-muted-foreground">{sale.eventoNome} • R$ {sale.valorTotal.toFixed(2)}</p>
+                          </div>
+                          <Link href="/admin/financeiro?tab=pendentes">
+                            <Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase border-orange-200">Verificar</Button>
+                          </Link>
                         </div>
+                      ))}
+                      {stats.pendencias > 0 && (
                         <Link href="/admin/financeiro">
-                          <Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase border-orange-200">Verificar</Button>
+                          <Button className="w-full h-10 font-black uppercase text-[10px] bg-accent text-white rounded-xl">Ver Todas Pendências ({stats.pendencias})</Button>
                         </Link>
-                      </div>
-                    ))
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>

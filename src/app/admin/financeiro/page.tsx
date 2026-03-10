@@ -28,7 +28,9 @@ import {
   ArrowRightLeft,
   UserCircle,
   ShieldCheck,
-  Youtube
+  Youtube,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -51,10 +53,11 @@ function FinanceiroContent() {
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-  const [pendingSales, setPendingSales] = useState<any[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+  const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [companyPix, setCompanyPix] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   
@@ -83,6 +86,7 @@ function FinanceiroContent() {
 
     const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
     setAllUsers(users);
+    setPendingUsers(users.filter((u: UserProfile) => u.status === 'pending'));
 
     const withdrawals = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
     setPendingWithdrawals(withdrawals.filter((w: any) => w.status === 'pendente'));
@@ -107,6 +111,8 @@ function FinanceiroContent() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreatePartner = (e: React.FormEvent) => {
@@ -143,6 +149,22 @@ function FinanceiroContent() {
       gerenteId: 'admin-master'
     });
     loadData();
+  };
+
+  const approveUser = (userId: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.map((u: UserProfile) => u.id === userId ? { ...u, status: 'approved' } : u);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: "ACESSO APROVADO!", description: "O parceiro agora pode acessar o sistema." });
+  };
+
+  const rejectUser = (userId: string) => {
+    const users = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const updated = users.filter((u: UserProfile) => u.id !== userId);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ variant: "destructive", title: "SOLICITAÇÃO RECUSADA" });
   };
 
   const transferCambista = (userId: string, newGerenteId: string) => {
@@ -326,15 +348,37 @@ function FinanceiroContent() {
           <Tabs defaultValue={defaultTab}>
             <TabsList className="bg-muted p-1 rounded-2xl w-full flex justify-start overflow-x-auto gap-2">
               <TabsTrigger value="depositos" className="font-bold rounded-xl whitespace-nowrap">Depósitos ({pendingDeposits.length})</TabsTrigger>
-              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Prêmios Ganhadores ({pendingPayouts.length})</TabsTrigger>
-              <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques Rede ({pendingWithdrawals.length})</TabsTrigger>
-              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas s/ Saldo ({pendingSales.length})</TabsTrigger>
+              <TabsTrigger value="acessos" className="font-bold rounded-xl whitespace-nowrap">Acessos ({pendingUsers.length})</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Prêmios ({pendingPayouts.length})</TabsTrigger>
+              <TabsTrigger value="withdrawals" className="font-bold rounded-xl whitespace-nowrap">Saques ({pendingWithdrawals.length})</TabsTrigger>
+              <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas ({pendingSales.length})</TabsTrigger>
               <TabsTrigger value="rede" className="font-bold rounded-xl whitespace-nowrap"><Users className="w-4 h-4 mr-2" /> Gestão de Rede</TabsTrigger>
-              <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configurações</TabsTrigger>
+              <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configs</TabsTrigger>
             </TabsList>
             
-            {/* Tabs content omitted for brevity, same as previous version but settings added */}
-            
+            <TabsContent value="acessos" className="mt-6 space-y-4">
+               {pendingUsers.length === 0 ? (
+                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de acesso pendentes</Card>
+               ) : (
+                 pendingUsers.map((u, i) => (
+                   <Card key={i} className="flex justify-between items-center p-6 bg-accent/5 border-accent/20 border-l-8 border-l-accent rounded-2xl shadow-sm">
+                     <div className="space-y-1">
+                        <p className="font-black uppercase text-lg text-primary">{u.nome}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email} • {u.phone}</p>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant="outline" className="text-[9px] font-black uppercase">CPF: {u.cpf}</Badge>
+                          <Badge variant="outline" className="text-[9px] font-black uppercase">PIX: {u.pixKey}</Badge>
+                        </div>
+                     </div>
+                     <div className="flex gap-2">
+                       <Button onClick={() => rejectUser(u.id)} variant="outline" className="text-destructive font-black uppercase text-xs h-12 rounded-xl">Recusar</Button>
+                       <Button onClick={() => approveUser(u.id)} className="bg-accent hover:bg-accent/90 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Aprovar Parceiro</Button>
+                     </div>
+                   </Card>
+                 ))
+               )}
+            </TabsContent>
+
             <TabsContent value="depositos" className="mt-6 space-y-4">
                {pendingDeposits.length === 0 ? (
                  <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem recargas pendentes</Card>
@@ -403,7 +447,7 @@ function FinanceiroContent() {
                        <p className="text-xs font-bold text-orange-700/70 uppercase">{t.eventoNome} • R$ {t.valorTotal.toFixed(2)}</p>
                        <Badge className="bg-orange-600 mt-2 font-black uppercase text-[9px]">Vendedor: {t.vendedorNome}</Badge>
                      </div>
-                     <Button onClick={() => approveSale(t.id)} className="bg-orange-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Confirmar Recebimento e Aprovar</Button>
+                     <Button onClick={() => approveSale(t.id)} className="bg-orange-600 font-black uppercase text-xs h-12 px-8 rounded-xl">Confirmar e Aprovar</Button>
                    </Card>
                  ))
                )}
@@ -482,7 +526,12 @@ function FinanceiroContent() {
                              <div className="flex items-center gap-3 flex-1">
                                 <div className="bg-primary/5 p-2 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
                                 <div>
-                                   <p className="font-black uppercase text-xs">{u.nome}</p>
+                                   <div className="flex items-center gap-2">
+                                     <p className="font-black uppercase text-xs">{u.nome}</p>
+                                     <Badge className={`${u.status === 'approved' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black`}>
+                                       {u.status === 'approved' ? 'ATIVO' : 'PENDENTE'}
+                                     </Badge>
+                                   </div>
                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">{u.role} • {u.phone}</p>
                                 </div>
                              </div>
@@ -537,9 +586,6 @@ function FinanceiroContent() {
                         className="h-14 pl-12 font-bold border-2 rounded-2xl"
                       />
                     </div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 mt-2">
-                      <ShieldCheck className="w-3 h-3" /> Este link será exibido para os clientes na auditoria e sorteios.
-                    </p>
                   </div>
                   <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Configurações</Button>
                 </CardContent>
