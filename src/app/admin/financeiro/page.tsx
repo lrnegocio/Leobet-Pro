@@ -20,7 +20,8 @@ import {
   UserPlus,
   PlusCircle,
   Search,
-  DollarSign
+  DollarSign,
+  Wallet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -47,15 +48,6 @@ export default function FinanceiroPage() {
   const [validationCode, setValidationCode] = useState('');
   const [validatedTicket, setValidatedTicket] = useState<any>(null);
   
-  const [newUser, setNewUser] = useState({
-    nome: '',
-    email: '',
-    cpf: '',
-    phone: '',
-    birthDate: '',
-    role: 'cambista' as UserRole
-  });
-
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -72,7 +64,6 @@ export default function FinanceiroPage() {
     setTickets(allReceipts);
     setPendingSales(allReceipts.filter((t: any) => t.status === 'pendente'));
 
-    // Pegar prêmios pendentes de resgate
     const payouts: any[] = [];
     allReceipts.forEach((r: any) => {
       r.tickets.forEach((t: any) => {
@@ -114,19 +105,18 @@ export default function FinanceiroPage() {
 
     filteredTickets.forEach(t => {
       bruto += t.valorTotal;
-      // REGRA 20/10/5 RIGOROSA
       if (t.vendedorRole === 'admin') {
-        org += t.valorTotal * 0.35; // Admin fica com tudo
+        org += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
         org += t.valorTotal * 0.20;
-        gerente += t.valorTotal * 0.15; // Gerente pega sua parte + cambista dele
+        gerente += t.valorTotal * 0.15; 
       } else if (t.vendedorRole === 'cambista') {
         org += t.valorTotal * 0.20;
         cambista += t.valorTotal * 0.10;
         if (t.gerenteId && t.gerenteId !== 'admin-master') {
           gerente += t.valorTotal * 0.05;
         } else {
-          org += t.valorTotal * 0.05; // Margem de gerente vai para o Admin se cambista for direto
+          org += t.valorTotal * 0.05; 
         }
       }
     });
@@ -167,6 +157,13 @@ export default function FinanceiroPage() {
       toast({ variant: "destructive", title: "CÓDIGO INVÁLIDO" });
       setValidatedTicket(null);
     }
+  };
+
+  const transferCambista = (cambistaId: string, newGerenteId: string) => {
+    const updated = allUsers.map(u => u.id === cambistaId ? { ...u, gerenteId: newGerenteId } : u);
+    localStorage.setItem('leobet_users', JSON.stringify(updated));
+    loadData();
+    toast({ title: "CAMBISTA TRANSFERIDO!" });
   };
 
   return (
@@ -220,6 +217,7 @@ export default function FinanceiroPage() {
               <TabsTrigger value="payouts" className="font-bold rounded-xl whitespace-nowrap">Resgates ({pendingPayouts.length})</TabsTrigger>
               <TabsTrigger value="pendentes" className="font-bold rounded-xl whitespace-nowrap">Vendas ({pendingSales.length})</TabsTrigger>
               <TabsTrigger value="resgate" className="font-bold rounded-xl whitespace-nowrap">Validador</TabsTrigger>
+              <TabsTrigger value="rede" className="font-bold rounded-xl whitespace-nowrap">Gestão de Rede</TabsTrigger>
               <TabsTrigger value="sorteios" className="font-bold rounded-xl whitespace-nowrap">Histórico Sorteios</TabsTrigger>
             </TabsList>
             
@@ -232,15 +230,52 @@ export default function FinanceiroPage() {
                      <div className="space-y-1">
                        <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
                        <p className="text-xs font-bold text-green-700/70 uppercase">Bilhete: {p.id} • {p.receipt.eventoNome}</p>
-                       <div className="flex items-center gap-2 mt-2">
-                         <Badge className="bg-green-600 font-black text-xs uppercase px-4 py-1">Prêmio: R$ {p.valorPremio.toFixed(2)}</Badge>
-                         <span className="text-[9px] font-black uppercase text-muted-foreground">Vendedor: {p.receipt.vendedorNome}</span>
+                       <div className="flex flex-col gap-1 mt-2">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-600 font-black text-xs uppercase px-4 py-1">Prêmio: R$ {p.valorPremio.toFixed(2)}</Badge>
+                            <span className="text-[9px] font-black uppercase text-muted-foreground">Vendedor: {p.receipt.vendedorNome}</span>
+                          </div>
+                          <div className="bg-white/50 p-2 rounded-lg border border-green-200 mt-1">
+                             <p className="text-[10px] font-black uppercase text-green-700">Chave PIX Informada:</p>
+                             <p className="text-sm font-black text-primary">{p.pixResgate || 'Não informada'}</p>
+                          </div>
                        </div>
                      </div>
-                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 hover:bg-green-700 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Aprovar Pagamento</Button>
+                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 hover:bg-green-700 font-black uppercase text-xs shadow-lg h-12 px-8 rounded-xl">Confirmar Pagamento</Button>
                    </Card>
                  ))
                )}
+            </TabsContent>
+
+            <TabsContent value="rede" className="mt-6">
+              <div className="grid grid-cols-1 gap-4">
+                {allUsers.filter(u => u.role === 'cambista').map(c => (
+                  <Card key={c.id} className="p-6 flex justify-between items-center bg-white rounded-2xl shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-blue-100 p-3 rounded-full"><Users className="w-6 h-6 text-blue-600" /></div>
+                      <div>
+                        <p className="font-black uppercase">{c.nome}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Gerente Atual: {allUsers.find(u => u.id === c.gerenteId)?.nome || 'Admin Master'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        className="h-10 border rounded-xl px-3 text-xs font-bold bg-muted"
+                        onChange={(e) => transferCambista(c.id, e.target.value)}
+                        value={c.gerenteId || 'admin-master'}
+                      >
+                        <option value="admin-master">ADMIN MASTER</option>
+                        {allUsers.filter(u => u.role === 'gerente').map(g => (
+                          <option key={g.id} value={g.id}>GERENTE: {g.nome}</option>
+                        ))}
+                      </select>
+                      <Button variant="outline" size="sm" className="font-black uppercase text-[10px]">Alterar Gerente</Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="pendentes" className="mt-6 space-y-4">
@@ -275,6 +310,10 @@ export default function FinanceiroPage() {
                           <div className="space-y-2 text-center md:text-left">
                             <p className="font-black text-2xl text-primary leading-none uppercase">{validatedTicket.receiptInfo.cliente}</p>
                             <p className="text-[10px] font-black uppercase text-muted-foreground">{validatedTicket.receiptInfo.eventoNome}</p>
+                            <div className="bg-white/50 p-3 rounded-xl border mt-2">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">Chave PIX para Pagamento:</p>
+                               <p className="text-lg font-black text-primary">{validatedTicket.pixResgate || validatedTicket.receiptInfo.pixKey || 'Não informada'}</p>
+                            </div>
                             <div className="flex gap-2 mt-2">
                               <Badge className={`font-black h-7 px-4 ${validatedTicket.status === 'pago' ? 'bg-blue-600' : 'bg-green-600'}`}>
                                 {validatedTicket.status === 'pago' ? 'PRÊMIO JÁ PAGO' : '✓ PREMIADO'}
@@ -284,8 +323,8 @@ export default function FinanceiroPage() {
                               )}
                             </div>
                           </div>
-                          {validatedTicket.status === 'ganhou' ? (
-                            <Button onClick={() => approvePayout(validatedTicket.id)} className="bg-green-600 hover:bg-green-700 h-16 px-12 font-black uppercase text-lg rounded-2xl shadow-2xl">Pagar Prêmio</Button>
+                          {validatedTicket.status === 'ganhou' || validatedTicket.status === 'pendente-resgate' ? (
+                            <Button onClick={() => approvePayout(validatedTicket.id)} className="bg-green-600 hover:bg-green-700 h-16 px-12 font-black uppercase text-lg rounded-2xl shadow-2xl">Confirmar Pagamento</Button>
                           ) : (
                             <div className="text-center bg-blue-100 p-4 rounded-2xl border-2 border-blue-200">
                                <CheckCircle2 className="w-10 h-10 text-blue-600 mx-auto mb-2" />

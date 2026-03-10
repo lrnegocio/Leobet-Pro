@@ -6,10 +6,11 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, DollarSign } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
@@ -19,6 +20,7 @@ function ResultadosContent() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [pixKey, setPixKey] = useState('');
 
   const handleSearch = (searchCode?: string) => {
     const codeToSearch = searchCode || code;
@@ -50,6 +52,11 @@ function ResultadosContent() {
   }, [searchParams]);
 
   const handleClaim = (ticketId: string) => {
+    if (!pixKey || pixKey.trim().length < 5) {
+      toast({ variant: "destructive", title: "CHAVE PIX OBRIGATÓRIA", description: "Informe sua chave PIX para receber o prêmio." });
+      return;
+    }
+
     setClaiming(ticketId);
     setTimeout(() => {
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
@@ -58,7 +65,7 @@ function ResultadosContent() {
         return {
           ...r,
           tickets: r.tickets.map((t: any) => 
-            t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
+            t.id === ticketId ? { ...t, status: 'pendente-resgate', pixResgate: pixKey } : t
           )
         };
       });
@@ -195,21 +202,39 @@ function ResultadosContent() {
                                </div>
 
                                {(isWinner || isPending || isPaid) && (
-                                 <div className={`p-6 flex flex-col items-center justify-center border-l-2 md:w-56 text-center ${
+                                 <div className={`p-6 flex flex-col items-center justify-center border-l-2 md:w-80 text-center ${
                                    isWinner ? 'bg-green-600' : isPaid ? 'bg-blue-600' : 'bg-orange-600'
                                  } text-white`}>
                                     {isWinner ? (
-                                      <>
-                                        <p className="font-black uppercase text-[9px] tracking-widest mb-3">Valor Líquido:</p>
-                                        <p className="text-2xl font-black mb-4">R$ {t.valorPremio?.toFixed(2)}</p>
+                                      <div className="w-full space-y-4">
+                                        <div>
+                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Valor Líquido:</p>
+                                          <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2)}</p>
+                                        </div>
+                                        
+                                        <div className="text-left space-y-1.5">
+                                           <Label className="text-[10px] font-black uppercase text-white/70">Informe sua Chave PIX:</Label>
+                                           <Input 
+                                            value={pixKey} 
+                                            onChange={e => setPixKey(e.target.value)}
+                                            placeholder="Ex: CPF, Email ou Celular"
+                                            className="h-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 text-xs font-bold"
+                                           />
+                                        </div>
+
+                                        <p className="text-[8px] font-bold text-white/50 flex items-start gap-1 leading-tight text-left">
+                                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                                          Atenção: A banca não se responsabiliza por erros de digitação na chave PIX informada.
+                                        </p>
+
                                         <Button 
                                           onClick={() => handleClaim(t.id)} 
-                                          className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-10 w-full rounded-xl"
+                                          className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg"
                                           disabled={claiming === t.id}
                                         >
-                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR RESGATE"}
+                                          {claiming === t.id ? "REQUISITANDO..." : "SOLICITAR PAGAMENTO"}
                                         </Button>
-                                      </>
+                                      </div>
                                     ) : isPaid ? (
                                       <>
                                         <CheckCircle2 className="w-10 h-10 mb-2" />
@@ -219,6 +244,7 @@ function ResultadosContent() {
                                       <>
                                         <Clock className="w-10 h-10 mb-2 animate-spin" />
                                         <p className="font-black uppercase text-[10px] tracking-widest">AGUARDANDO<br/>APROVAÇÃO</p>
+                                        <p className="text-[8px] mt-2 opacity-50 uppercase font-black">Chave PIX informada: {t.pixResgate}</p>
                                       </>
                                     )}
                                  </div>

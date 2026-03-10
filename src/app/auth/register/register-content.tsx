@@ -24,6 +24,7 @@ export default function RegisterContent() {
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
+  const [pixKey, setPixKey] = useState('');
   const [loading, setLoading] = useState(false);
 
   const isBlockedRole = roleFromUrl === 'admin' || roleFromUrl === 'gerente';
@@ -32,7 +33,6 @@ export default function RegisterContent() {
     e.preventDefault();
     if (isBlockedRole) return;
     
-    // Validação básica de telefone com DDD (Brasil: 11 dígitos)
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       toast({
@@ -52,6 +52,7 @@ export default function RegisterContent() {
       cpf,
       birthDate,
       phone: cleanPhone,
+      pixKey,
       role: roleFromUrl,
       balance: 0,
       commissionBalance: 0,
@@ -135,6 +136,11 @@ export default function RegisterContent() {
             <div className="space-y-2">
               <Label>Telefone (WhatsApp com DDD)</Label>
               <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: 82993343941" required disabled={loading} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chave PIX para Recebimentos</Label>
+              <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="CPF, Email, Telefone ou Chave Aleatória" required disabled={loading} />
             </div>
 
             <div className="space-y-2">
