@@ -31,45 +31,54 @@ export default function LoginContent() {
     const MASTER_USER = "lrnegocio";
     const MASTER_PASS = "135796lR@";
 
+    // Lógica Master Admin
     if (identifier === MASTER_USER && password === MASTER_PASS) {
       const mockAdmin: UserProfile = {
         id: 'admin-master',
         nome: 'Administrador LEOBET',
         email: 'admin@leobet.pro',
         role: 'admin',
-        balance: 1000000,
+        balance: 999999999,
+        commissionBalance: 0,
+        pendingBalance: 0,
         status: 'approved',
         createdAt: new Date().toISOString(),
       };
       
       setUser(mockAdmin);
       localStorage.setItem('is_master_admin', 'true');
+      localStorage.setItem('logged_user', JSON.stringify(mockAdmin));
       
       toast({ title: "Acesso Master Autorizado" });
       router.push('/admin/dashboard');
       return;
     }
 
-    // Mock para outros usuários de teste
-    if (password === '123456') {
-      const mockUser: UserProfile = {
-        id: 'user-test',
-        nome: identifier.split('@')[0],
-        email: identifier,
-        role: roleFromUrl as any,
-        balance: 100,
-        status: 'approved',
-        createdAt: new Date().toISOString(),
-      };
-      setUser(mockUser);
-      router.push(`/${roleFromUrl}/dashboard`);
+    // Busca usuário no LocalStorage
+    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
+    const foundUser = allUsers.find((u: UserProfile) => u.email === identifier || u.nome === identifier);
+
+    if (foundUser && password === '123456') { // Senha fixa para teste
+      if (foundUser.status === 'pending') {
+        toast({
+          variant: "destructive",
+          title: "Acesso Pendente",
+          description: "Sua conta ainda está em análise pelo administrador.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      setUser(foundUser);
+      localStorage.setItem('logged_user', JSON.stringify(foundUser));
+      router.push(`/${foundUser.role}/dashboard`);
       return;
     }
 
     toast({
       variant: "destructive",
       title: "Erro no Login",
-      description: "Credenciais inválidas ou usuário não encontrado.",
+      description: "Credenciais inválidas ou conta não aprovada.",
     });
     setLoading(false);
   };
@@ -86,7 +95,7 @@ export default function LoginContent() {
             <Lock className="w-6 h-6 text-accent" />
           </div>
           <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tight">Login Sistema</CardTitle>
-          <CardDescription>Entre com suas credenciais de {roleFromUrl}</CardDescription>
+          <CardDescription>Acesse seu painel de {roleFromUrl}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -119,11 +128,13 @@ export default function LoginContent() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <div className="text-center text-sm text-muted-foreground w-full">
-            Não possui cadastro? <Link href={`/auth/register?role=${roleFromUrl}`} className="text-accent hover:underline font-bold">Criar conta grátis</Link>
-          </div>
-        </CardFooter>
+        {roleFromUrl !== 'admin' && (
+          <CardFooter className="flex flex-col gap-4">
+            <div className="text-center text-sm text-muted-foreground w-full">
+              Não possui conta? <Link href={`/auth/register?role=${roleFromUrl}`} className="text-accent hover:underline font-bold">Cadastrar-se</Link>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
