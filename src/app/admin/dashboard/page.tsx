@@ -5,9 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Store, ArrowUpCircle, ShoppingCart, Grid3X3, Trophy, Clock, CheckCircle2 } from 'lucide-react';
+import { Users, Store, ArrowUpCircle, ShoppingCart, Grid3X3, Trophy, Clock, UserPlus } from 'lucide-react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export default function AdminDashboard() {
@@ -49,8 +48,8 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tighter text-primary">Painel de Controle</h1>
-              <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">LEOBET PRO • Gestão Master</p>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tighter text-primary">Painel LEOBET PRO</h1>
+              <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Gestão Master • Auditoria Permanente</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground font-bold uppercase">{formattedDate}</p>
@@ -62,7 +61,7 @@ export default function AdminDashboard() {
             
             <Card className="bg-white border-none shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Clientes Ativos</CardTitle>
+                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Clientes</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -100,14 +99,14 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <Card className="bg-white">
               <CardHeader>
-                <CardTitle className="font-black uppercase text-sm flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-600" /> Vendas Aguardando Aprovação
+                <CardTitle className="font-black uppercase text-sm flex items-center gap-2 text-orange-600">
+                  <Clock className="w-4 h-4" /> Aprovações Urgentes
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {pendingSales.length === 0 ? (
-                    <div className="text-center py-10 opacity-40 uppercase text-[10px] font-black tracking-widest">Nenhuma venda pendente</div>
+                    <div className="text-center py-10 opacity-30 uppercase text-[10px] font-black tracking-widest">Tudo em dia!</div>
                   ) : (
                     pendingSales.slice(0, 5).map((sale, i) => (
                       <div key={i} className="flex items-center justify-between p-3 border rounded-xl bg-orange-50/30">
@@ -116,15 +115,10 @@ export default function AdminDashboard() {
                           <p className="text-[9px] font-bold text-muted-foreground">{sale.eventoNome} • R$ {sale.valorTotal.toFixed(2)}</p>
                         </div>
                         <Link href="/admin/financeiro">
-                          <Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Ver no Financeiro</Button>
+                          <Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase border-orange-200">Verificar</Button>
                         </Link>
                       </div>
                     ))
-                  )}
-                  {pendingSales.length > 5 && (
-                    <Link href="/admin/financeiro" className="block text-center text-[10px] font-black uppercase text-primary hover:underline pt-2">
-                      Ver todas as {pendingSales.length} pendências
-                    </Link>
                   )}
                 </div>
               </CardContent>
@@ -132,26 +126,26 @@ export default function AdminDashboard() {
 
             <Card className="bg-white">
               <CardHeader>
-                <CardTitle className="font-black uppercase text-sm flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-primary" /> Atalhos Rápidos
+                <CardTitle className="font-black uppercase text-sm flex items-center gap-2 text-primary">
+                  <ShoppingCart className="w-4 h-4" /> Atalhos Rápidos
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
-                <Link href="/admin/venda" className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
-                  <ShoppingCart className="w-10 h-10 text-primary group-hover:text-white" />
-                  <span className="text-xs font-black uppercase tracking-widest">Nova Venda</span>
+                <Link href="/admin/venda" className="p-4 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white transition-all flex flex-col items-center gap-2 group">
+                  <ShoppingCart className="w-8 h-8 text-primary group-hover:text-white" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Venda Rápida</span>
                 </Link>
-                <Link href="/admin/bingo/novo" className="p-6 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white hover:border-accent transition-all flex flex-col items-center gap-3 group">
-                  <Grid3X3 className="w-10 h-10 text-accent group-hover:text-white" />
-                  <span className="text-xs font-black uppercase tracking-widest">Novo Bingo</span>
+                <Link href="/admin/financeiro?tab=novocadastro" className="p-4 border-2 border-dashed rounded-2xl hover:bg-accent hover:text-white transition-all flex flex-col items-center gap-2 group">
+                  <UserPlus className="w-8 h-8 text-accent group-hover:text-white" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Cadastrar Parceiro</span>
                 </Link>
-                <Link href="/admin/bolao/novo" className="p-6 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all flex flex-col items-center gap-3 group">
-                  <Trophy className="w-10 h-10 text-primary group-hover:text-white" />
-                  <span className="text-xs font-black uppercase tracking-widest">Novo Bolão</span>
+                <Link href="/admin/bingo/novo" className="p-4 border-2 border-dashed rounded-2xl hover:bg-primary hover:text-white transition-all flex flex-col items-center gap-2 group">
+                  <Grid3X3 className="w-8 h-8 text-primary group-hover:text-white" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Novo Bingo</span>
                 </Link>
-                <Link href="/admin/financeiro" className="p-6 border-2 border-dashed rounded-2xl hover:bg-destructive hover:text-white hover:border-destructive transition-all flex flex-col items-center gap-3 group">
-                  <ArrowUpCircle className="w-10 h-10 text-destructive group-hover:text-white" />
-                  <span className="text-xs font-black uppercase tracking-widest">Financeiro</span>
+                <Link href="/admin/financeiro" className="p-4 border-2 border-dashed rounded-2xl hover:bg-destructive hover:text-white transition-all flex flex-col items-center gap-2 group">
+                  <ArrowUpCircle className="w-8 h-8 text-destructive group-hover:text-white" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Financeiro</span>
                 </Link>
               </CardContent>
             </Card>
