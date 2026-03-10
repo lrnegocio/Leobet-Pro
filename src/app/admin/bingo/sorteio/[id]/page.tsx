@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, Trophy, CheckCircle2, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trophy, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -70,31 +70,25 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   const checkWinners = useCallback((drawn: number[]) => {
     if (finished) return;
 
-    const newWinners = { ...winners };
-    let foundBingo = false;
-    let foundQuina = false;
-    let foundQuadra = false;
+    const level = currentPrizeLevel;
     const currentRoundWinners: any[] = [];
 
     tickets.forEach(receipt => {
       receipt.tickets.forEach((t: any) => {
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
-        // LÓGICA SEQUENCIAL
-        if (currentPrizeLevel === 'bingo' && hits === 15) {
-          if (!newWinners.bingo.find(w => w.ticketId === t.id)) {
+        // LÓGICA SEQUENCIAL RESTRITA
+        if (level === 'bingo' && hits === 15) {
+          if (!winners.bingo.find(w => w.ticketId === t.id)) {
             currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
-            foundBingo = true;
           }
-        } else if (currentPrizeLevel === 'quina' && hits >= 5) {
-          if (!newWinners.quina.find(w => w.ticketId === t.id)) {
+        } else if (level === 'quina' && hits >= 5) {
+          if (!winners.quina.find(w => w.ticketId === t.id)) {
             currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
-            foundQuina = true;
           }
-        } else if (currentPrizeLevel === 'quadra' && hits >= 4) {
-          if (!newWinners.quadra.find(w => w.ticketId === t.id)) {
+        } else if (level === 'quadra' && hits >= 4) {
+          if (!winners.quadra.find(w => w.ticketId === t.id)) {
             currentRoundWinners.push({ ticketId: t.id, cliente: receipt.cliente });
-            foundQuadra = true;
           }
         }
       });
@@ -102,11 +96,10 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
 
     if (currentRoundWinners.length > 0) {
       setIsAuto(false);
-      const level = currentPrizeLevel;
+      const newWinners = { ...winners };
       newWinners[level] = [...newWinners[level], ...currentRoundWinners];
       setWinners(newWinners);
 
-      // Calcular rateio e atualizar status
       const premioTotalNivel = premios[level];
       const individual = premioTotalNivel / newWinners[level].length;
       
@@ -127,7 +120,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         );
         localStorage.setItem('leobet_bingos', JSON.stringify(updated));
       } else {
-        // Sugerir avançar de nível
         const next = level === 'quadra' ? 'quina' : 'bingo';
         setCurrentPrizeLevel(next);
       }
@@ -164,32 +156,34 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
           <div className="flex flex-col md:flex-row justify-between items-stretch bg-white rounded-3xl shadow-xl border-t-8 border-t-accent overflow-hidden">
             <div className="p-8 flex-1">
               <h1 className="text-4xl font-black uppercase text-primary leading-none">{bingo.nome}</h1>
-              <p className="text-sm font-bold text-muted-foreground mt-2">Arrecadação: R$ {totalArrecadado.toFixed(2)}</p>
+              <p className="text-sm font-bold text-muted-foreground mt-2">Arrecadação Bruta: R$ {totalArrecadado.toFixed(2)}</p>
             </div>
             <div className="bg-muted/50 p-8 flex items-center gap-4 border-l">
               <Badge className="text-xl py-2 px-6 bg-white font-black">{drawnNumbers.length} / 90 BOLAS</Badge>
               {!finished && (
                 <div className="flex gap-2">
-                  <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"} className="h-14 px-8 font-black uppercase rounded-2xl">
+                  <Button onClick={() => setIsAuto(!isAuto)} variant={isAuto ? "destructive" : "default"} className="h-14 px-8 font-black uppercase rounded-2xl shadow-lg transition-all active:scale-95">
                     {isAuto ? <Pause className="mr-2" /> : <Play className="mr-2" />} {isAuto ? "Pausar" : "Auto"}
                   </Button>
-                  <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-14 px-8 font-black uppercase rounded-2xl">Chamar</Button>
+                  <Button onClick={drawNumber} variant="secondary" disabled={isAuto} className="h-14 px-8 font-black uppercase rounded-2xl shadow-lg border-2 border-primary/10">Chamar</Button>
                 </div>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="bg-primary text-white rounded-3xl shadow-2xl flex flex-col items-center justify-center p-12 space-y-8">
+            <Card className="bg-primary text-white rounded-[3rem] shadow-2xl flex flex-col items-center justify-center p-12 space-y-8">
               <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Bola Chamada</p>
-              <div className="w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center text-9xl font-black border-[12px] border-accent bingo-ball-pulse">
+              <div className="w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center text-9xl font-black border-[12px] border-accent bingo-ball-pulse shadow-2xl">
                 {lastNumber || '--'}
               </div>
-              <Badge className="bg-accent text-white font-black px-4 py-1">FOCO: {currentPrizeLevel.toUpperCase()}</Badge>
+              <Badge className="bg-accent text-white font-black px-6 py-2 uppercase text-xs tracking-widest rounded-xl">
+                 FOCO ATUAL: {currentPrizeLevel.toUpperCase()}
+              </Badge>
             </Card>
 
             <div className="lg:col-span-2 space-y-6">
-              <Card className="bg-white rounded-3xl shadow-lg">
+              <Card className="bg-white rounded-[2.5rem] shadow-lg overflow-hidden border-none">
                 <CardContent className="p-8">
                   <div className="grid grid-cols-10 gap-2">
                     {Array.from({ length: 90 }).map((_, i) => {
@@ -197,8 +191,8 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
                       const isDrawn = drawnNumbers.includes(num);
                       const isLast = lastNumber === num;
                       return (
-                        <div key={num} className={`aspect-square flex items-center justify-center rounded-full text-xs font-black transition-all ${
-                          isLast ? "bg-accent text-white scale-110 shadow-lg" :
+                        <div key={num} className={`aspect-square flex items-center justify-center rounded-2xl text-xs font-black transition-all duration-300 ${
+                          isLast ? "bg-accent text-white scale-110 shadow-xl z-10" :
                           isDrawn ? "bg-primary text-white" : "bg-muted text-muted-foreground/20"
                         }`}>{num}</div>
                       );
@@ -209,15 +203,16 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
 
               <div className="grid grid-cols-3 gap-4">
                 {['quadra', 'quina', 'bingo'].map((lvl: any) => (
-                  <Card key={lvl} className={`rounded-2xl transition-all ${currentPrizeLevel === lvl ? "ring-4 ring-accent scale-105 z-10" : "opacity-60"}`}>
-                    <CardHeader className="p-3 bg-muted/50 border-b text-center">
-                      <p className="text-[10px] font-black uppercase">{lvl}</p>
-                      <p className="text-xs font-black text-primary">R$ {premios[lvl as keyof typeof premios].toFixed(2)}</p>
+                  <Card key={lvl} className={`rounded-[2rem] transition-all border-none shadow-md ${currentPrizeLevel === lvl ? "ring-4 ring-accent scale-105 z-10" : "opacity-60 grayscale-[50%]"}`}>
+                    <CardHeader className="p-4 bg-muted/50 border-b text-center rounded-t-[2rem]">
+                      <p className="text-[10px] font-black uppercase tracking-widest">{lvl}</p>
+                      <p className="text-sm font-black text-primary">R$ {premios[lvl as keyof typeof premios].toFixed(2)}</p>
                     </CardHeader>
-                    <CardContent className="p-3 min-h-[80px] space-y-1">
+                    <CardContent className="p-4 min-h-[120px] space-y-2 overflow-y-auto max-h-[200px]">
                       {winners[lvl as keyof typeof winners].map((w, i) => (
-                        <div key={i} className="text-[9px] font-black uppercase bg-green-50 p-1 rounded flex items-center gap-1">
-                          <Trophy className="w-2.5 h-2.5 text-green-600" /> {w.cliente}
+                        <div key={i} className="text-[10px] font-black uppercase bg-green-50 border border-green-200 p-2 rounded-xl flex items-center justify-between text-green-700">
+                          <span className="truncate">{w.cliente}</span>
+                          <Trophy className="w-3 h-3 shrink-0" />
                         </div>
                       ))}
                     </CardContent>
