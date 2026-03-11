@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,12 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
+import { useAuthStore } from '@/store/use-auth-store';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user } = useAuthStore();
   const { toast } = useToast();
   const [code, setCode] = useState('');
   const [receipt, setReceipt] = useState<any>(null);
@@ -32,7 +35,6 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
-      // Busca recibo pelo ID ou ID de um dos tickets dentro do JSON
       const { data: found, error } = await supabase
         .from('tickets')
         .select('*')
@@ -90,12 +92,19 @@ function ResultadosContent() {
     }
   };
 
+  // Função para voltar para a tela correta baseada no cargo
+  const getBackPath = () => {
+    if (!user) return '/';
+    if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') return '/admin/venda';
+    return '/cliente/dashboard';
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-4xl w-full space-y-8">
         <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase">
-            <ArrowLeft className="w-4 h-4" /> Voltar ao Início
+          <Link href={getBackPath()} className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase bg-white px-4 py-2 rounded-xl shadow-sm border">
+            <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
           </Link>
           {youtubeUrl && (
             <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 text-white font-black uppercase text-[10px] h-9 gap-2 rounded-xl">
