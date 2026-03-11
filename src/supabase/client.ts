@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Prioriza variáveis de ambiente do Vercel, com fallback para as chaves hardcoded
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://sjlnkpqmfmajszcqlguv.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wynH5nejXXQJrRWnXfsNag_zPPOG9JS';
+// As chaves são lidas exclusivamente das variáveis de ambiente do Vercel/Ambiente
+// NUNCA deixe chaves expostas aqui como texto puro.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("⚠️ Configurações do Banco de Dados não detectadas. Verifique as variáveis de ambiente.");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

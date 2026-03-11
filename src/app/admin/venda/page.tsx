@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -75,7 +74,7 @@ export default function VendaPage() {
         setPrizes({ totalNet, quadra: 0, quina: 0, bingo: 0, bolao: totalNet });
       }
     } catch (err) {
-      console.error("Erro ao atualizar prêmios:", err);
+      console.error("Prize error");
     }
   };
 
@@ -90,7 +89,7 @@ export default function VendaPage() {
 
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.error("Erro ao carregar eventos:", err);
+      console.error("Event load error");
     }
   };
 
@@ -120,104 +119,16 @@ export default function VendaPage() {
         toast({ title: "IMPRESSORA CONECTADA!", description: device.name });
       }
     } catch (err: any) {
-      console.error("Erro BT:", err);
-      toast({ variant: "destructive", title: "ERRO AO PAREAR", description: "Verifique se o Bluetooth está ligado." });
+      toast({ variant: "destructive", title: "ERRO AO PAREAR", description: "Verifique seu Bluetooth." });
     } finally {
       setBtConnecting(false);
     }
   };
 
-  const printBluetooth = async (data: any) => {
-    if (!btCharacteristic) return;
-
-    try {
-      const encoder = new TextEncoder();
-      const separator = "--------------------------------\n";
-      const header = "      LEOBET PRO OFICIAL\n";
-      const subHeader = "       RECIBO DE APOSTA\n";
-      
-      let text = header + subHeader + separator;
-      text += `COD: #${data.id}\n`;
-      text += `DATA: ${new Date(data.created_at).toLocaleString()}\n`;
-      text += `CLIENTE: ${data.cliente}\n`;
-      text += `EVENTO: ${data.evento_nome}\n`;
-      text += separator;
-      
-      if (data.tipo === 'bingo') {
-        text += `BINGO: R$ ${data.detalhe_premios.bingo.toFixed(2)}\n`;
-        text += `QUINA: R$ ${data.detalhe_premios.quina.toFixed(2)}\n`;
-        text += `QUADRA: R$ ${data.detalhe_premios.quadra.toFixed(2)}\n`;
-        text += separator;
-        data.tickets_data.forEach((t: any, i: number) => {
-          text += `BILHETE ${i+1}: ${t.numeros.join(' ')}\n`;
-        });
-      } else {
-        text += `PREMIO: R$ ${data.detalhe_premios.bolao.toFixed(2)}\n`;
-        text += separator;
-        data.tickets_data.forEach((t: any, i: number) => {
-          text += `BILHETE ${i+1}: ${t.palpite || '---'}\n`;
-        });
-      }
-      
-      text += separator;
-      text += `TOTAL PAGO: R$ ${data.valor_total.toFixed(2)}\n`;
-      text += `STATUS: ${data.status.toUpperCase()}\n`;
-      text += separator;
-      text += "   leobet-probets.vercel.app\n";
-      text += "\n\n\n";
-
-      const bytes = encoder.encode(text);
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        await btCharacteristic.writeValue(chunk);
-      }
-      
-      toast({ title: "IMPRESSÃO ENVIADA!" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO NA IMPRESSORA", description: err.message });
-    }
-  };
-
-  const handleSelectEvent = (eventId: string) => {
-    const ev = eventosAtivos.find(e => String(e.id) === String(eventId));
-    setSelectedEvent(ev);
-    setQuantity(1);
-    
-    if (ev) {
-      setFormData({ 
-        ...formData, 
-        eventoId: eventId, 
-        eventoNome: ev.nome, 
-        unitario: ev.preco, 
-        valorTotal: ev.preco, 
-        tipo: ev.tipo 
-      });
-      updatePrizes(eventId, ev.tipo);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedEvent) {
-      setFormData(prev => ({ ...prev, valorTotal: quantity * prev.unitario }));
-    }
-  }, [quantity, selectedEvent]);
-
-  const generateUniqueNumbers = (count: number, max: number) => {
-    const nums: Set<number> = new Set();
-    while (nums.size < count) nums.add(Math.floor(Math.random() * max) + 1);
-    return Array.from(nums).sort((a, b) => a - b);
-  };
-
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.cliente.trim() || formData.whatsapp.length < 10) {
-      toast({ variant: "destructive", title: "DADOS INCOMPLETOS", description: "Informe o nome e WhatsApp com DDD." });
-      return;
-    }
-
-    if (!formData.eventoId) {
-      toast({ variant: "destructive", title: "EVENTO NÃO SELECIONADO" });
+      toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
       return;
     }
 
@@ -226,13 +137,10 @@ export default function VendaPage() {
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
-        numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
+        numeros: formData.tipo === 'bingo' ? Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1) : null,
         status: 'aberto'
       });
     }
-
-    const userBal = (user?.balance || 0) + (user?.commissionBalance || 0);
-    const statusVenda = (user?.role === 'admin' || userBal >= formData.valorTotal) ? 'pago' : 'pendente';
 
     const receipt = {
       id: Math.random().toString(36).substring(7).toUpperCase(),
@@ -243,7 +151,7 @@ export default function VendaPage() {
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       valor_total: formData.valorTotal,
       vendedor_id: user?.id,
-      status: statusVenda,
+      status: 'pago',
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
       created_at: new Date().toISOString()
@@ -256,31 +164,11 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "BILHETE EMITIDO!" });
       updatePrizes(formData.eventoId, formData.tipo);
-
-      if (btCharacteristic) {
-        printBluetooth(receipt);
-      }
-
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO NA EMISSÃO", description: err.message });
+      toast({ variant: "destructive", title: "ERRO NA EMISSÃO" });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleWhatsApp = () => {
-    if (!vendaRealizada) return;
-    const link = `https://leobet-probets.vercel.app/resultados?c=${vendaRealizada.id}`;
-    
-    let premioMsg = "";
-    if (vendaRealizada.tipo === 'bingo') {
-      premioMsg = `%0A%0A🏆 *PRÊMIOS:*%0A🎯 *BINGO:* R$ ${vendaRealizada.detalhe_premios.bingo.toFixed(2)}%0A🎯 *QUINA:* R$ ${vendaRealizada.detalhe_premios.quina.toFixed(2)}%0A🎯 *QUADRA:* R$ ${vendaRealizada.detalhe_premios.quadra.toFixed(2)}`;
-    } else {
-      premioMsg = `%0A%0A🏆 *PRÊMIO ACUMULADO:* R$ ${vendaRealizada.detalhe_premios.bolao.toFixed(2)}`;
-    }
-
-    const msg = `*LEOBET PRO*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}${premioMsg}%0A%0A*CONFERIR:*%0A${link}`;
-    window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
   };
 
   if (!mounted) return null;
@@ -288,124 +176,53 @@ export default function VendaPage() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-2 md:p-8 pt-2 md:pt-8 bg-white md:bg-muted/30 print:p-0">
-        <div className="max-w-5xl mx-auto space-y-4 print:max-w-full">
+      <main className="flex-1 overflow-auto p-2 md:p-8 pt-2 md:pt-8 bg-white md:bg-muted/30">
+        <div className="max-w-5xl mx-auto space-y-4">
           
-          <div className="bg-white p-3 rounded-2xl shadow-sm border-2 border-primary/5 flex items-center justify-between print:hidden">
+          <div className="bg-white p-3 rounded-2xl shadow-sm border-2 border-primary/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-full", btCharacteristic ? "bg-green-100" : "bg-muted")}>
-                  <Bluetooth className={cn("w-5 h-5", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
-                </div>
+                <Bluetooth className={cn("w-5 h-5", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                 <div>
-                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Bluetooth</p>
-                   <p className="text-xs font-black text-primary">{btDevice ? btDevice.name : "NÃO CONECTADO"}</p>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica</p>
+                   <p className="text-xs font-black text-primary">{btDevice ? btDevice.name : "OFFLINE"}</p>
                 </div>
               </div>
-              <Button 
-                onClick={connectPrinter} 
-                disabled={btConnecting}
-                variant={btCharacteristic ? "outline" : "default"}
-                className="h-10 px-4 font-black uppercase text-[10px] rounded-xl"
-              >
-                {btConnecting ? <RefreshCcw className="animate-spin w-4 h-4 mr-2" /> : (btCharacteristic ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <Bluetooth className="w-4 h-4 mr-2" />)}
-                {btCharacteristic ? "Alterar" : "Conectar"}
+              <Button onClick={connectPrinter} disabled={btConnecting} className="h-10 px-4 font-black uppercase text-[10px] rounded-xl">
+                {btConnecting ? <RefreshCcw className="animate-spin" /> : "Parear"}
               </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block">
-            <Card className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary print:hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary">
               <CardContent className="p-6 md:p-8">
                 <form onSubmit={handleVenda} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">Apostador</Label>
-                      <input 
-                        value={formData.cliente} 
-                        onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} 
-                        required 
-                        className="w-full h-12 font-bold rounded-xl border-2 px-4 text-md focus:border-primary outline-none" 
-                        placeholder="NOME"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp</Label>
-                      <input 
-                        value={formData.whatsapp} 
-                        onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
-                        required 
-                        className="w-full h-12 font-bold rounded-xl border-2 px-4 text-md focus:border-primary outline-none" 
-                        placeholder="DDD + NÚMERO"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="uppercase text-[9px] font-black opacity-60">Evento Ativo</Label>
-                    <select 
-                      className="w-full h-14 border-2 rounded-xl px-4 font-black bg-white appearance-none text-primary focus:ring-2 focus:ring-primary text-xs" 
-                      value={formData.eventoId} 
-                      onChange={e => handleSelectEvent(e.target.value)} 
-                      required
-                    >
-                      <option value="">-- ESCOLHA O EVENTO --</option>
-                      {eventosAtivos.map(e => (
-                        <option key={e.id} value={e.id}>
-                          {e.tipo === 'bolao' ? '🏆 BOLÃO' : '🎯 BINGO'} - {e.nome} (R$ {e.preco.toFixed(2)})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {selectedEvent && (
-                    <div className="p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 space-y-3 animate-in fade-in duration-300">
-                       <p className="text-[9px] font-black uppercase text-primary text-center">Prêmios Acumulados (65%)</p>
-                       {selectedEvent.tipo === 'bingo' ? (
-                         <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black opacity-40 uppercase">BINGO</p>
-                               <p className="font-black text-primary text-[10px]">R$ {prizes.bingo.toFixed(2)}</p>
-                            </div>
-                            <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black opacity-40 uppercase">QUINA</p>
-                               <p className="font-black text-primary text-[10px]">R$ {prizes.quina.toFixed(2)}</p>
-                            </div>
-                            <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black opacity-40 uppercase">QUADRA</p>
-                               <p className="font-black text-primary text-[10px]">R$ {prizes.quadra.toFixed(2)}</p>
-                            </div>
-                         </div>
-                       ) : (
-                         <div className="bg-white p-3 rounded-xl border flex justify-between items-center">
-                            <p className="text-[9px] font-black opacity-40 uppercase">ACUMULADO</p>
-                            <p className="font-black text-green-600 text-lg">R$ {prizes.bolao.toFixed(2)}</p>
-                         </div>
-                       )}
-
-                       {selectedEvent.tipo === 'bingo' && (
-                         <div className="space-y-2 pt-2 border-t border-primary/10">
-                            <Label className="uppercase text-[9px] font-black text-primary text-center block">Qtd. Cartelas</Label>
-                            <div className="flex items-center gap-3 justify-center">
-                               <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-10 w-10 rounded-lg border-2 bg-white"><Minus /></Button>
-                               <input 
-                                 type="number" 
-                                 value={quantity} 
-                                 onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} 
-                                 className="h-10 text-center text-lg font-black border-2 rounded-lg w-16 bg-white" 
-                               />
-                               <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-10 w-10 rounded-lg border-2 bg-white"><Plus /></Button>
-                            </div>
-                         </div>
-                       )}
-                    </div>
-                  )}
+                  <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} placeholder="NOME DO CLIENTE" className="h-12 font-bold" required />
+                  <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="WHATSAPP" className="h-12 font-bold" required />
+                  
+                  <select 
+                    className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" 
+                    value={formData.eventoId} 
+                    onChange={e => {
+                      const ev = eventosAtivos.find(ev => ev.id === e.target.value);
+                      if (ev) {
+                        setSelectedEvent(ev);
+                        setFormData({...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, valorTotal: ev.preco, tipo: ev.tipo});
+                        updatePrizes(ev.id, ev.tipo);
+                      }
+                    }} 
+                    required
+                  >
+                    <option value="">-- SELECIONE O JOGO --</option>
+                    {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
 
                   <div className="bg-primary/5 p-4 rounded-xl border-2 border-primary/10 text-center">
-                     <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Valor Final</p>
+                     <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Total a Pagar</p>
                      <p className="text-3xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
-                  <Button type="submit" className="w-full h-14 font-black uppercase text-md shadow-lg rounded-xl bg-primary text-white" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "EMITIR APOSTA"}
+                  <Button type="submit" className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl shadow-lg" disabled={loading}>
+                    {loading ? "PROCESSANDO..." : "GERAR RECIBO"}
                   </Button>
                 </form>
               </CardContent>
@@ -413,97 +230,31 @@ export default function VendaPage() {
 
             <div className="space-y-4">
               {vendaRealizada ? (
-                <div className="space-y-4 animate-in zoom-in-95 duration-300">
-                  <div id="receipt-content" className="bg-[#FFFFF4] p-6 shadow-2xl border border-black/10 font-mono rounded-3xl relative overflow-hidden print:shadow-none print:border-none print:p-0 print:rounded-none">
-                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 -mr-12 -mt-12 rounded-full"></div>
-                     
+                <div className="space-y-4">
+                  <div id="receipt-content" className="bg-[#FFFFF4] p-6 shadow-2xl border border-black/10 font-mono rounded-3xl relative overflow-hidden">
                      <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
-                        <p className="text-xl font-black text-primary uppercase">LEOBET PRO</p>
-                        <p className="font-bold uppercase tracking-widest text-[8px] opacity-60">Recibo Oficial</p>
+                        <p className="text-xl font-black text-primary">LEOBET PRO</p>
+                        <p className="text-[8px] font-bold">RECIBO OFICIAL</p>
                      </div>
-
                      <div className="space-y-2 mb-6 text-[10px] uppercase font-bold">
-                        <p className="flex justify-between"><span>COD:</span> <span>#{vendaRealizada.id}</span></p>
-                        <p className="flex justify-between"><span>CLI:</span> <span className="truncate max-w-[140px]">{vendaRealizada.cliente}</span></p>
-                        <p className="flex justify-between"><span>CON:</span> <span className="truncate max-w-[140px]">{vendaRealizada.evento_nome}</span></p>
-                        <p className="flex justify-between"><span>DATA:</span> <span>{new Date(vendaRealizada.created_at).toLocaleString()}</span></p>
-                        <p className="flex justify-between border-t-2 border-dashed pt-4 mt-2 text-primary font-black">
-                           <span>TOTAL:</span> 
-                           <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span>
-                        </p>
+                        <p className="flex justify-between"><span>CLI:</span> <span className="truncate">{vendaRealizada.cliente}</span></p>
+                        <p className="flex justify-between"><span>CON:</span> <span className="truncate">{vendaRealizada.evento_nome}</span></p>
+                        <p className="flex justify-between font-black text-primary border-t pt-2"><span>TOTAL:</span> <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span></p>
                      </div>
-
-                     <div className="p-3 bg-primary/5 rounded-xl mb-6 space-y-1.5 border border-primary/10">
-                        <p className="text-[8px] font-black uppercase text-primary text-center">Prêmios em Jogo</p>
-                        {vendaRealizada.tipo === 'bingo' ? (
-                          <div className="grid grid-cols-3 gap-1">
-                            <div className="text-center"><p className="text-[6px] opacity-60">BINGO</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[6px] opacity-60">QUINA</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[6px] opacity-60">QUADRA</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.quadra.toFixed(2)}</p></div>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <p className="text-[6px] opacity-60 uppercase">ACUMULADO</p>
-                            <p className="font-black text-[10px]">R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}</p>
-                          </div>
-                        )}
-                     </div>
-
-                     <div className="text-center py-4 border-y-2 border-dashed border-black/20 mb-6">
-                        <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6 py-1.5 rounded-full text-[8px]">
-                          {vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}
-                        </Badge>
-                     </div>
-
-                     <div className="text-center space-y-1">
-                        <p className="text-[8px] font-black text-primary">leobet-probets.vercel.app</p>
-                        <TicketIcon className="w-8 h-8 mx-auto opacity-10" />
-                     </div>
+                     <Button onClick={() => window.print()} className="w-full h-12 border-2 font-black uppercase text-[10px] rounded-xl"><Printer className="w-4 h-4 mr-2" /> Imprimir</Button>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2 print:hidden">
-                      <Button onClick={handleWhatsApp} className="h-12 bg-green-600 font-black uppercase text-[10px] rounded-xl">
-                        <Send className="w-4 h-4 mr-2" /> WhatsApp
-                      </Button>
-                      <Button onClick={() => window.print()} variant="outline" className="h-12 border-2 font-black uppercase text-[10px] rounded-xl">
-                        <Printer className="w-4 h-4 mr-2" /> Impressão Local
-                      </Button>
-                      {btCharacteristic && (
-                        <Button onClick={() => printBluetooth(vendaRealizada)} className="col-span-2 h-12 bg-primary font-black uppercase text-[10px] rounded-xl">
-                          <Bluetooth className="w-4 h-4 mr-2" /> Re-Imprimir Bluetooth
-                        </Button>
-                      )}
-                      <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="col-span-2 h-10 font-black uppercase text-[9px] rounded-xl border">
-                        Novo Bilhete
-                      </Button>
-                  </div>
+                  <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="w-full h-10 font-black uppercase text-[9px] rounded-xl">Nova Venda</Button>
                 </div>
               ) : (
-                <div className="h-full min-h-[300px] flex flex-col items-center justify-center border-4 border-dashed rounded-[2.5rem] opacity-20 bg-white print:hidden">
+                <div className="h-full min-h-[300px] flex flex-col items-center justify-center border-4 border-dashed rounded-[2.5rem] opacity-20 bg-white">
                   <TicketIcon className="w-16 h-16 text-primary mb-4" />
-                  <h3 className="text-lg font-black uppercase text-primary text-center">Terminal Pronto</h3>
-                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Pronto para emitir bilhetes</p>
+                  <h3 className="text-lg font-black uppercase text-primary">Pronto para Vender</h3>
                 </div>
               )}
             </div>
           </div>
         </div>
       </main>
-      
-      <style jsx global>{`
-        @media print {
-          body * { visibility: hidden; }
-          #receipt-content, #receipt-content * { visibility: visible; }
-          #receipt-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            border: none !important;
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

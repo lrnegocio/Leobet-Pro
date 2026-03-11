@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -34,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.error("Erro Supabase:", err);
+      console.error("Supabase fail");
     } finally {
       setLoading(false);
     }
@@ -48,13 +47,13 @@ export default function BingoPage() {
       .eq('id', id);
     
     if (!error) {
-      toast({ title: `CONCURSO ${newStatus === 'aberto' ? 'REABERTO' : 'ENCERRADO'}` });
+      toast({ title: `STATUS ATUALIZADO!` });
       loadData();
     }
   };
 
   const deleteBingo = async (id: string) => {
-    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação não pode ser desfeita.")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível.")) {
       const { error } = await supabase
         .from('bingos')
         .delete()
@@ -63,8 +62,6 @@ export default function BingoPage() {
       if (!error) {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
-      } else {
-        toast({ title: "ERRO AO EXCLUIR", description: error.message, variant: "destructive" });
       }
     }
   };
@@ -81,18 +78,18 @@ export default function BingoPage() {
               <h1 className="text-2xl md:text-3xl font-black font-headline uppercase tracking-tight text-primary flex items-center gap-3">
                 Gestão de Bingos <Database className="w-6 h-6 text-green-600" />
               </h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Supabase • Atualização Global</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Supabase • Auditoria Digital</p>
             </div>
             <Link href="/admin/bingo/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
-                <Plus className="w-4 h-4" /> Criar Concurso
+                <Plus className="w-4 h-4" /> Novo Concurso
               </Button>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground">Conectando ao banco de dados...</div>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground">Sincronizando Banco...</div>
             ) : bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
@@ -127,7 +124,7 @@ export default function BingoPage() {
                                <p className="text-[10px] md:text-xs font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">UUID Supabase</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">ID Interno</p>
                                <p className="text-[7px] font-black uppercase text-primary/40 truncate w-24">{bingo.id}</p>
                             </div>
                           </div>
@@ -176,20 +173,6 @@ export default function BingoPage() {
                 </Card>
               );
             })}
-
-            {bingos.length === 0 && !loading && (
-              <Card>
-                <CardContent className="py-24 text-center">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 opacity-20">
-                    <TrendingUp className="w-8 h-8" />
-                  </div>
-                  <h3 className="font-black uppercase text-muted-foreground tracking-widest text-xs">Nenhum bingo no banco de dados</h3>
-                  <Link href="/admin/bingo/novo" className="mt-6 block">
-                    <Button variant="link" className="text-primary font-black uppercase text-xs">Criar Primeiro Bingo</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </main>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react';
@@ -17,8 +16,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
       
+      // Se for o acesso master, reconstrói o objeto de forma segura
       if (isMaster) {
-        if (!user || user.id !== 'admin-master') {
+        if (!user) {
           setUser({
             id: 'admin-master',
             nome: 'Administrador LEOBET',
@@ -42,13 +42,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setLoading(false);
           return;
         } catch (e) {
-          console.error("Erro auth", e);
+          console.error("Auth sync error");
         }
       }
 
-      const allowedRoles = ['admin', 'cambista', 'gerente'];
-      if (!user || !allowedRoles.includes(user.role)) {
+      if (!user && !isMaster && !storedUser) {
         router.push('/auth/login');
+      } else if (user && !['admin', 'cambista', 'gerente'].includes(user.role)) {
+        router.push('/');
       } else {
         setLoading(false);
       }
@@ -62,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="font-black uppercase tracking-widest text-[10px]">Autenticando LEOBET PRO...</p>
+          <p className="font-black uppercase tracking-widest text-[10px]">Protegendo sua Conexão...</p>
         </div>
       </div>
     );
