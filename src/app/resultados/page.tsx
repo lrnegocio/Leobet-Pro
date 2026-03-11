@@ -43,7 +43,6 @@ function ResultadosContent() {
 
       if (foundReceipt) {
         setReceipt(foundReceipt);
-        // Carrega dados do concurso para comparar placares no Bolão
         const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
         const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
         const ev = [...allBingos, ...allBoloes].find(e => String(e.id) === String(foundReceipt.eventoId));
@@ -87,7 +86,7 @@ function ResultadosContent() {
       localStorage.setItem('leobet_tickets', JSON.stringify(updated));
       handleSearch(ticketId);
       setClaiming(null);
-      toast({ title: "SOLICITAÇÃO ENVIADA!" });
+      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Seu prêmio entrará na fila de pagamento Master." });
     }, 1000);
   };
 
@@ -95,11 +94,11 @@ function ResultadosContent() {
     <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-4xl w-full space-y-8">
         <div className="flex justify-between items-center print:hidden">
-          <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase transition-all">
+          <Link href="/" className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase">
             <ArrowLeft className="w-4 h-4" /> Voltar ao Início
           </Link>
           {youtubeUrl && (
-            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-9 gap-2 rounded-xl shadow-lg">
+            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-9 gap-2 rounded-xl">
               <Youtube className="w-4 h-4" /> Assistir Ao Vivo
             </Button>
           )}
@@ -164,12 +163,7 @@ function ResultadosContent() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between print:hidden">
-                     <h3 className="text-xs font-black uppercase text-muted-foreground tracking-[0.3em]">Meus Bilhetes ({receipt.tickets.length})</h3>
-                     <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-2 font-black uppercase text-[9px] rounded-lg border-2">
-                       <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
-                     </Button>
-                  </div>
+                  <h3 className="text-xs font-black uppercase text-muted-foreground tracking-[0.3em] px-4">Meus Bilhetes ({receipt.tickets.length})</h3>
                   
                   <div className="grid grid-cols-1 gap-6">
                     {receipt.tickets.map((t: any, idx: number) => {
@@ -178,7 +172,7 @@ function ResultadosContent() {
                       const isPaid = t.status === 'pago';
                       const isLost = t.status === 'perdeu';
                       
-                      const guesses = t.palpite ? t.palpite.split('-') : [];
+                      const guesses = (t.palpite || receipt.palpite || '').split('-');
                       const results = eventoData?.resultados || [];
                       const matches = eventoData?.partidas || [];
                       
@@ -196,10 +190,10 @@ function ResultadosContent() {
                                   <div className="flex justify-between items-center">
                                      <div className="flex items-center gap-2">
                                        <Ticket className="w-4 h-4 text-primary opacity-40" />
-                                       <span className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Bilhete ID: {t.id}</span>
+                                       <span className="font-black text-[10px] uppercase text-muted-foreground">Bilhete ID: {t.id}</span>
                                      </div>
                                      {isWinner ? (
-                                       <Badge className="bg-green-600 font-black uppercase text-[10px] animate-pulse">🔥 PREMIADO!</Badge>
+                                       <Badge className="bg-green-600 font-black uppercase text-[10px] animate-bounce">🔥 PREMIADO!</Badge>
                                      ) : isPaid ? (
                                        <Badge className="bg-blue-600 text-white font-black uppercase text-[10px] flex items-center gap-1">
                                           <ShieldCheck className="w-3 h-3" /> ✓ PRÊMIO PAGO
@@ -217,32 +211,39 @@ function ResultadosContent() {
 
                                   {t.numeros ? (
                                     <div className="flex flex-wrap gap-2">
-                                      {t.numeros.map((n: number) => (
-                                        <div key={n} className="w-10 h-10 flex items-center justify-center bg-white border-2 rounded-2xl font-black text-sm text-primary shadow-sm">
-                                          {n.toString().padStart(2, '0')}
-                                        </div>
-                                      ))}
+                                      {t.numeros.map((n: number) => {
+                                        const isDrawn = eventoData?.bolasSorteadas?.includes(n);
+                                        return (
+                                          <div key={n} className={`w-10 h-10 flex items-center justify-center border-2 rounded-2xl font-black text-sm shadow-sm ${
+                                            isDrawn ? 'bg-green-600 border-green-700 text-white' : 'bg-white text-primary'
+                                          }`}>
+                                            {n.toString().padStart(2, '0')}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   ) : (
                                     <div className="space-y-3">
                                        <p className="text-[10px] font-black uppercase text-muted-foreground">Palpites da Rodada:</p>
                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
-                                          {guesses.map((g: string, i: number) => {
+                                          {guesses.length > 1 && guesses.map((g: string, i: number) => {
                                             const match = matches[i];
-                                            const isCorrect = results[i] && results[i] === g;
-                                            const isWrong = results[i] && results[i] !== g;
+                                            const officialResult = results[i];
+                                            const isCorrect = officialResult && officialResult === g;
+                                            const isWrong = officialResult && officialResult !== g;
+                                            
                                             return (
                                               <div key={i} className={`p-3 rounded-xl border-2 flex flex-col items-center justify-center gap-1 ${
-                                                isCorrect ? 'bg-green-600 border-green-700 text-white' : 
+                                                isCorrect ? 'bg-green-600 border-green-700 text-white shadow-lg' : 
                                                 isWrong ? 'bg-red-500 border-red-600 text-white' : 
                                                 'bg-white'
                                               }`}>
-                                                <div className="text-[7px] font-black uppercase opacity-60 text-center leading-tight mb-1">
-                                                  {match?.time1 || 'Casa'} vs {match?.time2 || 'Fora'}
+                                                <div className={`text-[7px] font-black uppercase opacity-60 text-center leading-tight mb-1 truncate w-full ${isCorrect || isWrong ? 'text-white' : ''}`}>
+                                                  {match?.time1 || 'CASA'} vs {match?.time2 || 'FORA'}
                                                 </div>
                                                 <span className="text-xl font-black">{g}</span>
-                                                {results[i] && (
-                                                  <span className="text-[8px] font-bold uppercase">Oficial: {results[i]}</span>
+                                                {officialResult && (
+                                                  <span className="text-[8px] font-bold uppercase">Oficial: {officialResult}</span>
                                                 )}
                                               </div>
                                             );
@@ -259,7 +260,7 @@ function ResultadosContent() {
                                     {isWinner ? (
                                       <div className="w-full space-y-6">
                                         <div className="bg-white/10 p-4 rounded-2xl">
-                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Premiação Líquida:</p>
+                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Sua Premiação:</p>
                                           <p className="text-4xl font-black">R$ {(t.valorPremio || 0).toFixed(2)}</p>
                                         </div>
                                         
@@ -278,15 +279,15 @@ function ResultadosContent() {
                                           className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-xs h-14 w-full rounded-2xl shadow-xl transition-all active:scale-95"
                                           disabled={claiming === t.id}
                                         >
-                                          {claiming === t.id ? "REQUISITANDO..." : "RESGATAR AGORA"}
+                                          {claiming === t.id ? "ENVIANDO..." : "RESGATAR AGORA"}
                                         </Button>
                                       </div>
                                     ) : isPaid ? (
                                       <div className="space-y-4 w-full">
                                         <div className="bg-white/20 p-6 rounded-[2rem]">
                                           <ShieldCheck className="w-14 h-14 mb-4 mx-auto" />
-                                          <p className="font-black uppercase text-lg tracking-tight leading-none">PRÊMIO PAGO!</p>
-                                          <p className="text-[10px] font-bold opacity-70 mt-3 uppercase leading-relaxed">O valor de R$ {(t.valorPremio || 0).toFixed(2)} foi creditado na sua conta.</p>
+                                          <p className="font-black uppercase text-lg tracking-tight">PRÊMIO PAGO!</p>
+                                          <p className="text-[10px] font-bold opacity-70 mt-3 uppercase leading-relaxed">Valor de R$ {(t.valorPremio || 0).toFixed(2)} creditado na sua conta.</p>
                                         </div>
                                       </div>
                                     ) : (
@@ -307,9 +308,6 @@ function ResultadosContent() {
                 </div>
 
                 <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden print:hidden">
-                  <div className="absolute top-0 left-0 p-8 opacity-5">
-                    <AlertTriangle className="w-32 h-32" />
-                  </div>
                   <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-80">Central de Suporte Profissional</p>
                   <p className="font-black text-4xl tracking-tighter">(82) 99334-3941</p>
                   <p className="text-[8px] font-bold uppercase opacity-40">LEOBET PRO • Auditoria 365 Dias • Versão 2026.1</p>
@@ -320,8 +318,8 @@ function ResultadosContent() {
                 <div className="bg-muted p-8 rounded-full w-fit mx-auto mb-8">
                    <XCircle className="w-20 h-20 text-muted-foreground opacity-20" />
                 </div>
-                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Bilhete Não Encontrado</h3>
-                <p className="text-xs font-bold text-muted-foreground uppercase mt-2">Verifique o código e tente novamente.</p>
+                <h3 className="font-black uppercase text-muted-foreground tracking-widest text-2xl">Não Localizado</h3>
+                <p className="text-xs font-bold text-muted-foreground uppercase mt-2">Verifique o código ou aguarde a validação do vendedor.</p>
                 <Button variant="link" onClick={() => setSearched(false)} className="mt-8 font-black uppercase text-primary">Voltar para a busca</Button>
               </div>
             )}
@@ -334,7 +332,7 @@ function ResultadosContent() {
 
 export default function ResultadosPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-xs animate-pulse">Conectando ao Globo LEOBET...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-xs animate-pulse">Consultando Banco de Dados...</div>}>
       <ResultadosContent />
     </Suspense>
   );

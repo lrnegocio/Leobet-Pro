@@ -27,7 +27,6 @@ export default function VendaPage() {
     tipo: 'bingo' as 'bingo' | 'bolao',
     valorTotal: 0,
     unitario: 0,
-    palpite: '', 
   });
 
   const [bolaoPalpites, setBolaoPalpites] = useState<string[]>(Array(10).fill(''));
@@ -36,18 +35,15 @@ export default function VendaPage() {
   const loadEventos = () => {
     const now = new Date();
     
-    // Carrega Bingos Ativos
+    // Carrega Bingos e Bolões Ativos simultaneamente
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
-      const limit = new Date(drawDate.getTime() - 60000); 
-      return b.status === 'aberto' && now < limit;
+      return b.status === 'aberto' && now < new Date(drawDate.getTime() - 60000);
     }).map((b: any) => ({ ...b, tipo: 'bingo' }));
 
-    // Carrega Bolões Ativos
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
       const startDate = new Date(b.dataFim || b.createdAt); 
-      const limit = new Date(startDate.getTime() - 60000);
-      return b.status === 'aberto' && now < limit;
+      return b.status === 'aberto' && now < new Date(startDate.getTime() - 60000);
     }).map((b: any) => ({ ...b, tipo: 'bolao' }));
 
     setEventosAtivos([...bingos, ...boloes]);
@@ -72,9 +68,7 @@ export default function VendaPage() {
         valorTotal: ev.preco,
         tipo: ev.tipo
       });
-      if (ev.tipo === 'bolao') {
-        setBolaoPalpites(Array(10).fill(''));
-      }
+      setBolaoPalpites(Array(10).fill(''));
     } else {
       setSelectedEvent(null);
       setFormData(prev => ({ ...prev, eventoId: '', eventoNome: '', valorTotal: 0 }));
@@ -85,7 +79,6 @@ export default function VendaPage() {
     const newPalpites = [...bolaoPalpites];
     newPalpites[matchIndex] = value;
     setBolaoPalpites(newPalpites);
-    setFormData(prev => ({ ...prev, palpite: newPalpites.join('-') }));
   };
 
   const generateUniqueNumbers = (count: number, max: number) => {
@@ -122,11 +115,12 @@ export default function VendaPage() {
 
     setLoading(true);
     setTimeout(() => {
+      const currentPalpite = bolaoPalpites.join('-');
       const ticketsGenerated: any[] = [];
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
         numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
-        palpite: formData.tipo === 'bolao' ? formData.palpite : null,
+        palpite: formData.tipo === 'bolao' ? currentPalpite : null,
         status: 'aberto'
       });
 
@@ -139,6 +133,7 @@ export default function VendaPage() {
         vendedorRole: user?.role,
         gerenteId: user?.gerenteId || (user?.role === 'cambista' ? 'admin-master' : undefined),
         ...formData,
+        palpite: formData.tipo === 'bolao' ? currentPalpite : null,
         whatsapp: cleanPhone,
         tickets: ticketsGenerated,
         qtd: 1
@@ -147,7 +142,6 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
-      // Se for pago na hora, atualiza saldos e comissões do vendedor
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -156,23 +150,14 @@ export default function VendaPage() {
             let newComm = u.commissionBalance || 0;
             let newBal = u.balance || 0;
 
-            // Prioriza pagar com comissão acumulada
-            if (newComm >= remaining) {
-              newComm -= remaining;
-              remaining = 0;
-            } else {
-              remaining -= newComm;
-              newComm = 0;
-              newBal -= remaining;
-            }
+            if (newComm >= remaining) { newComm -= remaining; remaining = 0; }
+            else { remaining -= newComm; newComm = 0; newBal -= remaining; }
 
-            // Atribui comissão pela venda
             const myCommRate = user?.role === 'cambista' ? 0.10 : user?.role === 'gerente' ? 0.15 : 0;
             newComm += (formData.valorTotal * myCommRate);
 
             return { ...u, balance: newBal, commissionBalance: newComm };
           }
-          // Comissão do Gerente da rede (5%)
           if (user?.role === 'cambista' && user?.gerenteId && u.id === user.gerenteId) {
              return { ...u, commissionBalance: (u.commissionBalance || 0) + (formData.valorTotal * 0.05) };
           }
@@ -204,8 +189,8 @@ export default function VendaPage() {
     if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
       const matches = selectedEvent.partidas || [];
       palpitesTexto = `%0A%0A*MEUS PALPITES:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
-        const time1 = matches[i]?.time1 || `Time ${i+1}A`;
-        const time2 = matches[i]?.time2 || `Time ${i+1}B`;
+        const time1 = matches[i]?.time1 || `Jogo ${i+1}A`;
+        const time2 = matches[i]?.time2 || `Jogo ${i+1}B`;
         return `${time1} x ${time2}: [${p}]`;
       }).join('%0A')}`;
     }
@@ -245,17 +230,17 @@ export default function VendaPage() {
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">Nome do Apostador</Label>
-                      <Input placeholder="NOME COMPLETO" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-11" />
+                      <Label className="uppercase text-[9px] font-black opacity-60">Apostador</Label>
+                      <Input placeholder="NOME" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-11" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp (DDD)</Label>
+                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp</Label>
                       <Input placeholder="DDD + NÚMERO" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-11" />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[9px] font-black opacity-60">Selecione o Concurso</Label>
+                    <Label className="uppercase text-[9px] font-black opacity-60">Concurso</Label>
                     <select 
                       className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-primary"
                       value={formData.eventoId}
@@ -269,19 +254,13 @@ export default function VendaPage() {
 
                   {selectedEvent?.tipo === 'bolao' && (
                     <div className="space-y-4 bg-muted/30 p-4 rounded-2xl border-2 border-dashed">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Trophy className="w-4 h-4 text-accent" />
-                          <h3 className="font-black uppercase text-xs">Palpites (10 Jogos)</h3>
-                        </div>
-                        <Badge variant="outline" className="text-[7px] font-black bg-white">1-X-2</Badge>
-                      </div>
-                      <div className="space-y-3">
+                      <h3 className="font-black uppercase text-xs flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Palpites (10 Jogos)</h3>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : []).map((p: any, i: number) => (
                           <div key={i} className="flex flex-col gap-1.5 p-2 bg-white rounded-xl border shadow-sm">
                              <div className="flex justify-between text-[8px] font-black uppercase opacity-60 px-1">
                                 <span>#{i+1}</span>
-                                <span className="truncate max-w-[150px]">{p.time1 || 'Casa'} vs {p.time2 || 'Fora'}</span>
+                                <span className="truncate">{p.time1 || 'CASA'} vs {p.time2 || 'FORA'}</span>
                              </div>
                              <div className="grid grid-cols-3 gap-2">
                                 {['1', 'X', '2'].map((val) => (
@@ -290,7 +269,7 @@ export default function VendaPage() {
                                     type="button" 
                                     onClick={() => handleSetPalpite(i, val)} 
                                     variant={bolaoPalpites[i] === val ? 'default' : 'outline'}
-                                    className="h-8 text-[10px] font-black uppercase"
+                                    className="h-8 text-[10px] font-black"
                                   >
                                     {val}
                                   </Button>
@@ -302,21 +281,18 @@ export default function VendaPage() {
                     </div>
                   )}
 
-                  <div className="space-y-1">
-                    <Label className="uppercase text-[9px] font-black opacity-60 text-center block">Valor do Jogo</Label>
-                    <div className="relative">
-                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">R$</span>
-                       <Input 
-                        type="number" 
-                        value={formData.valorTotal} 
-                        readOnly
-                        className="h-20 text-4xl font-black text-center border-primary/20 bg-primary/5 rounded-2xl pl-12" 
-                      />
-                    </div>
+                  <div className="relative">
+                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">R$</span>
+                     <Input 
+                      type="number" 
+                      value={formData.valorTotal} 
+                      readOnly
+                      className="h-20 text-4xl font-black text-center border-primary/20 bg-primary/5 rounded-2xl pl-12" 
+                    />
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90 transition-all active:scale-95" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "FINALIZAR E GERAR BILHETE"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90" disabled={loading}>
+                    {loading ? "PROCESSANDO..." : "FINALIZAR BILHETE"}
                   </Button>
                 </form>
               </CardContent>
@@ -327,7 +303,7 @@ export default function VendaPage() {
                 <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2.5rem] relative overflow-hidden">
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
                       <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
-                      <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante Oficial de Aposta</p>
+                      <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante de Aposta</p>
                    </div>
                    
                    <div className="space-y-1.5 mb-4 text-[9px] uppercase font-bold relative z-10">
@@ -336,16 +312,9 @@ export default function VendaPage() {
                       <p className="flex justify-between"><span>DATA:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
 
-                   {selectedEvent?.regras && (
-                     <div className="mb-4 p-2 bg-black/5 rounded-lg border border-black/10 relative z-10">
-                        <p className="text-[7px] font-black uppercase opacity-40 mb-1 flex items-center gap-1"><FileText className="w-2 h-2" /> Regras:</p>
-                        <p className="text-[8px] font-bold leading-tight">{selectedEvent.regras}</p>
-                     </div>
-                   )}
-
                    <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3 relative z-10">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
-                        <div key={i} className="bg-black/5 p-3 rounded-xl border border-black/5">
+                        <div key={i} className="bg-black/5 p-3 rounded-xl">
                           <p className="font-black flex justify-between text-[8px] mb-2">
                             <span>BILHETE #{i+1}</span>
                             <span className="text-primary">{t.id}</span>
@@ -386,6 +355,10 @@ export default function VendaPage() {
           </div>
         </div>
       </main>
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1E3A8A; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }
