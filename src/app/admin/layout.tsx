@@ -25,6 +25,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             email: 'admin@leobet.pro',
             role: 'admin',
             balance: 1000000,
+            commissionBalance: 0,
+            pendingBalance: 0,
             status: 'approved',
             createdAt: new Date().toISOString(),
           });
