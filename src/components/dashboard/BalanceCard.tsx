@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, ArrowUpCircle, ArrowDownCircle, ExternalLink, ShieldCheck, Send, Copy, AlertTriangle } from 'lucide-react';
+import { Wallet, ArrowUpCircle, ArrowDownCircle, ExternalLink, Copy, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/use-auth-store';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/supabase/client';
 
 export function BalanceCard() {
   const { user, setUser } = useAuthStore();
@@ -27,16 +28,11 @@ export function BalanceCard() {
   const [loading, setLoading] = useState(false);
   const [openWithdraw, setOpenWithdraw] = useState(false);
   const [openDeposit, setOpenDeposit] = useState(false);
-  const [companyPix, setCompanyPix] = useState('');
-
-  useEffect(() => {
-    const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    setCompanyPix(settings.companyPix || 'CHAVE PIX NÃO CONFIGURADA');
-  }, [openDeposit]);
+  const [companyPix, setCompanyPix] = useState('LEOBET-PIX-OFICIAL');
 
   if (!user) return null;
 
-  const handleDepositRequest = () => {
+  const handleDepositRequest = async () => {
     const amount = Number(depositAmount);
     if (!amount || amount <= 0) {
       toast({ variant: "destructive", title: "VALOR INVÁLIDO" });
@@ -44,79 +40,71 @@ export function BalanceCard() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const deposit = {
-        id: Math.random().toString(36).substring(7).toUpperCase(),
-        userId: user.id,
-        userName: user.nome,
-        userRole: user.role,
-        phone: user.phone || '',
-        amount: amount,
-        status: 'pendente',
-        createdAt: new Date().toISOString()
-      };
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          user_name: user.nome,
+          amount: amount,
+          type: 'deposito',
+          status: 'pendente'
+        }])
+        .select()
+        .single();
 
-      const existing = JSON.parse(localStorage.getItem('leobet_deposits') || '[]');
-      localStorage.setItem('leobet_deposits', JSON.stringify([...existing, deposit]));
+      if (error) throw error;
 
-      setLoading(false);
-      
-      const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A🆔 *ID USUÁRIO:* ${user.id}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A📦 *PEDIDO:* ${deposit.id}%0A%0A*Seguindo o comprovante abaixo para liberação imediata:*`;
+      const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A📦 *PEDIDO:* ${data.id}%0A%0A*Seguindo o comprovante abaixo para liberação imediata:*`;
       window.open(`https://api.whatsapp.com/send?phone=5582993343941&text=${message}`, '_blank');
 
       setOpenDeposit(false);
       setDepositAmount('');
-      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Envie o comprovante no WhatsApp para aprovação imediata." });
-    }, 1000);
+      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Envie o comprovante no WhatsApp." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO SOLICITAR", description: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleWithdrawRequest = () => {
+  const handleWithdrawRequest = async () => {
     const amount = Number(withdrawAmount);
-    if (!amount || amount <= 0) {
-      toast({ variant: "destructive", title: "VALOR INVÁLIDO" });
-      return;
-    }
-
     const totalBalance = (user.balance || 0) + (user.commissionBalance || 0);
 
     if (amount > totalBalance) {
-      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: `Seu saldo disponível é R$ ${totalBalance.toFixed(2)}` });
-      return;
-    }
-
-    if (!user.pixKey) {
-      toast({ variant: "destructive", title: "PIX NÃO CADASTRADO", description: "Vá em 'Meu Perfil' e cadastre sua chave PIX." });
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      // LOGICA CORRETA: O saldo NÃO some agora. Ele só some quando o Admin aprova.
-      // Se o usuário gastar o saldo vendendo, o saque sumirá automaticamente do painel admin por falta de fundo.
-      const withdrawal = {
-        id: Math.random().toString(36).substring(7).toUpperCase(),
-        userId: user.id,
-        userName: user.nome,
-        userRole: user.role,
-        amount: amount,
-        pixKey: user.pixKey,
-        status: 'pendente',
-        createdAt: new Date().toISOString()
-      };
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          user_name: user.nome,
+          amount: amount,
+          type: 'saque',
+          pix_key: user.pixKey,
+          status: 'pendente'
+        }]);
 
-      const existing = JSON.parse(localStorage.getItem('leobet_withdrawals') || '[]');
-      localStorage.setItem('leobet_withdrawals', JSON.stringify([...existing, withdrawal]));
+      if (error) throw error;
 
-      setLoading(false);
       setOpenWithdraw(false);
       setWithdrawAmount('');
-      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a aprovação do administrador. Seu saldo continua disponível para vendas até a aprovação." });
-    }, 1000);
+      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde aprovação administrativa." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO SACAR", description: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const copyPix = () => {
     navigator.clipboard.writeText(companyPix);
-    toast({ title: "PIX COPIADO!", description: "Agora cole no seu banco para pagar." });
+    toast({ title: "PIX COPIADO!" });
   };
 
   const totalDisplay = (user.balance || 0) + (user.commissionBalance || 0);
@@ -148,46 +136,30 @@ export function BalanceCard() {
               </DialogTrigger>
               <DialogContent className="bg-white rounded-[2.5rem] border-none">
                 <DialogHeader>
-                  <DialogTitle className="font-black uppercase text-primary text-center text-xl">Recarregar Saldo</DialogTitle>
+                  <DialogTitle className="font-black uppercase text-primary text-center">Recarregar Saldo</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                    <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
                       <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Chave PIX Oficial LEOBET PRO</p>
                       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-primary/20">
                         <span className="font-black text-primary truncate mr-2">{companyPix}</span>
-                        <Button onClick={copyPix} size="icon" variant="ghost" className="shrink-0 text-primary hover:bg-primary/10 h-10 w-10">
+                        <Button onClick={copyPix} size="icon" variant="ghost" className="shrink-0 text-primary h-10 w-10">
                           <Copy className="w-5 h-5" />
                         </Button>
                       </div>
-                      <p className="text-[9px] text-center font-bold text-muted-foreground uppercase">Copie a chave e faça o pagamento no seu banco</p>
                    </div>
-                   
                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase block text-center">Quanto deseja recarregar? (R$)</Label>
-                      <Input 
-                        type="number" 
-                        placeholder="0,00" 
-                        value={depositAmount} 
-                        onChange={e => setDepositAmount(e.target.value)}
-                        className="font-black text-2xl h-16 text-center rounded-2xl border-primary/20"
-                      />
-                   </div>
-
-                   <div className="bg-orange-50 p-4 rounded-2xl border border-orange-200 flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
-                      <p className="text-[10px] font-black text-orange-800 uppercase leading-tight">
-                        APÓS O PAGAMENTO, VOCÊ DEVERÁ ENVIAR O COMPROVANTE NO WHATSAPP PARA O SALDO SER LIBERADO.
-                      </p>
+                      <Label className="text-[10px] font-black uppercase block text-center">Valor R$</Label>
+                      <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="font-black text-2xl h-16 text-center rounded-2xl" />
                    </div>
                 </div>
                 <DialogFooter>
-                  <Button onClick={handleDepositRequest} disabled={loading} className="w-full h-16 font-black uppercase bg-primary rounded-2xl shadow-xl transition-all active:scale-95">
+                  <Button onClick={handleDepositRequest} disabled={loading} className="w-full h-16 font-black uppercase bg-primary rounded-2xl">
                     {loading ? 'Processando...' : 'Paguei, enviar comprovante'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            
             <Dialog open={openWithdraw} onOpenChange={setOpenWithdraw}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex-1 border-white/20 hover:bg-white/10 text-white gap-2 uppercase font-black text-[10px] h-12 rounded-xl">
@@ -195,30 +167,12 @@ export function BalanceCard() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-white rounded-[2.5rem] border-none">
-                <DialogHeader>
-                  <DialogTitle className="font-black uppercase text-primary text-center">Solicitar Saque</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Solicitar Saque</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
-                   <div className="bg-muted/50 p-4 rounded-2xl space-y-1">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground">Minha Chave PIX Cadastrada:</p>
-                      <p className="font-black text-primary text-lg">{user.pixKey || 'NÃO CADASTRADA'}</p>
-                   </div>
-                   <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase">Valor do Saque (R$)</Label>
-                      <Input 
-                        type="number" 
-                        placeholder="0,00" 
-                        value={withdrawAmount} 
-                        onChange={e => setWithdrawAmount(e.target.value)}
-                        className="font-black text-xl h-14 rounded-xl"
-                      />
-                   </div>
+                   <div className="bg-muted/50 p-4 rounded-2xl"><p className="text-[10px] font-black uppercase text-muted-foreground">Chave PIX:</p><p className="font-black text-primary">{user.pixKey || 'NÃO CADASTRADA'}</p></div>
+                   <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Valor R$</Label><Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="font-black text-xl h-14" /></div>
                 </div>
-                <DialogFooter>
-                  <Button onClick={handleWithdrawRequest} disabled={loading || !user.pixKey} className="w-full h-14 font-black uppercase bg-primary rounded-xl shadow-lg">
-                    {loading ? 'Enviando...' : 'Confirmar Saque'}
-                  </Button>
-                </DialogFooter>
+                <DialogFooter><Button onClick={handleWithdrawRequest} disabled={loading || !user.pixKey} className="w-full h-14 font-black uppercase bg-primary rounded-xl">Confirmar Saque</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
