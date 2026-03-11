@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText, Grid3X3 } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText, Grid3X3, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -18,6 +18,7 @@ export default function VendaPage() {
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [currentPrizePool, setCurrentPrizePool] = useState(0);
   
   const [formData, setFormData] = useState({
     cliente: '',
@@ -32,9 +33,15 @@ export default function VendaPage() {
   const [bolaoPalpites, setBolaoPalpites] = useState<string[]>(Array(10).fill(''));
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
+  const calculatePrizePool = (eventId: string) => {
+    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const eventSales = allTickets.filter((t: any) => String(t.eventoId) === String(eventId) && t.status === 'pago');
+    const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
+    return totalPaid * 0.65;
+  };
+
   const loadEventos = () => {
     const now = new Date();
-    // Busca bingos e bolões ativos simultaneamente
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       return b.status === 'aberto' && now < new Date(drawDate.getTime() - 60000);
@@ -50,9 +57,14 @@ export default function VendaPage() {
 
   useEffect(() => {
     loadEventos();
-    const interval = setInterval(loadEventos, 10000);
+    const interval = setInterval(() => {
+      loadEventos();
+      if (formData.eventoId) {
+        setCurrentPrizePool(calculatePrizePool(formData.eventoId));
+      }
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [formData.eventoId]);
 
   const handleSelectEvent = (eventId: string) => {
     const ev = eventosAtivos.find(e => String(e.id) === String(eventId));
@@ -68,9 +80,11 @@ export default function VendaPage() {
         tipo: ev.tipo
       });
       setBolaoPalpites(Array(10).fill(''));
+      setCurrentPrizePool(calculatePrizePool(eventId));
     } else {
       setSelectedEvent(null);
       setFormData(prev => ({ ...prev, eventoId: '', eventoNome: '', valorTotal: 0 }));
+      setCurrentPrizePool(0);
     }
   };
 
@@ -170,6 +184,7 @@ export default function VendaPage() {
 
       setVendaRealizada(receipt);
       setLoading(false);
+      setCurrentPrizePool(calculatePrizePool(formData.eventoId));
       
       if (statusVenda === 'pendente') {
         toast({ variant: "destructive", title: "VENDIDO SEM SALDO", description: "Bilhete em quarentena até aprovação master." });
@@ -185,10 +200,8 @@ export default function VendaPage() {
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
     
-    const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    const eventSales = all.filter((t: any) => String(t.eventoId) === String(vendaRealizada.eventoId) && t.status === 'pago');
-    const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
-    const pool = (totalPaid * 0.65).toFixed(2);
+    // Prêmio atualizado (incluindo esta venda se foi paga)
+    const pool = calculatePrizePool(vendaRealizada.eventoId).toFixed(2);
 
     let palpitesTexto = '';
     if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
@@ -200,7 +213,7 @@ export default function VendaPage() {
       }).join('%0A')}`;
     }
 
-    let message = `*LEOBET PRO - RECIBO DE APOSTA*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'APOSTA VALIDADA' : 'AGUARDANDO SALDO'}%0A🏆 *PRÊMIO ACUMULADO:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR ONLINE:* ${link}`;
+    let message = `*LEOBET PRO - RECIBO DE APOSTA*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'APOSTA VALIDADA' : 'AGUARDANDO SALDO'}%0A🏆 *PRÊMIO ATUAL (65%):* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR ONLINE:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -216,9 +229,16 @@ export default function VendaPage() {
               <h1 className="text-3xl font-black uppercase text-primary leading-none tracking-tighter">Terminal de Vendas</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Sorteios e Bolões Auditados</p>
             </div>
-            <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
-               SALDO DISPONÍVEL: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
-            </Badge>
+            <div className="flex flex-col items-end gap-2">
+               <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
+                  SALDO DISPONÍVEL: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
+               </Badge>
+               {selectedEvent && (
+                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-black px-4 py-2 text-xs rounded-xl shadow-sm flex items-center gap-2">
+                    <Zap className="w-3 h-3 fill-green-600" /> PRÊMIO ESTIMADO (65%): R$ {currentPrizePool.toFixed(2)}
+                 </Badge>
+               )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -331,7 +351,8 @@ export default function VendaPage() {
                    </div>
 
                    <div className="text-center space-y-3">
-                      <p className="text-3xl font-black">R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
+                      <p className="text-[9px] font-black uppercase text-muted-foreground">Prêmio Atual Estimado (65%)</p>
+                      <p className="text-3xl font-black">R$ {currentPrizePool.toFixed(2)}</p>
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-1 text-[10px] rounded-full">
                          {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO SALDO'}
                       </Badge>

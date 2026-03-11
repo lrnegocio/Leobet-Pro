@@ -1,12 +1,12 @@
 
 "use client"
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube, Printer, ShieldCheck, X } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube, Printer, ShieldCheck, X, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ function ResultadosContent() {
   const [pixKey, setPixKey] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [eventoData, setEventoData] = useState<any>(null);
+  const [prizePool, setPrizePool] = useState(0);
 
   const handleSearch = (searchCode?: string) => {
     const codeToSearch = (searchCode || code).trim().toUpperCase();
@@ -47,6 +48,11 @@ function ResultadosContent() {
         const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
         const ev = [...allBingos, ...allBoloes].find(e => String(e.id) === String(foundReceipt.eventoId));
         setEventoData(ev);
+
+        // Calcula prêmio atual do evento
+        const eventSales = allReceipts.filter((t: any) => String(t.eventoId) === String(foundReceipt.eventoId) && t.status === 'pago');
+        const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
+        setPrizePool(totalPaid * 0.65);
       } else {
         setReceipt(null);
       }
@@ -144,8 +150,10 @@ function ResultadosContent() {
                         <p className="font-black text-primary text-3xl tracking-tight leading-none">{receipt.cliente.toUpperCase()}</p>
                       </div>
                       <div className="text-center md:text-right bg-white px-6 py-4 rounded-2xl shadow-sm border border-primary/10">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Valor do Recibo</p>
-                        <p className="font-black text-primary text-2xl">R$ {receipt.valorTotal.toFixed(2)}</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1 justify-center md:justify-end">
+                          <Zap className="w-3 h-3 text-green-600 fill-green-600" /> Prêmio Atual Estimado (65%)
+                        </p>
+                        <p className="font-black text-primary text-2xl">R$ {prizePool.toFixed(2)}</p>
                       </div>
                    </div>
                    <div className="border-t border-primary/10 pt-6 flex justify-between items-center">
