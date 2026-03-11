@@ -9,12 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Trophy, Plus, Calendar, FileText } from 'lucide-react';
+import { ArrowLeft, Trophy, Plus, Calendar, FileText, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function NovoBolaoPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState(10);
   const [drawDate, setDrawDate] = useState('');
@@ -33,34 +36,36 @@ export default function NovoBolaoPage() {
     setPartidas(newPartidas);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (partidas.some(p => !p.time1.trim() || !p.time2.trim())) {
-      alert("Preencha todos os nomes dos times.");
+      toast({ variant: "destructive", title: "GRADE INCOMPLETA", description: "Preencha todos os nomes dos times." });
       return;
     }
 
     setSaving(true);
     
-    const newBolao = {
-      id: Math.random().toString(36).substring(7).toUpperCase(),
-      nome: title,
-      preco: price,
-      dataFim: drawDate,
-      partidas: partidas,
-      regras: regras,
-      vendidas: 0,
-      status: 'aberto',
-      tipo: 'bolao',
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const { error } = await supabase
+        .from('boloes')
+        .insert([{
+          nome: title.toUpperCase(),
+          preco: price,
+          data_fim: new Date(drawDate).toISOString(),
+          partidas: partidas,
+          regras: regras,
+          status: 'aberto'
+        }]);
 
-    const existing = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
-    localStorage.setItem('leobet_boloes', JSON.stringify([...existing, newBolao]));
+      if (error) throw error;
 
-    setTimeout(() => {
+      toast({ title: "BOLÃO PUBLICADO NO SUPABASE!", description: "A rodada já está disponível para toda a rede." });
       router.push('/admin/bolao');
-    }, 500);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -72,14 +77,17 @@ export default function NovoBolaoPage() {
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Link>
 
-          <div className="flex items-center gap-4">
-            <div className="bg-primary p-4 rounded-3xl shadow-lg">
-              <Trophy className="w-8 h-8 text-white" />
+          <div className="flex justify-between items-end">
+            <div className="flex items-center gap-4">
+              <div className="bg-primary p-4 rounded-3xl shadow-lg">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black uppercase tracking-tighter text-primary leading-none">Novo Bolão Esportivo</h1>
+                <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real via Supabase</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-black uppercase tracking-tighter text-primary leading-none">Novo Bolão Esportivo</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">Configure a Rodada de 10 Jogos</p>
-            </div>
+            <RefreshCcw className="w-8 h-8 text-green-600 animate-spin-slow" />
           </div>
 
           <form onSubmit={handleSave} className="space-y-8 pb-32">
@@ -188,7 +196,7 @@ export default function NovoBolaoPage() {
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-lg px-4 z-50">
                <div className="bg-white p-4 rounded-[2rem] shadow-2xl border-4 border-primary flex gap-4">
                  <Button type="submit" className="flex-1 bg-primary h-14 font-black uppercase text-lg rounded-2xl shadow-xl transition-all active:scale-95" disabled={saving}>
-                   {saving ? 'Publicando...' : 'Publicar Rodada'}
+                   {saving ? 'SINCRONIZANDO...' : 'PUBLICAR NO SISTEMA'}
                  </Button>
                  <Link href="/admin/bolao" className="flex-1">
                    <Button type="button" variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl">Descartar</Button>
@@ -198,6 +206,15 @@ export default function NovoBolaoPage() {
           </form>
         </div>
       </main>
+      <style jsx global>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

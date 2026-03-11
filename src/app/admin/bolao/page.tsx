@@ -6,31 +6,51 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Trophy, Settings2, Trash2, Eye, Calendar, Users, XCircle, History, Clock, FileEdit, Edit2 } from 'lucide-react';
+import { Plus, Trophy, Settings2, Trash2, Calendar, Users, History, Clock, Edit2, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/supabase/client';
 
 export default function BolaoPage() {
   const [boloes, setBoloes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const loadData = () => {
-    const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
-    setBoloes(stored);
+  const loadData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('boloes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBoloes(data || []);
+    } catch (err) {
+      console.error("Erro Supabase:", err);
+      const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+      setBoloes(stored);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const deleteBolao = (id: string) => {
+  const deleteBolao = async (id: string) => {
     if (confirm("ATENÇÃO: Deseja realmente excluir este Bolão? Esta ação não pode ser desfeita.")) {
-      const updated = boloes.filter(b => b.id !== id);
-      setBoloes(updated);
-      localStorage.setItem('leobet_boloes', JSON.stringify(updated));
-      toast({ title: "BOLÃO EXCLUÍDO", variant: "destructive" });
+      const { error } = await supabase
+        .from('boloes')
+        .delete()
+        .eq('id', id);
+      
+      if (!error) {
+        toast({ title: "BOLÃO EXCLUÍDO", variant: "destructive" });
+        loadData();
+      }
     }
   };
 
@@ -41,8 +61,10 @@ export default function BolaoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bolões</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Auditoria Independente</p>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary flex items-center gap-3">
+                Gestão de Bolões <Database className="w-6 h-6 text-green-600" />
+              </h1>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Supabase • Atualização Global</p>
             </div>
             <Link href="/admin/bolao/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
@@ -52,9 +74,11 @@ export default function BolaoPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {boloes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((bolao) => {
+            {loading ? (
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground">Conectando ao banco de dados...</div>
+            ) : boloes.map((bolao) => {
               const now = new Date();
-              const startDate = new Date(bolao.dataFim); 
+              const startDate = new Date(bolao.data_fim); 
               const limit = new Date(startDate.getTime() - 60000);
               const isSalesClosed = bolao.status === 'finalizado' || bolao.status === 'encerrado' || now >= limit;
               const isFinished = bolao.status === 'finalizado';
@@ -94,7 +118,7 @@ export default function BolaoPage() {
                       <div className="flex items-center gap-2 shrink-0">
                         <Link href={`/admin/bolao/resultados/${bolao.id}`}>
                           <Button className={`gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-accent hover:bg-accent/90'}`}>
-                            {isFinished ? <History className="w-4 h-4" /> : <FileEdit className="w-4 h-4" />}
+                            {isFinished ? <History className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                             {isFinished ? "Ver Auditoria" : "Lançar Placares"}
                           </Button>
                         </Link>
@@ -117,11 +141,11 @@ export default function BolaoPage() {
               );
             })}
 
-            {boloes.length === 0 && (
+            {boloes.length === 0 && !loading && (
               <Card>
                 <CardContent className="py-20 text-center text-muted-foreground">
                   <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo</p>
+                  <p className="font-bold uppercase tracking-widest text-xs">Nenhum bolão ativo no banco de dados</p>
                   <Link href="/admin/bolao/novo" className="mt-4 block">
                     <Button variant="link" className="text-accent font-black uppercase text-xs">Criar Primeiro Bolão</Button>
                   </Link>
