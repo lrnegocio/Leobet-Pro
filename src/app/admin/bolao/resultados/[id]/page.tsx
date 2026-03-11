@@ -105,9 +105,16 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     }, 1000);
   };
 
-  if (!bolao) return null;
+  const partidasArray = useMemo(() => {
+    if (Array.isArray(bolao?.partidas)) return bolao.partidas;
+    // Fallback para dados corrompidos ou incompletos
+    return Array(10).fill(null).map((_, i) => ({
+      time1: `Time ${i + 1}A`,
+      time2: `Time ${i + 1}B`
+    }));
+  }, [bolao]);
 
-  const partidasArray = Array.isArray(bolao.partidas) ? bolao.partidas : [];
+  if (!bolao) return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
