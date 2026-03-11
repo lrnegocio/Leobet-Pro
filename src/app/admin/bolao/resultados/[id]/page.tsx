@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, AlertTriangle, Calendar, Hash } from 'lucide-react';
+import { ArrowLeft, Trophy, AlertTriangle, Calendar, Hash, Trash2, Save, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +16,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const { toast } = useToast();
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [scores, setScores] = useState<{p1: string, p2: string}[]>(Array(10).fill({p1: '', p2: ''}));
+  const [scores, setScores] = useState<{p1: string, p2: string, excluded?: boolean}[]>(
+    Array(10).fill({p1: '', p2: '', excluded: false})
+  );
   const [saving, setSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
 
   const loadData = () => {
     const all = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
@@ -46,20 +49,47 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   const handleUpdateScore = (index: number, field: 'p1' | 'p2', val: string) => {
     const newScores = [...scores];
-    newScores[index] = { ...newScores[index], [field]: val };
+    newScores[index] = { ...newScores[index], [field]: val, excluded: false };
     setScores(newScores);
   };
 
+  const toggleExclude = (index: number) => {
+    const newScores = [...scores];
+    newScores[index] = { ...newScores[index], excluded: !newScores[index].excluded, p1: '', p2: '' };
+    setScores(newScores);
+  };
+
+  const handleSaveProgress = () => {
+    setSavingProgress(true);
+    const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+    const updatedBoloes = allBoloes.map((b: any) => 
+      String(b.id) === String(params.id) ? { ...b, scores } : b
+    );
+    localStorage.setItem('leobet_boloes', JSON.stringify(updatedBoloes));
+    
+    setTimeout(() => {
+      setSavingProgress(false);
+      toast({ title: "PROGRESSO SALVO!", description: "Os placares parciais foram armazenados." });
+    }, 800);
+  };
+
   const calculateWinners = () => {
-    if (scores.some(s => s.p1 === '' || s.p2 === '')) {
-      toast({ variant: "destructive", title: "PLACAR INCOMPLETO", description: "Informe os gols de todos os 10 jogos." });
+    // Validação: Todas as partidas não excluídas devem ter placar
+    const incomplete = scores.some(s => !s.excluded && (s.p1 === '' || s.p2 === ''));
+    if (incomplete) {
+      toast({ 
+        variant: "destructive", 
+        title: "RODADA INCOMPLETA", 
+        description: "Preencha os gols de todos os jogos ativos ou exclua os cancelados." 
+      });
       return;
     }
 
     setSaving(true);
     
-    // Converte scores em resultados oficiais 1-X-2
+    // Converte scores em resultados oficiais 1-X-2 (Ignorando excluídos)
     const results = scores.map(s => {
+      if (s.excluded) return 'CANCELLED';
       const g1 = parseInt(s.p1);
       const g2 = parseInt(s.p2);
       if (g1 > g2) return '1';
@@ -71,7 +101,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       let maxHitsFound = 0;
       const participantsData: any[] = [];
 
-      // BUSCA FRESCA DE TODOS OS RECIBOS
       const allReceipts = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       const eventReceipts = allReceipts.filter((r: any) => 
         String(r.eventoId) === String(params.id) && r.status === 'pago'
@@ -84,8 +113,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
           const userGuesses = palpiteToUse.split('-');
           let hits = 0;
+          
           userGuesses.forEach((g: string, i: number) => {
-            if (g === results[i]) hits++;
+            // Só conta ponto se o jogo não foi cancelado
+            if (results[i] !== 'CANCELLED' && g === results[i]) {
+              hits++;
+            }
           });
           
           if (hits > maxHitsFound) maxHitsFound = hits;
@@ -93,8 +126,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         });
       });
 
-      // Identifica os Top Scorers (apenas se houver pelo menos 1 acerto)
-      const topScorers = maxHitsFound > 0 ? participantsData.filter(p => p.hits === maxHitsFound) : [];
+      const topScorers = maxHitsFound >= 0 ? participantsData.filter(p => p.hits === maxHitsFound) : [];
       const premioIndividual = topScorers.length > 0 ? premioLiquidoTotal / topScorers.length : 0;
 
       const updatedReceipts = allReceipts.map((r: any) => {
@@ -103,7 +135,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
           ...r,
           tickets: r.tickets.map((t: any) => {
             const winnerData = topScorers.find(w => w.ticketId === t.id);
-            if (winnerData) {
+            if (winnerData && maxHitsFound > 0) {
               return { ...t, status: 'ganhou', valorPremio: premioIndividual, acertos: maxHitsFound };
             }
             const myHits = participantsData.find(pd => pd.ticketId === t.id)?.hits || 0;
@@ -122,16 +154,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
       loadData();
       setSaving(false);
-      toast({ title: "AUDITORIA FINALIZADA!", description: `Máximo de acertos detectado: ${maxHitsFound}.` });
+      toast({ title: "AUDITORIA FINALIZADA!", description: `Vencedores com ${maxHitsFound} acertos creditados.` });
     }, 1500);
   };
 
   const partidasArray = useMemo(() => {
     if (Array.isArray(bolao?.partidas)) return bolao.partidas;
-    return Array(10).fill(null).map((_, i) => ({
-      time1: `Time ${i + 1}A`,
-      time2: `Time ${i + 1}B`
-    }));
+    return Array(10).fill(null).map((_, i) => ({ time1: `Time ${i + 1}A`, time2: `Time ${i + 1}B` }));
   }, [bolao]);
 
   if (!bolao) return null;
@@ -155,9 +184,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 <p className="text-[10px] font-black text-muted-foreground uppercase mt-1">Lançamento de Placares Oficiais</p>
               </div>
             </div>
-            <div className="text-right bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Total do Acertador (65%)</p>
-              <p className="text-2xl font-black text-green-600">R$ {premioLiquidoTotal.toFixed(2)}</p>
+            <div className="flex gap-3">
+               <Button onClick={handleSaveProgress} disabled={savingProgress || bolao.status === 'finalizado'} variant="outline" className="h-14 gap-2 font-black uppercase text-xs border-2 rounded-xl">
+                 <Save className="w-4 h-4" /> {savingProgress ? 'Salvando...' : 'Salvar Progresso'}
+               </Button>
+               <div className="text-right bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
+                 <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Estimado (65%)</p>
+                 <p className="text-2xl font-black text-green-600">R$ {premioLiquidoTotal.toFixed(2)}</p>
+               </div>
             </div>
           </div>
 
@@ -170,18 +204,23 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
               </CardHeader>
               <CardContent className="p-8 space-y-4">
                  {partidasArray.map((p: any, i: number) => {
-                   const g1 = parseInt(scores[i].p1);
-                   const g2 = parseInt(scores[i].p2);
-                   const res = isNaN(g1) || isNaN(g2) ? '?' : (g1 > g2 ? '1' : g1 < g2 ? '2' : 'X');
+                   const s = scores[i] || {p1: '', p2: '', excluded: false};
+                   const g1 = parseInt(s.p1);
+                   const g2 = parseInt(s.p2);
+                   const res = s.excluded ? 'X' : (isNaN(g1) || isNaN(g2) ? '?' : (g1 > g2 ? '1' : g1 < g2 ? '2' : 'X'));
                    
                    return (
-                     <div key={i} className="flex flex-col md:flex-row items-center gap-4 p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-accent transition-all">
+                     <div key={i} className={`flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                       s.excluded ? 'bg-red-50 border-red-100 opacity-60' : 'bg-muted/30 border-transparent hover:border-accent'
+                     }`}>
                         <div className="flex-1 space-y-1">
-                           <Badge className="font-black text-[9px] h-5 px-3 mb-1">JOGO #{i+1}</Badge>
+                           <Badge className={`font-black text-[9px] h-5 px-3 mb-1 ${s.excluded ? 'bg-red-600' : ''}`}>
+                             {s.excluded ? 'JOGO CANCELADO' : `JOGO #${i+1}`}
+                           </Badge>
                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time1 || 'CASA'}</span>
+                              <span className={`text-xs font-black uppercase truncate max-w-[120px] ${s.excluded ? 'line-through' : ''}`}>{p.time1 || 'CASA'}</span>
                               <span className="text-[10px] font-black text-accent">VS</span>
-                              <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time2 || 'FORA'}</span>
+                              <span className={`text-xs font-black uppercase truncate max-w-[120px] ${s.excluded ? 'line-through' : ''}`}>{p.time2 || 'FORA'}</span>
                            </div>
                         </div>
                         
@@ -190,22 +229,36 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                             type="number" 
                             placeholder="0" 
                             className="w-12 h-12 text-center font-black text-xl rounded-xl border-2"
-                            value={scores[i].p1}
+                            value={s.p1}
                             onChange={(e) => handleUpdateScore(i, 'p1', e.target.value)}
-                            disabled={bolao.status === 'finalizado'}
+                            disabled={bolao.status === 'finalizado' || s.excluded}
                           />
                           <span className="font-black text-muted-foreground">x</span>
                           <Input 
                             type="number" 
                             placeholder="0" 
                             className="w-12 h-12 text-center font-black text-xl rounded-xl border-2"
-                            value={scores[i].p2}
+                            value={s.p2}
                             onChange={(e) => handleUpdateScore(i, 'p2', e.target.value)}
-                            disabled={bolao.status === 'finalizado'}
+                            disabled={bolao.status === 'finalizado' || s.excluded}
                           />
-                          <Badge className={`ml-4 w-10 h-10 flex items-center justify-center rounded-xl font-black text-lg ${res === '?' ? 'bg-muted text-muted-foreground' : 'bg-primary text-white'}`}>
-                            {res}
+                          <Badge className={`ml-4 w-10 h-10 flex items-center justify-center rounded-xl font-black text-lg ${
+                            s.excluded ? 'bg-red-600 text-white' : 
+                            (res === '?' ? 'bg-muted text-muted-foreground' : 'bg-primary text-white')
+                          }`}>
+                            {s.excluded ? '-' : res}
                           </Badge>
+                          
+                          {bolao.status !== 'finalizado' && (
+                            <Button 
+                              onClick={() => toggleExclude(i)} 
+                              variant="ghost" 
+                              size="icon" 
+                              className={`ml-2 h-10 w-10 rounded-xl transition-colors ${s.excluded ? 'text-red-600 bg-red-100' : 'text-muted-foreground hover:bg-red-50 hover:text-red-600'}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                      </div>
                    );
@@ -230,7 +283,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                        <p className="text-xs font-bold leading-relaxed whitespace-pre-wrap">{bolao.regras || 'O prêmio principal será dividido entre os maiores pontuadores da rodada.'}</p>
                     </div>
                     <div className="mt-6 space-y-2">
-                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado</p>
+                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Líquido Total</p>
                        <p className="text-3xl font-black">R$ {premioLiquidoTotal.toFixed(2)}</p>
                     </div>
                  </CardContent>
@@ -241,7 +294,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                      <div className="flex gap-3">
                         <AlertTriangle className="w-6 h-6 text-orange-600 shrink-0" />
                         <p className="text-[10px] font-bold text-orange-800 uppercase leading-relaxed">
-                          Apenas bilhetes pagos participam. O ganhador é quem fizer o maior número de acertos. Em caso de empate na pontuação máxima, o prêmio é dividido.
+                          Apenas bilhetes pagos participam. Jogos anulados não contam pontos. O ganhador é quem fizer o maior número de acertos entre os jogos realizados.
                         </p>
                      </div>
                      <div className="pt-4 border-t border-orange-200 flex justify-between items-center">

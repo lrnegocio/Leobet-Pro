@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube, Printer, ShieldCheck } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, CheckCircle2, Ticket, Clock, XCircle, Info, AlertTriangle, Youtube, Printer, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -175,6 +175,7 @@ function ResultadosContent() {
                       const guesses = (t.palpite || receipt.palpite || '').split('-');
                       const results = eventoData?.resultados || [];
                       const matches = eventoData?.partidas || [];
+                      const scores = eventoData?.scores || [];
                       
                       return (
                         <Card key={idx} className={`rounded-[2.5rem] border-2 transition-all overflow-hidden ${
@@ -228,21 +229,26 @@ function ResultadosContent() {
                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
                                           {guesses.length > 1 && guesses.map((g: string, i: number) => {
                                             const match = matches[i];
+                                            const score = scores[i] || {};
+                                            const isCancelled = score.excluded;
                                             const officialResult = results[i];
-                                            const isCorrect = officialResult && officialResult === g;
-                                            const isWrong = officialResult && officialResult !== g;
+                                            const isCorrect = !isCancelled && officialResult && officialResult !== 'CANCELLED' && officialResult === g;
+                                            const isWrong = !isCancelled && officialResult && officialResult !== 'CANCELLED' && officialResult !== g;
                                             
                                             return (
                                               <div key={i} className={`p-3 rounded-xl border-2 flex flex-col items-center justify-center gap-1 ${
+                                                isCancelled ? 'bg-red-50 border-red-200' :
                                                 isCorrect ? 'bg-green-600 border-green-700 text-white shadow-lg' : 
                                                 isWrong ? 'bg-red-500 border-red-600 text-white' : 
                                                 'bg-white'
                                               }`}>
-                                                <div className={`text-[7px] font-black uppercase opacity-60 text-center leading-tight mb-1 truncate w-full ${isCorrect || isWrong ? 'text-white' : ''}`}>
+                                                <div className={`text-[7px] font-black uppercase opacity-60 text-center leading-tight mb-1 truncate w-full ${isCancelled ? 'text-red-600' : (isCorrect || isWrong ? 'text-white' : '')}`}>
                                                   {match?.time1 || 'CASA'} vs {match?.time2 || 'FORA'}
                                                 </div>
-                                                <span className="text-xl font-black">{g}</span>
-                                                {officialResult && (
+                                                <span className={`text-xl font-black ${isCancelled ? 'line-through text-red-400' : ''}`}>{g}</span>
+                                                {isCancelled ? (
+                                                  <Badge variant="outline" className="text-[6px] h-3 px-1 border-red-200 text-red-600">ANULADO</Badge>
+                                                ) : officialResult && officialResult !== 'CANCELLED' && (
                                                   <span className="text-[8px] font-bold uppercase">Oficial: {officialResult}</span>
                                                 )}
                                               </div>
