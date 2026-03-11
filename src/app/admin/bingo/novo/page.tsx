@@ -6,7 +6,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Info, CloudSync } from 'lucide-react';
+import { ArrowLeft, Info, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabase/client';
@@ -68,7 +68,7 @@ export default function NovoBingoPage() {
               <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Novo Bingo</h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Sincronização em Tempo Real via Supabase</p>
             </div>
-            <CloudSync className="w-8 h-8 text-green-600 animate-pulse" />
+            <RefreshCcw className="w-8 h-8 text-green-600 animate-spin-slow" />
           </div>
 
           <Card className="border-t-4 border-t-accent shadow-xl">
@@ -140,6 +140,15 @@ export default function NovoBingoPage() {
           </Card>
         </div>
       </main>
+      <style jsx global>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
