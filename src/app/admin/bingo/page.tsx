@@ -6,29 +6,47 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2, TrendingUp, History, AlertCircle } from 'lucide-react';
+import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2, TrendingUp, History, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/supabase/client';
 
 export default function BingoPage() {
   const [bingos, setBingos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadData = () => {
-    const stored = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
-    setBingos(stored);
+  const loadData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bingos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBingos(data || []);
+    } catch (err) {
+      console.error("Erro Supabase:", err);
+      // Fallback para localStorage se o Supabase falhar
+      const stored = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
+      setBingos(stored);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Atualiza status em tempo real
+    const interval = setInterval(loadData, 10000); // Atualiza a cada 10s
     return () => clearInterval(interval);
   }, []);
 
-  const toggleStatus = (id: string) => {
-    const updated = bingos.map(b => 
-      b.id === id ? { ...b, status: b.status === 'aberto' ? 'encerrado' : 'aberto' } : b
-    );
-    setBingos(updated);
-    localStorage.setItem('leobet_bingos', JSON.stringify(updated));
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'aberto' ? 'encerrado' : 'aberto';
+    const { error } = await supabase
+      .from('bingos')
+      .update({ status: newStatus })
+      .eq('id', id);
+    
+    if (!error) loadData();
   };
 
   return (
@@ -38,8 +56,10 @@ export default function BingoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Gestão de Bingos</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base Permanente • Travamento Automático</p>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary flex items-center gap-3">
+                Gestão de Bingos <Database className="w-6 h-6 text-green-600" />
+              </h1>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Supabase • Atualização Global</p>
             </div>
             <Link href="/admin/bingo/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
@@ -49,13 +69,13 @@ export default function BingoPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {bingos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((bingo) => {
+            {loading ? (
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground">Conectando ao banco de dados...</div>
+            ) : bingos.map((bingo) => {
               const now = new Date();
-              const drawDate = new Date(bingo.dataSorteio);
-              const limit = new Date(drawDate.getTime() - 60000); // 1 min antes
-              const isExpired = now >= limit && bingo.status === 'aberto';
-              const isSalesClosed = bingo.status === 'encerrado' || bingo.status === 'finalizado' || now >= limit;
+              const drawDate = new Date(bingo.data_sorteio);
               const isFinished = bingo.status === 'finalizado';
+              const isSalesClosed = bingo.status === 'encerrado' || isFinished || now >= drawDate;
               
               return (
                 <Card key={bingo.id} className={`hover:shadow-md transition-all border-l-4 overflow-hidden ${isFinished ? 'border-l-green-600' : 'border-l-primary'}`}>
@@ -85,8 +105,8 @@ export default function BingoPage() {
                                <p className="text-xs font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">ID Interno</p>
-                               <p className="text-[9px] font-black uppercase text-primary/60">{bingo.id}</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">UUID Supabase</p>
+                               <p className="text-[7px] font-black uppercase text-primary/40 truncate w-24">{bingo.id}</p>
                             </div>
                           </div>
                        </div>
@@ -98,7 +118,7 @@ export default function BingoPage() {
                                   variant="outline" 
                                   size="sm" 
                                   className="font-black text-[10px] uppercase gap-2 h-9 border-primary/20"
-                                  onClick={() => toggleStatus(bingo.id)}
+                                  onClick={() => toggleStatus(bingo.id, bingo.status)}
                                >
                                   {isSalesClosed ? <CheckCircle2 className="w-3 h-3" /> : <Lock className="w-3 h-3 text-orange-600" />}
                                   {isSalesClosed ? "Reabrir Vendas" : "Encerrar Agora"}
@@ -109,7 +129,7 @@ export default function BingoPage() {
                                <Button 
                                  className={`w-full gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'}`}
                                  disabled={!isSalesClosed && !isFinished}
-                               >
+                                >
                                  {isFinished ? <History className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
                                  {isFinished ? "Ver Auditoria" : "Iniciar Sorteio"}
                                 </Button>
@@ -127,13 +147,13 @@ export default function BingoPage() {
               );
             })}
 
-            {bingos.length === 0 && (
+            {bingos.length === 0 && !loading && (
               <Card>
                 <CardContent className="py-24 text-center">
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 opacity-20">
                     <TrendingUp className="w-8 h-8" />
                   </div>
-                  <h3 className="font-black uppercase text-muted-foreground tracking-widest text-xs">Nenhum bingo cadastrado</h3>
+                  <h3 className="font-black uppercase text-muted-foreground tracking-widest text-xs">Nenhum bingo no banco de dados</h3>
                   <Link href="/admin/bingo/novo" className="mt-6 block">
                     <Button variant="link" className="text-primary font-black uppercase text-xs">Criar Primeiro Bingo</Button>
                   </Link>

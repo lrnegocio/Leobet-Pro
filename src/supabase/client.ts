@@ -1,10 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase credentials in environment variables');
-}
+// Chaves fornecidas pelo usuário
+const supabaseUrl = 'https://sjlnkpqmfmajszcqlguv.supabase.co';
+const supabaseAnonKey = 'sb_publishable_wynH5nejXXQJrRWnXfsNag_zPPOG9JS';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
