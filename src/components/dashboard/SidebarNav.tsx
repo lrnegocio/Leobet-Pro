@@ -24,7 +24,7 @@ import {
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface NavItem {
   label: string;
@@ -55,8 +55,10 @@ export function SidebarNav() {
   const { user, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem('leobet_sidebar_collapsed');
     if (saved === 'true') setIsCollapsed(true);
   }, []);
@@ -67,7 +69,9 @@ export function SidebarNav() {
     localStorage.setItem('leobet_sidebar_collapsed', String(newState));
   };
 
-  if (!user) return null;
+  if (!mounted || !user) {
+    return null; // Evita Internal Server Error por Hydration
+  }
 
   const filteredItems = navItems.filter(item => item.roles.includes(user.role));
 
@@ -76,14 +80,14 @@ export function SidebarNav() {
     router.push('/');
   };
 
-  const NavContent = ({ collapsed = false, isMobile = false }: { collapsed?: boolean, isMobile?: boolean }) => (
+  const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="flex flex-col h-full bg-white transition-all duration-300 relative">
       <div className={cn(
-        "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
-        collapsed ? "p-4 items-center justify-center" : "p-6"
+        "bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
+        collapsed ? "p-4 items-center justify-center h-20" : "p-6 h-24"
       )}>
         <h2 className={cn(
-          "font-black font-headline tracking-tighter transition-all duration-300 leading-none whitespace-nowrap",
+          "font-black tracking-tighter transition-all duration-300 leading-none whitespace-nowrap",
           collapsed ? "text-xl" : "text-2xl"
         )}>
           {collapsed ? "LB" : "LEOBET PRO"}
@@ -100,15 +104,16 @@ export function SidebarNav() {
         <TooltipProvider delayDuration={0}>
           {filteredItems.map((item) => {
             const Icon = item.icon;
+            const isActive = pathname === item.href;
             return (
-              <Tooltip key={item.href} disableHoverableContent={!collapsed}>
+              <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
                   <Link
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-black transition-all uppercase tracking-tight relative group overflow-hidden",
-                      pathname === item.href 
+                      "flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-black transition-all uppercase tracking-tight relative group",
+                      isActive 
                         ? "bg-primary text-white shadow-lg" 
                         : "text-muted-foreground hover:bg-muted",
                       collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
@@ -119,7 +124,7 @@ export function SidebarNav() {
                   </Link>
                 </TooltipTrigger>
                 {collapsed && (
-                  <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary text-white">
+                  <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary text-white border-none">
                     {item.label}
                   </TooltipContent>
                 )}
@@ -129,29 +134,26 @@ export function SidebarNav() {
         </TooltipProvider>
       </nav>
 
-      <div className="p-3 border-t bg-muted/30 shrink-0 space-y-2">
-        <TooltipProvider delayDuration={0}>
-          <Tooltip disableHoverableContent={!collapsed}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleLogout}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-4 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase overflow-hidden",
-                  collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
-                )}
-              >
-                <LogOut className="w-5 h-5 shrink-0" />
-                {!collapsed && <span>Sair</span>}
-              </button>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side="right" className="font-black uppercase text-[10px] bg-destructive text-white border-none">
-                Sair do Sistema
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
+      <div className="p-3 border-t bg-muted/30 shrink-0">
+        <button
+          onClick={handleLogout}
+          className={cn(
+            "flex items-center gap-3 px-4 py-4 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase",
+            collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
+          )}
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Sair</span>}
+        </button>
       </div>
+
+      {/* BOTÃO DE COLAPSO CENTRALIZADO NA BORDA (PC APENAS) */}
+      <button 
+        onClick={toggleCollapse}
+        className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50"
+      >
+        {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+      </button>
     </div>
   );
 
@@ -161,32 +163,23 @@ export function SidebarNav() {
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary border-2 border-white/20">
+            <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary">
               <Menu className="w-6 h-6" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
-            <NavContent isMobile={true} />
+            <NavContent />
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Sidebar Desktop */}
-      <div className={cn(
-        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative border-r",
+      <aside className={cn(
+        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative border-r bg-white",
         isCollapsed ? "w-20" : "w-64"
       )}>
-        <NavContent collapsed={isCollapsed} isMobile={false} />
-        
-        {/* BOTÃO DE ENCOLHER CENTRALIZADO NA BORDA DIREITA (DESKTOP) */}
-        <button 
-          onClick={toggleCollapse}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50 group"
-          title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </button>
-      </div>
+        <NavContent collapsed={isCollapsed} />
+      </aside>
     </>
   );
 }

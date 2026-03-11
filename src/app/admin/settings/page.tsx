@@ -9,13 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Settings, Youtube, Wallet, Globe, Save, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/supabase/client';
-import { useAuthStore } from '@/store/use-auth-store';
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
   const [settings, setSettings] = useState({
     youtubeUrl: '',
@@ -24,27 +22,38 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    // Carrega configurações do localStorage
-    const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    setSettings({
-      youtubeUrl: savedSettings.youtubeUrl || '',
-      companyPix: savedSettings.companyPix || 'LEOBET-PIX-OFICIAL',
-      systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app/'
-    });
+    setMounted(true);
+    const saved = localStorage.getItem('leobet_settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSettings({
+          youtubeUrl: parsed.youtubeUrl || '',
+          companyPix: parsed.companyPix || '',
+          systemUrl: parsed.systemUrl || 'https://leobet-probets.vercel.app/'
+        });
+      } catch (e) {
+        console.error("Erro ao carregar settings", e);
+      }
+    }
   }, []);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Salva no localStorage para uso global no app
     localStorage.setItem('leobet_settings', JSON.stringify(settings));
     
     setTimeout(() => {
       setLoading(false);
-      toast({ title: "CONFIGURAÇÕES SALVAS!", description: "O sistema foi atualizado globalmente." });
+      toast({ 
+        title: "CONFIGURAÇÕES SALVAS!", 
+        description: "O sistema foi atualizado globalmente." 
+      });
     }, 800);
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -67,7 +76,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">URL do Canal (YouTube Ao Vivo)</Label>
                   <div className="flex gap-2">
-                    <div className="bg-red-100 p-3 rounded-xl flex items-center justify-center">
+                    <div className="bg-red-100 p-3 rounded-xl flex items-center justify-center shrink-0">
                       <Youtube className="w-5 h-5 text-red-600" />
                     </div>
                     <Input 
@@ -116,7 +125,7 @@ export default function SettingsPage() {
             <div className="flex gap-4">
               <Button type="submit" className="flex-1 h-16 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
                 {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-                {loading ? 'Sincronizando...' : 'Salvar Configurações'}
+                {loading ? 'Salvando...' : 'Salvar Configurações'}
               </Button>
             </div>
           </form>

@@ -9,8 +9,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const checkAuth = () => {
       const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
@@ -32,10 +34,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
 
       if (!user && storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setLoading(false);
-        return;
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error("Erro auth", e);
+        }
       }
 
       const allowedRoles = ['admin', 'cambista', 'gerente'];
@@ -49,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkAuth();
   }, [user, router, setUser]);
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">

@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -19,6 +18,7 @@ function ResultadosContent() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { toast } = useToast();
+  
   const [code, setCode] = useState('');
   const [receipt, setReceipt] = useState<any>(null);
   const [searched, setSearched] = useState(false);
@@ -36,7 +36,7 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
-      const { data: found, error } = await supabase
+      const { data: found } = await supabase
         .from('tickets')
         .select('*')
         .or(`id.eq.${codeToSearch},tickets_data.cs.[{"id":"${codeToSearch}"}]`)
@@ -59,8 +59,13 @@ function ResultadosContent() {
   };
 
   useEffect(() => {
-    const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    setYoutubeUrl(settings.youtubeUrl || 'https://youtube.com/live/LEOBET');
+    const savedSettings = localStorage.getItem('leobet_settings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setYoutubeUrl(parsed.youtubeUrl || '');
+      } catch (e) {}
+    }
     
     const ticketCode = searchParams.get('c');
     if (ticketCode) { 
@@ -98,7 +103,7 @@ function ResultadosContent() {
   };
 
   const handleGoBack = () => {
-    if (user) {
+    if (user && user.id !== 'admin-master') {
       if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') {
         router.push('/admin/venda');
       } else {
@@ -112,13 +117,15 @@ function ResultadosContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-2 md:p-8 flex flex-col items-center font-body pb-32">
       <div className="max-w-4xl w-full space-y-6">
-        <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border md:border-none">
-          <Button onClick={handleGoBack} variant="outline" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase h-10 px-4 rounded-xl border-2">
-            <ArrowLeft className="w-4 h-4" /> Voltar
+        <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border">
+          <Button onClick={handleGoBack} variant="outline" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase h-11 px-5 rounded-xl border-2">
+            <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
           </Button>
-          <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg transition-all active:scale-95">
-            <Youtube className="w-5 h-5" /> Sorteio ao Vivo
-          </Button>
+          {youtubeUrl && (
+            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg transition-all active:scale-95">
+              <Youtube className="w-5 h-5" /> Sorteio ao Vivo
+            </Button>
+          )}
         </div>
 
         <div className="text-center space-y-2">
@@ -134,10 +141,10 @@ function ResultadosContent() {
                <div className="flex flex-col md:flex-row gap-2">
                 <Input 
                   placeholder="CÓDIGO DO BILHETE" 
-                  className="h-16 md:h-20 font-black text-center text-3xl md:text-4xl tracking-[0.3em] border-2 focus:border-primary rounded-3xl uppercase shadow-inner" 
+                  className="h-16 md:h-20 font-black text-center text-3xl md:text-4xl tracking-[0.3em] border-2 focus:border-primary rounded-3xl uppercase" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
                 <Button onClick={() => handleSearch()} className="h-16 md:h-20 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-3xl shadow-xl transition-all active:scale-95" disabled={loading}>
                   {loading ? <Clock className="animate-spin w-8 h-8" /> : <Search className="w-8 h-8" />}
@@ -166,14 +173,14 @@ function ResultadosContent() {
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Zap className="w-4 h-4 text-accent fill-accent" /> Prêmios em Jogo</p>
                         {receipt.tipo === 'bingo' ? (
                           <div className="space-y-2">
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">BINGO:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios.bingo.toFixed(2)}</span></div>
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUINA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios.quina.toFixed(2)}</span></div>
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUADRA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios.quadra.toFixed(2)}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">BINGO:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUINA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quina?.toFixed(2) || '0.00'}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUADRA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quadra?.toFixed(2) || '0.00'}</span></div>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-3xl border border-green-100">
                              <span className="text-[10px] font-black text-green-700 uppercase mb-1">ACUMULADO</span>
-                             <span className="text-3xl font-black text-green-600">R$ {receipt.detalhe_premios.bolao.toFixed(2)}</span>
+                             <span className="text-3xl font-black text-green-600">R$ {receipt.detalhe_premios?.bolao?.toFixed(2) || '0.00'}</span>
                           </div>
                         )}
                       </div>
@@ -193,7 +200,7 @@ function ResultadosContent() {
                 </div>
 
                 <div className="space-y-4">
-                  {receipt.tickets_data.map((t: any, idx: number) => {
+                  {receipt.tickets_data?.map((t: any, idx: number) => {
                     const isWinner = t.status === 'ganhou';
                     const isPending = t.status === 'pendente-resgate';
                     const isPaid = t.status === 'pago';
@@ -247,7 +254,7 @@ function ResultadosContent() {
                                     <>
                                       <div>
                                         <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
-                                        <p className="text-3xl font-black">R$ {t.valorPremio.toFixed(2)}</p>
+                                        <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                       </div>
                                       <div className="space-y-2">
                                         <Input 
