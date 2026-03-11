@@ -2,30 +2,27 @@
 
 Plataforma completa para gestão de Bingos e Bolões de Futebol, com auditoria em tempo real, integração com WhatsApp e suporte a impressão térmica.
 
-## 🚀 Como subir para o GitHub (Passo a Passo)
+## 🚀 Como subir para o GitHub (Passo a Passo Corrigido)
 
-Abra o terminal na pasta do projeto e execute estes comandos:
+Como você já tem um repositório configurado, execute estes comandos no terminal para corrigir a URL e enviar os arquivos:
 
 ```bash
-# 1. Iniciar o git local
-git init
+# 1. Corrigir a URL do repositório (Já que o 'origin' já existe)
+git remote set-url origin https://github.com/lrnegocio/Leobet-Pro.git
 
-# 2. Adicionar o repositório remoto
-git remote add origin https://github.com/lrnegocio/Leobet-Pro.git
-
-# 3. Adicionar todos os arquivos
+# 2. Adicionar todos os novos arquivos
 git add .
 
-# 4. Criar o primeiro registro
+# 3. Criar o registro das alterações
 git commit -m "🚀 Deploy inicial Leobet Pro"
 
-# 5. Definir a branch principal
+# 4. Definir a branch principal como main
 git branch -M main
 
-# 6. Enviar para o GitHub
-# Quando o terminal pedir o Username: digite lrnegocio
+# 5. Enviar para o GitHub
+# Quando pedir o Username: digite lrnegocio
 # Quando pedir a Password: COLE O TOKEN QUE VOCÊ GEROU (Classic Token)
-git push -u origin main
+git push -u origin main -f
 ```
 
 ## 📡 Configuração na Vercel
