@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Play } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -35,16 +35,17 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
+      // Busca recibo no Supabase por ID ou por ID de bilhete interno
       const { data: found, error } = await supabase
         .from('tickets')
         .select('*')
         .or(`id.eq.${codeToSearch},tickets_data.cs.[{"id":"${codeToSearch}"}]`)
-        .single();
+        .maybeSingle();
 
       if (found) {
         setReceipt(found);
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
-        const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).single();
+        const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
       } else {
         setReceipt(null);
@@ -58,10 +59,15 @@ function ResultadosContent() {
   };
 
   useEffect(() => {
+    // Busca URL do Youtube das configurações (mock ou banco se existir)
     const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    setYoutubeUrl(settings.youtubeUrl || '');
+    setYoutubeUrl(settings.youtubeUrl || 'https://youtube.com/live/LEOBET');
+    
     const ticketCode = searchParams.get('c');
-    if (ticketCode) { setCode(ticketCode); handleSearch(ticketCode); }
+    if (ticketCode) { 
+      setCode(ticketCode); 
+      handleSearch(ticketCode); 
+    }
   }, [searchParams]);
 
   const handleClaim = async (ticketId: string) => {
@@ -92,7 +98,6 @@ function ResultadosContent() {
     }
   };
 
-  // Função para voltar para a tela correta baseada no cargo
   const getBackPath = () => {
     if (!user) return '/';
     if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') return '/admin/venda';
@@ -100,26 +105,26 @@ function ResultadosContent() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body">
+    <div className="min-h-screen bg-muted/30 p-4 md:p-8 flex flex-col items-center font-body pb-32">
       <div className="max-w-4xl w-full space-y-8">
         <div className="flex justify-between items-center">
-          <Link href={getBackPath()} className="flex items-center gap-2 text-primary hover:underline font-black text-xs uppercase bg-white px-4 py-2 rounded-xl shadow-sm border">
+          <Link href={getBackPath()} className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase bg-white px-5 py-3 rounded-2xl shadow-sm border">
             <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
           </Link>
           {youtubeUrl && (
-            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 text-white font-black uppercase text-[10px] h-9 gap-2 rounded-xl">
-              <Youtube className="w-4 h-4" /> Assistir Live
+            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-12 gap-2 px-6 rounded-2xl shadow-lg border-b-4 border-red-800 transition-all active:translate-y-1 active:border-b-0">
+              <Youtube className="w-5 h-5" /> Assistir Sorteio ao Vivo
             </Button>
           )}
         </div>
 
         <div className="text-center space-y-4">
-          <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4">
+          <div className="bg-primary text-white w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4 transform rotate-3 hover:rotate-0 transition-transform">
              <Trophy className="w-10 h-10" />
           </div>
-          <h1 className="text-5xl font-black font-headline uppercase text-primary tracking-tighter">Central de Auditoria</h1>
+          <h1 className="text-5xl md:text-6xl font-black font-headline uppercase text-primary tracking-tighter leading-none">Central de Auditoria</h1>
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60 flex items-center justify-center gap-2">
-            <Database className="w-3 h-3" /> Conferência Global via Supabase
+            <Database className="w-3 h-3 text-green-600" /> Conferência Global leobet-probets.vercel.app
           </p>
         </div>
 
@@ -129,45 +134,61 @@ function ResultadosContent() {
                <div className="flex flex-col md:flex-row gap-3">
                 <Input 
                   placeholder="CÓDIGO DO BILHETE" 
-                  className="h-16 font-black text-center text-3xl tracking-[0.4em] border-2 focus:border-primary rounded-2xl uppercase" 
+                  className="h-20 font-black text-center text-4xl tracking-[0.4em] border-2 focus:border-primary rounded-3xl uppercase shadow-inner" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 />
-                <Button onClick={() => handleSearch()} className="h-16 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-2xl shadow-xl" disabled={loading}>
-                  {loading ? <Clock className="animate-spin w-6 h-6" /> : <Search className="w-7 h-7" />}
+                <Button onClick={() => handleSearch()} className="h-20 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-3xl shadow-xl transition-all active:scale-95" disabled={loading}>
+                  {loading ? <Clock className="animate-spin w-8 h-8" /> : <Search className="w-8 h-8" />}
                 </Button>
               </div>
             </div>
 
             {loading ? (
-              <div className="py-20 flex flex-col items-center gap-4"><Clock className="w-12 h-12 text-primary animate-spin" /><p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Banco de Dados...</p></div>
+              <div className="py-20 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Banco de Dados...</p>
+              </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-8">
                 <div className="bg-primary/5 p-8 rounded-[2rem] border-2 border-primary/10 space-y-6">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                       <div>
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador Identificado</p>
-                        <p className="font-black text-primary text-3xl tracking-tight leading-none">{receipt.cliente}</p>
-                        <p className="mt-4 text-[10px] font-black uppercase text-muted-foreground tracking-widest">Evento</p>
-                        <p className="font-black uppercase text-lg text-primary">{receipt.evento_nome}</p>
+                        <p className="font-black text-primary text-4xl tracking-tight leading-none truncate">{receipt.cliente}</p>
+                        <div className="mt-6">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso Atual</p>
+                          <p className="font-black uppercase text-xl text-primary leading-tight">{receipt.evento_nome}</p>
+                        </div>
                       </div>
-                      <div className="bg-white px-6 py-6 rounded-2xl shadow-sm border border-primary/10 space-y-4">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1"><Zap className="w-3 h-3 text-green-600 fill-green-600" /> Prêmios Líquidos Atuais</p>
+                      <div className="bg-white px-6 py-6 rounded-[2rem] shadow-xl border border-primary/5 space-y-4">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Zap className="w-4 h-4 text-accent fill-accent" /> Prêmios em Jogo</p>
                         {receipt.tipo === 'bingo' ? (
-                          <div className="space-y-2">
-                             <div className="flex justify-between items-center"><span className="text-[10px] font-black opacity-60">BINGO:</span> <span className="font-black text-primary">R$ {receipt.detalhe_premios.bingo.toFixed(2)}</span></div>
-                             <div className="flex justify-between items-center"><span className="text-[10px] font-black opacity-60">QUINA:</span> <span className="font-black text-primary">R$ {receipt.detalhe_premios.quina.toFixed(2)}</span></div>
-                             <div className="flex justify-between items-center"><span className="text-[10px] font-black opacity-60">QUADRA:</span> <span className="font-black text-primary">R$ {receipt.detalhe_premios.quadra.toFixed(2)}</span></div>
+                          <div className="space-y-3">
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">BINGO:</span> <span className="font-black text-primary text-xl">R$ {receipt.detalhe_premios.bingo.toFixed(2)}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUINA:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios.quina.toFixed(2)}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUADRA:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios.quadra.toFixed(2)}</span></div>
                           </div>
                         ) : (
-                          <div className="flex justify-between items-center pt-2"><span className="text-xs font-black text-primary">PRÊMIO ÚNICO:</span> <span className="text-2xl font-black text-green-600">R$ {receipt.detalhe_premios.bolao.toFixed(2)}</span></div>
+                          <div className="flex flex-col items-center justify-center p-6 bg-green-50 rounded-3xl border border-green-100">
+                             <span className="text-[10px] font-black text-green-700 uppercase mb-2">PRÊMIO ACUMULADO</span>
+                             <span className="text-4xl font-black text-green-600">R$ {receipt.detalhe_premios.bolao.toFixed(2)}</span>
+                          </div>
                         )}
                       </div>
                    </div>
-                   <div className="border-t border-primary/10 pt-6 flex justify-between items-center">
-                      <Badge className={`${receipt.status === 'pago' ? 'bg-primary' : 'bg-orange-600'} text-white border-none font-black uppercase h-8 px-4 rounded-xl`}>{receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ PENDENTE DE SALDO'}</Badge>
-                      <p className="text-[9px] font-black uppercase text-muted-foreground">ID RECIBO: {receipt.id}</p>
+                   <div className="border-t border-primary/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                      <Badge className={cn(
+                        "text-white border-none font-black uppercase h-10 px-6 rounded-2xl text-[10px] shadow-lg",
+                        receipt.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'
+                      )}>
+                        {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
+                      </Badge>
+                      <div className="text-right">
+                        <p className="text-[9px] font-black uppercase text-muted-foreground opacity-40">AUTENTICAÇÃO DIGITAL</p>
+                        <p className="text-xs font-black uppercase text-primary/40">{receipt.id}</p>
+                      </div>
                    </div>
                 </div>
 
@@ -177,21 +198,82 @@ function ResultadosContent() {
                     const isPending = t.status === 'pendente-resgate';
                     const isPaid = t.status === 'pago';
                     return (
-                      <Card key={idx} className={`rounded-[2.5rem] border-2 transition-all overflow-hidden ${isWinner ? 'bg-green-50 border-green-200' : isPaid ? 'bg-blue-50' : 'bg-white border-muted-foreground/10'}`}>
+                      <Card key={idx} className={cn(
+                        "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
+                        isWinner ? 'bg-green-50 border-green-400' : isPaid ? 'bg-blue-50 border-blue-400' : 'bg-white border-muted-foreground/10'
+                      )}>
                          <CardContent className="p-8 flex flex-col md:flex-row items-stretch gap-8">
                              <div className="flex-1 space-y-6">
-                                <div className="flex justify-between items-center"><span className="font-black text-[10px] uppercase text-muted-foreground">ID CARTELA: {t.id}</span><Badge variant={isWinner ? 'default' : 'outline'} className={`font-black ${isWinner ? 'bg-green-600' : ''}`}>{isWinner ? "🔥 PREMIADO!" : isPaid ? "✓ PRÊMIO PAGO" : isPending ? "⌚ AGUARDANDO LIBERAÇÃO" : "EM JOGO"}</Badge></div>
+                                <div className="flex justify-between items-center">
+                                  <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{t.id}</span>
+                                  <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
+                                    "font-black uppercase text-[9px] h-6 px-4",
+                                    isWinner ? 'bg-green-600 animate-bounce' : ''
+                                  )}>
+                                    {isWinner ? "🔥 VOCÊ GANHOU!" : isPaid ? "✓ PRÊMIO PAGO" : isPending ? "⌚ RESGATE EM ANÁLISE" : "EM JOGO"}
+                                  </Badge>
+                                </div>
                                 {t.numeros ? (
-                                  <div className="flex flex-wrap gap-2">{t.numeros.map((n: number) => <div key={n} className={`w-10 h-10 flex items-center justify-center border-2 rounded-xl font-black text-sm ${eventoData?.bolas_sorteadas?.includes(n) ? "bg-green-600 text-white" : "bg-white"}`}>{n.toString().padStart(2, '0')}</div>)}</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {t.numeros.map((n: number) => {
+                                      const isDrawn = eventoData?.bolas_sorteadas?.includes(n);
+                                      return (
+                                        <div key={n} className={cn(
+                                          "w-12 h-12 flex items-center justify-center border-2 rounded-2xl font-black text-lg transition-all shadow-sm",
+                                          isDrawn ? "bg-green-600 text-white border-green-700 scale-110" : "bg-white border-muted/20 text-muted-foreground/40"
+                                        )}>
+                                          {n.toString().padStart(2, '0')}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 ) : (
-                                  <div className="grid grid-cols-5 gap-2">{(t.palpite || '').split('-').map((g: string, i: number) => <div key={i} className="p-2 rounded-lg border-2 text-center font-black">{g}</div>)}</div>
+                                  <div className="grid grid-cols-5 gap-3">
+                                    {(t.palpite || '').split('-').map((g: string, i: number) => (
+                                      <div key={i} className="p-4 rounded-2xl border-2 text-center font-black text-xl shadow-sm bg-muted/10">
+                                        {g}
+                                      </div>
+                                    ))}
+                                  </div>
                                 )}
                              </div>
                              {(isWinner || isPending || isPaid) && (
-                               <div className={`p-6 rounded-2xl md:w-64 text-center flex flex-col justify-center gap-4 ${isWinner ? 'bg-green-600' : isPaid ? 'bg-blue-600' : 'bg-orange-600'} text-white shadow-lg`}>
+                               <div className={cn(
+                                 "p-8 rounded-[2rem] md:w-80 text-center flex flex-col justify-center gap-5 shadow-2xl",
+                                 isWinner ? 'bg-green-600' : isPaid ? 'bg-blue-600' : 'bg-orange-600',
+                                 "text-white"
+                               )}>
                                   {isWinner ? (
-                                    <><div><p className="text-[10px] font-black opacity-60">Valor do Prêmio:</p><p className="text-2xl font-black">R$ {t.valorPremio.toFixed(2)}</p></div><Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="CHAVE PIX" className="bg-white/10 text-white placeholder:text-white/40 font-black text-center" /><Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-xs h-12 w-full" disabled={claiming === t.id}>Resgatar Agora</Button></>
-                                  ) : isPaid ? (<p className="font-black uppercase text-lg">PAGAMENTO EFETUADO!</p>) : (<p className="font-black uppercase text-xs">AGUARDANDO LIBERAÇÃO NO PAINEL MASTER</p>)}
+                                    <>
+                                      <div>
+                                        <p className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">Seu Prêmio:</p>
+                                        <p className="text-4xl font-black">R$ {t.valorPremio.toFixed(2)}</p>
+                                      </div>
+                                      <div className="space-y-3">
+                                        <Input 
+                                          value={pixKey} 
+                                          onChange={e => setPixKey(e.target.value)} 
+                                          placeholder="CHAVE PIX" 
+                                          className="bg-white/10 text-white placeholder:text-white/40 font-black text-center h-14 border-none rounded-2xl" 
+                                        />
+                                        <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-sm h-14 w-full rounded-2xl shadow-xl" disabled={claiming === t.id}>
+                                          Resgatar Agora
+                                        </Button>
+                                      </div>
+                                    </>
+                                  ) : isPaid ? (
+                                    <div className="space-y-4">
+                                       <div className="bg-white/20 p-4 rounded-full w-fit mx-auto"><Database className="w-8 h-8" /></div>
+                                       <p className="font-black uppercase text-2xl leading-none">PAGAMENTO EFETUADO!</p>
+                                       <p className="text-[10px] font-bold opacity-60">Confira seu extrato bancário.</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-4">
+                                       <Clock className="w-10 h-10 mx-auto animate-pulse" />
+                                       <p className="font-black uppercase text-lg leading-tight">SOLICITAÇÃO DE RESGATE ENVIADA</p>
+                                       <p className="text-[10px] font-bold opacity-60 uppercase">Aguardando confirmação do administrador.</p>
+                                    </div>
+                                  )}
                                </div>
                              )}
                          </CardContent>
@@ -200,14 +282,32 @@ function ResultadosContent() {
                   })}
                 </div>
               </div>
-            ) : searched && (<div className="text-center py-20 opacity-20"><XCircle className="w-20 h-20 mx-auto mb-4" /><h3 className="font-black uppercase text-2xl">Não localizado</h3></div>)}
+            ) : searched && (
+              <div className="text-center py-24 bg-red-50 rounded-[3rem] border-2 border-dashed border-red-100">
+                <XCircle className="w-24 h-24 mx-auto mb-6 text-red-200" />
+                <h3 className="font-black uppercase text-3xl text-red-600 leading-none">Bilhete não encontrado</h3>
+                <p className="text-red-400 font-bold uppercase text-[10px] tracking-widest mt-4">Verifique o código e tente novamente</p>
+              </div>
+            )}
           </CardContent>
         </Card>
+        
+        <div className="text-center opacity-40 hover:opacity-100 transition-opacity">
+           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">© LEOBET PRO • AUDITORIA 365 DIAS • SUPABASE CLOUD</p>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function ResultadosPage() {
-  return (<Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-xs">Carregando Auditoria...</div>}><ResultadosContent /></Suspense>);
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">
+        Carregando Central de Auditoria...
+      </div>
+    }>
+      <ResultadosContent />
+    </Suspense>
+  );
 }

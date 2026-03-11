@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Send, Ticket as TicketIcon, Zap, Plus, Minus, Smartphone, Database } from 'lucide-react';
+import { ShoppingCart, Send, Ticket as TicketIcon, Zap, Plus, Minus, Smartphone, Database, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -124,8 +124,17 @@ export default function VendaPage() {
 
   const handleWhatsApp = () => {
     if (!vendaRealizada) return;
-    const link = `${window.location.origin}/resultados?c=${vendaRealizada.id}`;
-    const msg = `*LEOBET PRO*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}%0A%0A*VER ONLINE:* ${link}`;
+    const baseURL = "https://leobet-probets.vercel.app";
+    const link = `${baseURL}/resultados?c=${vendaRealizada.id}`;
+    
+    let premioMsg = "";
+    if (vendaRealizada.tipo === 'bingo') {
+      premioMsg = `%0A🏆 *PRÊMIO BINGO:* R$ ${vendaRealizada.detalhe_premios.bingo.toFixed(2)}`;
+    } else {
+      premioMsg = `%0A🏆 *PRÊMIO ACUMULADO:* R$ ${vendaRealizada.detalhe_premios.bolao.toFixed(2)}`;
+    }
+
+    const msg = `*LEOBET PRO*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}${premioMsg}%0A%0A*CONFERIR EM TEMPO REAL:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
   };
 
@@ -198,6 +207,7 @@ export default function VendaPage() {
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>EVENTO:</span> <span className="max-w-[150px] truncate">{vendaRealizada.evento_nome}</span></p>
                       <p className="flex justify-between"><span>TOTAL:</span> <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span></p>
+                      <p className="flex justify-between text-primary"><span>LINK:</span> <span className="text-[7px]">leobet-probets.vercel.app</span></p>
                    </div>
                    <div className="text-center py-4 border-t-2 border-dashed border-black/20">
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6 py-1 rounded-full">{vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}</Badge>
@@ -208,7 +218,14 @@ export default function VendaPage() {
                    </div>
                 </div>
               ) : (
-                <div className="hidden md:flex h-full min-h-[400px] flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white"><TicketIcon className="w-20 h-20 text-primary mb-4" /><h3 className="text-sm font-black uppercase text-primary text-center px-12">Aguardando Venda</h3></div>
+                <div className="hidden md:flex h-full min-h-[400px] flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
+                  <TicketIcon className="w-20 h-20 text-primary mb-4" />
+                  <h3 className="text-sm font-black uppercase text-primary text-center px-12 leading-tight">Aguardando Emissão de Bilhete</h3>
+                  <div className="mt-4 flex flex-col items-center gap-2 opacity-40">
+                    <Database className="w-4 h-4" />
+                    <span className="text-[8px] font-black uppercase tracking-widest text-primary">leobet-probets.vercel.app</span>
+                  </div>
+                </div>
               )}
             </div>
           </div>

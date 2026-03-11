@@ -28,23 +28,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ReactNode;
+  icon: React.ElementType;
   roles: string[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Meu Painel', href: '/gerente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['gerente'] },
-  { label: 'Minha Rede', href: '/gerente/cambistas', icon: <Users className="w-5 h-5" />, roles: ['gerente'] },
-  { label: 'Meu Painel', href: '/cambista/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cambista'] },
-  { label: 'Área do Apostador', href: '/cliente/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['cliente'] },
-  { label: 'Terminal Vendas', href: '/admin/venda', icon: <ShoppingCart className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente'] },
-  { label: 'Relatórios', href: '/relatorios', icon: <FileText className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
-  { label: 'Conferir Bilhete', href: '/resultados', icon: <Search className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
-  { label: 'Meu Perfil', href: '/perfil', icon: <UserCircle className="w-5 h-5" />, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
-  { label: 'Gestão Bingos', href: '/admin/bingo', icon: <Grid3X3 className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Gestão Bolões', href: '/admin/bolao', icon: <Trophy className="w-5 h-5" />, roles: ['admin'] },
-  { label: 'Financeiro Master', href: '/admin/financeiro', icon: <Wallet className="w-5 h-5" />, roles: ['admin'] },
+  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, roles: ['admin'] },
+  { label: 'Meu Painel', href: '/gerente/dashboard', icon: LayoutDashboard, roles: ['gerente'] },
+  { label: 'Minha Rede', href: '/gerente/cambistas', icon: Users, roles: ['gerente'] },
+  { label: 'Meu Painel', href: '/cambista/dashboard', icon: LayoutDashboard, roles: ['cambista'] },
+  { label: 'Área do Apostador', href: '/cliente/dashboard', icon: LayoutDashboard, roles: ['cliente'] },
+  { label: 'Terminal Vendas', href: '/admin/venda', icon: ShoppingCart, roles: ['admin', 'cambista', 'gerente'] },
+  { label: 'Relatórios', href: '/relatorios', icon: FileText, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
+  { label: 'Conferir Bilhete', href: '/resultados', icon: Search, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
+  { label: 'Meu Perfil', href: '/perfil', icon: UserCircle, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
+  { label: 'Gestão Bingos', href: '/admin/bingo', icon: Grid3X3, roles: ['admin'] },
+  { label: 'Gestão Bolões', href: '/admin/bolao', icon: Trophy, roles: ['admin'] },
+  { label: 'Financeiro Master', href: '/admin/financeiro', icon: Wallet, roles: ['admin'] },
 ];
 
 export function SidebarNav() {
@@ -54,7 +54,6 @@ export function SidebarNav() {
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Persistir estado do menu no PC
   useEffect(() => {
     const saved = localStorage.getItem('leobet_sidebar_collapsed');
     if (saved === 'true') setIsCollapsed(true);
@@ -78,11 +77,11 @@ export function SidebarNav() {
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="flex flex-col h-full bg-white transition-all duration-300">
       <div className={cn(
-        "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0",
+        "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
         collapsed ? "p-4 items-center justify-center" : "p-6"
       )}>
         <h2 className={cn(
-          "font-black font-headline tracking-tighter transition-all duration-300 leading-none",
+          "font-black font-headline tracking-tighter transition-all duration-300 leading-none whitespace-nowrap",
           collapsed ? "text-xl" : "text-2xl"
         )}>
           {collapsed ? "LB" : "LEOBET PRO"}
@@ -90,36 +89,41 @@ export function SidebarNav() {
         {!collapsed && (
           <div className="flex items-center gap-2 mt-2">
              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-             <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{user.role}</p>
+             <p className="text-[10px] font-black uppercase tracking-widest opacity-70 truncate">{user.role}</p>
           </div>
         )}
       </div>
       
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
         <TooltipProvider delayDuration={0}>
-          {filteredItems.map((item) => (
-            <Tooltip key={item.href} disableHoverableContent={!collapsed}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-black transition-all uppercase tracking-tight relative group",
-                    pathname === item.href 
-                      ? "bg-primary text-white shadow-lg" 
-                      : "text-muted-foreground hover:bg-muted",
-                    collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
-                  )}
-                >
-                  <div className="shrink-0">{item.icon}</div>
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary">
-                {item.label}
-              </TooltipContent>
-            </Tooltip>
-          ))}
+          {filteredItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Tooltip key={item.href} disableHoverableContent={!collapsed}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-black transition-all uppercase tracking-tight relative group overflow-hidden",
+                      pathname === item.href 
+                        ? "bg-primary text-white shadow-lg" 
+                        : "text-muted-foreground hover:bg-muted",
+                      collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
+                    )}
+                  >
+                    <div className="shrink-0"><Icon className="w-5 h-5" /></div>
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </Link>
+                </TooltipTrigger>
+                {collapsed && (
+                  <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary text-white">
+                    {item.label}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            );
+          })}
         </TooltipProvider>
       </nav>
 
@@ -130,7 +134,7 @@ export function SidebarNav() {
               <button
                 onClick={handleLogout}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-4 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase",
+                  "flex items-center gap-3 px-4 py-4 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase overflow-hidden",
                   collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
                 )}
               >
@@ -138,18 +142,19 @@ export function SidebarNav() {
                 {!collapsed && <span>Sair</span>}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="font-black uppercase text-[10px] bg-destructive text-white">
-              Sair do Sistema
-            </TooltipContent>
+            {collapsed && (
+              <TooltipContent side="right" className="font-black uppercase text-[10px] bg-destructive text-white border-none">
+                Sair do Sistema
+              </TooltipContent>
+            )}
           </Tooltip>
         </TooltipProvider>
         
-        {/* Toggle Button for Desktop/Tablet */}
         <button 
           onClick={toggleCollapse}
           className="hidden md:flex items-center justify-center w-full h-10 text-muted-foreground hover:text-primary transition-colors bg-white/50 rounded-xl border border-dashed border-muted-foreground/20"
         >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
     </div>
@@ -157,7 +162,6 @@ export function SidebarNav() {
 
   return (
     <>
-      {/* Mobile Trigger - Escondido em telas maiores que MD (768px) */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -171,7 +175,6 @@ export function SidebarNav() {
         </Sheet>
       </div>
 
-      {/* Desktop/Tablet Sidebar - Ocupa menos espaço se estiver 'collapsed' */}
       <div className={cn(
         "hidden md:flex border-r h-full flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 bg-white ease-in-out",
         isCollapsed ? "w-20" : "w-64"
