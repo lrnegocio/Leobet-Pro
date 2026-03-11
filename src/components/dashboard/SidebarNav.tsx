@@ -18,7 +18,8 @@ import {
   FileText,
   Menu,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
@@ -41,10 +42,11 @@ const navItems: NavItem[] = [
   { label: 'Terminal Vendas', href: '/admin/venda', icon: ShoppingCart, roles: ['admin', 'cambista', 'gerente'] },
   { label: 'Relatórios', href: '/relatorios', icon: FileText, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: Search, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
-  { label: 'Meu Perfil', href: '/perfil', icon: UserCircle, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Gestão Bingos', href: '/admin/bingo', icon: Grid3X3, roles: ['admin'] },
   { label: 'Gestão Bolões', href: '/admin/bolao', icon: Trophy, roles: ['admin'] },
   { label: 'Financeiro Master', href: '/admin/financeiro', icon: Wallet, roles: ['admin'] },
+  { label: 'Configurações', href: '/admin/settings', icon: SettingsIcon, roles: ['admin'] },
+  { label: 'Meu Perfil', href: '/perfil', icon: UserCircle, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
 ];
 
 export function SidebarNav() {
@@ -75,7 +77,7 @@ export function SidebarNav() {
   };
 
   const NavContent = ({ collapsed = false, isMobile = false }: { collapsed?: boolean, isMobile?: boolean }) => (
-    <div className="flex flex-col h-full bg-white transition-all duration-300 relative border-r">
+    <div className="flex flex-col h-full bg-white transition-all duration-300 relative">
       <div className={cn(
         "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
         collapsed ? "p-4 items-center justify-center" : "p-6"
@@ -150,17 +152,6 @@ export function SidebarNav() {
           </Tooltip>
         </TooltipProvider>
       </div>
-
-      {/* BOTÃO DE ENCOLHER CENTRALIZADO NA BORDA DIREITA (DESKTOP) */}
-      {!isMobile && (
-        <button 
-          onClick={toggleCollapse}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50 group"
-          title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </button>
-      )}
     </div>
   );
 
@@ -182,10 +173,19 @@ export function SidebarNav() {
 
       {/* Sidebar Desktop */}
       <div className={cn(
-        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative",
+        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative border-r",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <NavContent collapsed={isCollapsed} isMobile={false} />
+        
+        {/* BOTÃO DE ENCOLHER CENTRALIZADO NA BORDA DIREITA (DESKTOP) */}
+        <button 
+          onClick={toggleCollapse}
+          className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50 group"
+          title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </button>
       </div>
     </>
   );
