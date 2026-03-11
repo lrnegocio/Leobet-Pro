@@ -157,7 +157,7 @@ export function SidebarNav() {
 
   return (
     <>
-      <div className="md:hidden fixed top-4 left-4 z-50">
+      <div className="md:hidden fixed top-4 left-4 z-50 print:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary">
@@ -171,7 +171,7 @@ export function SidebarNav() {
       </div>
 
       <aside className={cn(
-        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative bg-white",
+        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative bg-white print:hidden",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <NavContent collapsed={isCollapsed} />
