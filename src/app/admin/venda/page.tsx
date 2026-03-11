@@ -15,13 +15,15 @@ import {
   Minus, 
   Printer, 
   Database, 
-  Trophy,
-  Info
+  Bluetooth,
+  RefreshCcw,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
+import { cn } from '@/lib/utils';
 
 export default function VendaPage() {
   const { toast } = useToast();
@@ -32,6 +34,10 @@ export default function VendaPage() {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   
+  const [btDevice, setBtDevice] = useState<any>(null);
+  const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
+  const [btConnecting, setBtConnecting] = useState(false);
+
   const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -85,6 +91,91 @@ export default function VendaPage() {
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
       console.error("Erro ao carregar eventos:", err);
+    }
+  };
+
+  const connectPrinter = async () => {
+    setBtConnecting(true);
+    try {
+      // @ts-ignore
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] }],
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+      }).catch(async () => {
+        // @ts-ignore
+        return await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] });
+      });
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb').catch(async () => {
+         return await server.getPrimaryService('0000ff00-0000-1000-8000-00805f9b34fb');
+      });
+      
+      const characteristics = await service.getCharacteristics();
+      const writeChar = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
+
+      if (writeChar) {
+        setBtDevice(device);
+        setBtCharacteristic(writeChar);
+        toast({ title: "IMPRESSORA CONECTADA!", description: device.name });
+      }
+    } catch (err: any) {
+      console.error("Erro BT:", err);
+      toast({ variant: "destructive", title: "ERRO AO PAREAR", description: "Verifique se o Bluetooth está ligado." });
+    } finally {
+      setBtConnecting(false);
+    }
+  };
+
+  const printBluetooth = async (data: any) => {
+    if (!btCharacteristic) return;
+
+    try {
+      const encoder = new TextEncoder();
+      const separator = "--------------------------------\n";
+      const header = "      LEOBET PRO OFICIAL\n";
+      const subHeader = "       RECIBO DE APOSTA\n";
+      
+      let text = header + subHeader + separator;
+      text += `COD: #${data.id}\n`;
+      text += `DATA: ${new Date(data.created_at).toLocaleString()}\n`;
+      text += `CLIENTE: ${data.cliente}\n`;
+      text += `EVENTO: ${data.evento_nome}\n`;
+      text += separator;
+      
+      if (data.tipo === 'bingo') {
+        text += `BINGO: R$ ${data.detalhe_premios.bingo.toFixed(2)}\n`;
+        text += `QUINA: R$ ${data.detalhe_premios.quina.toFixed(2)}\n`;
+        text += `QUADRA: R$ ${data.detalhe_premios.quadra.toFixed(2)}\n`;
+        text += separator;
+        data.tickets_data.forEach((t: any, i: number) => {
+          text += `BILHETE ${i+1}: ${t.numeros.join(' ')}\n`;
+        });
+      } else {
+        text += `PREMIO: R$ ${data.detalhe_premios.bolao.toFixed(2)}\n`;
+        text += separator;
+        data.tickets_data.forEach((t: any, i: number) => {
+          text += `BILHETE ${i+1}: ${t.palpite || '---'}\n`;
+        });
+      }
+      
+      text += separator;
+      text += `TOTAL PAGO: R$ ${data.valor_total.toFixed(2)}\n`;
+      text += `STATUS: ${data.status.toUpperCase()}\n`;
+      text += separator;
+      text += "   leobet-probets.vercel.app\n";
+      text += "\n\n\n";
+
+      const bytes = encoder.encode(text);
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        const chunk = bytes.slice(i, i + CHUNK_SIZE);
+        await btCharacteristic.writeValue(chunk);
+      }
+      
+      toast({ title: "IMPRESSÃO ENVIADA!" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO NA IMPRESSORA", description: err.message });
     }
   };
 
@@ -163,8 +254,13 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "BILHETE EMITIDO COM SUCESSO!" });
+      toast({ title: "BILHETE EMITIDO!" });
       updatePrizes(formData.eventoId, formData.tipo);
+
+      if (btCharacteristic) {
+        printBluetooth(receipt);
+      }
+
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO NA EMISSÃO", description: err.message });
     } finally {
@@ -187,56 +283,66 @@ export default function VendaPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (!mounted) return null;
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 md:pt-8 bg-white md:bg-muted/30 print:p-0">
-        <div className="max-w-5xl mx-auto space-y-6 print:max-w-full">
+      <main className="flex-1 overflow-auto p-2 md:p-8 pt-2 md:pt-8 bg-white md:bg-muted/30 print:p-0">
+        <div className="max-w-5xl mx-auto space-y-4 print:max-w-full">
           
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm md:hidden border-2 border-primary/5 print:hidden">
-              <h1 className="font-black uppercase text-sm text-primary">Vendas</h1>
-              <Badge className="bg-primary text-white font-black text-[10px] px-3 h-8">
-                R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
-              </Badge>
+          <div className="bg-white p-3 rounded-2xl shadow-sm border-2 border-primary/5 flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded-full", btCharacteristic ? "bg-green-100" : "bg-muted")}>
+                  <Bluetooth className={cn("w-5 h-5", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Bluetooth</p>
+                   <p className="text-xs font-black text-primary">{btDevice ? btDevice.name : "NÃO CONECTADO"}</p>
+                </div>
+              </div>
+              <Button 
+                onClick={connectPrinter} 
+                disabled={btConnecting}
+                variant={btCharacteristic ? "outline" : "default"}
+                className="h-10 px-4 font-black uppercase text-[10px] rounded-xl"
+              >
+                {btConnecting ? <RefreshCcw className="animate-spin w-4 h-4 mr-2" /> : (btCharacteristic ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <Bluetooth className="w-4 h-4 mr-2" />)}
+                {btCharacteristic ? "Alterar" : "Conectar"}
+              </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block">
-            <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary print:hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block">
+            <Card className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary print:hidden">
               <CardContent className="p-6 md:p-8">
-                <form onSubmit={handleVenda} className="space-y-6">
+                <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="uppercase text-[10px] font-black opacity-60">Nome Apostador</Label>
+                      <Label className="uppercase text-[9px] font-black opacity-60">Apostador</Label>
                       <input 
                         value={formData.cliente} 
                         onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} 
                         required 
-                        className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
+                        className="w-full h-12 font-bold rounded-xl border-2 px-4 text-md focus:border-primary outline-none" 
                         placeholder="NOME"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="uppercase text-[10px] font-black opacity-60">WhatsApp</Label>
+                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp</Label>
                       <input 
                         value={formData.whatsapp} 
                         onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
                         required 
-                        className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
+                        className="w-full h-12 font-bold rounded-xl border-2 px-4 text-md focus:border-primary outline-none" 
                         placeholder="DDD + NÚMERO"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[10px] font-black opacity-60">Escolha o Sorteio</Label>
+                    <Label className="uppercase text-[9px] font-black opacity-60">Evento Ativo</Label>
                     <select 
-                      className="w-full h-16 border-2 rounded-2xl px-4 font-black bg-white appearance-none text-primary focus:ring-2 focus:ring-primary text-sm" 
+                      className="w-full h-14 border-2 rounded-xl px-4 font-black bg-white appearance-none text-primary focus:ring-2 focus:ring-primary text-xs" 
                       value={formData.eventoId} 
                       onChange={e => handleSelectEvent(e.target.value)} 
                       required
@@ -251,68 +357,68 @@ export default function VendaPage() {
                   </div>
 
                   {selectedEvent && (
-                    <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 space-y-4 animate-in fade-in duration-300">
-                       <p className="text-[10px] font-black uppercase text-primary text-center">Prêmios Acumulados</p>
+                    <div className="p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 space-y-3 animate-in fade-in duration-300">
+                       <p className="text-[9px] font-black uppercase text-primary text-center">Prêmios Acumulados (65%)</p>
                        {selectedEvent.tipo === 'bingo' ? (
                          <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-white p-3 rounded-xl border text-center">
-                               <p className="text-[8px] font-black opacity-40 uppercase">BINGO</p>
-                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.bingo.toFixed(2)}</p>
+                            <div className="bg-white p-2 rounded-xl border text-center">
+                               <p className="text-[7px] font-black opacity-40 uppercase">BINGO</p>
+                               <p className="font-black text-primary text-[10px]">R$ {prizes.bingo.toFixed(2)}</p>
                             </div>
-                            <div className="bg-white p-3 rounded-xl border text-center">
-                               <p className="text-[8px] font-black opacity-40 uppercase">QUINA</p>
-                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.quina.toFixed(2)}</p>
+                            <div className="bg-white p-2 rounded-xl border text-center">
+                               <p className="text-[7px] font-black opacity-40 uppercase">QUINA</p>
+                               <p className="font-black text-primary text-[10px]">R$ {prizes.quina.toFixed(2)}</p>
                             </div>
-                            <div className="bg-white p-3 rounded-xl border text-center">
-                               <p className="text-[8px] font-black opacity-40 uppercase">QUADRA</p>
-                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.quadra.toFixed(2)}</p>
+                            <div className="bg-white p-2 rounded-xl border text-center">
+                               <p className="text-[7px] font-black opacity-40 uppercase">QUADRA</p>
+                               <p className="font-black text-primary text-[10px]">R$ {prizes.quadra.toFixed(2)}</p>
                             </div>
                          </div>
                        ) : (
-                         <div className="bg-white p-4 rounded-xl border flex justify-between items-center">
-                            <p className="text-[10px] font-black opacity-40 uppercase">ACUMULADO</p>
-                            <p className="font-black text-green-600 text-lg md:text-xl">R$ {prizes.bolao.toFixed(2)}</p>
+                         <div className="bg-white p-3 rounded-xl border flex justify-between items-center">
+                            <p className="text-[9px] font-black opacity-40 uppercase">ACUMULADO</p>
+                            <p className="font-black text-green-600 text-lg">R$ {prizes.bolao.toFixed(2)}</p>
                          </div>
                        )}
 
                        {selectedEvent.tipo === 'bingo' && (
                          <div className="space-y-2 pt-2 border-t border-primary/10">
-                            <Label className="uppercase text-[10px] font-black text-primary text-center block">Qtd. Cartelas</Label>
-                            <div className="flex items-center gap-4 justify-center">
-                               <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-12 w-12 rounded-xl border-2 bg-white"><Minus /></Button>
+                            <Label className="uppercase text-[9px] font-black text-primary text-center block">Qtd. Cartelas</Label>
+                            <div className="flex items-center gap-3 justify-center">
+                               <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-10 w-10 rounded-lg border-2 bg-white"><Minus /></Button>
                                <input 
                                  type="number" 
                                  value={quantity} 
                                  onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} 
-                                 className="h-12 text-center text-xl font-black border-2 rounded-xl w-20 bg-white" 
+                                 className="h-10 text-center text-lg font-black border-2 rounded-lg w-16 bg-white" 
                                />
-                               <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-12 w-12 rounded-xl border-2 bg-white"><Plus /></Button>
+                               <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-10 w-10 rounded-lg border-2 bg-white"><Plus /></Button>
                             </div>
                          </div>
                        )}
                     </div>
                   )}
 
-                  <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 text-center">
-                     <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Total da Aposta</p>
-                     <p className="text-4xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
+                  <div className="bg-primary/5 p-4 rounded-xl border-2 border-primary/10 text-center">
+                     <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Valor Final</p>
+                     <p className="text-3xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-2xl rounded-2xl bg-primary text-white" disabled={loading}>
-                    {loading ? "GERANDO..." : "EMITIR APOSTA"}
+                  <Button type="submit" className="w-full h-14 font-black uppercase text-md shadow-lg rounded-xl bg-primary text-white" disabled={loading}>
+                    {loading ? "PROCESSANDO..." : "EMITIR APOSTA"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {vendaRealizada ? (
                 <div className="space-y-4 animate-in zoom-in-95 duration-300">
                   <div id="receipt-content" className="bg-[#FFFFF4] p-6 shadow-2xl border border-black/10 font-mono rounded-3xl relative overflow-hidden print:shadow-none print:border-none print:p-0 print:rounded-none">
                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 -mr-12 -mt-12 rounded-full"></div>
                      
                      <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
-                        <p className="text-2xl font-black text-primary uppercase">LEOBET PRO</p>
+                        <p className="text-xl font-black text-primary uppercase">LEOBET PRO</p>
                         <p className="font-bold uppercase tracking-widest text-[8px] opacity-60">Recibo Oficial</p>
                      </div>
 
@@ -328,23 +434,23 @@ export default function VendaPage() {
                      </div>
 
                      <div className="p-3 bg-primary/5 rounded-xl mb-6 space-y-1.5 border border-primary/10">
-                        <p className="text-[8px] font-black uppercase text-primary text-center">Prêmios Estimados</p>
+                        <p className="text-[8px] font-black uppercase text-primary text-center">Prêmios em Jogo</p>
                         {vendaRealizada.tipo === 'bingo' ? (
                           <div className="grid grid-cols-3 gap-1">
-                            <div className="text-center"><p className="text-[6px] opacity-60">BINGO</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[6px] opacity-60">QUINA</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[6px] opacity-60">QUADRA</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.quadra.toFixed(2)}</p></div>
+                            <div className="text-center"><p className="text-[6px] opacity-60">BINGO</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</p></div>
+                            <div className="text-center"><p className="text-[6px] opacity-60">QUINA</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}</p></div>
+                            <div className="text-center"><p className="text-[6px] opacity-60">QUADRA</p><p className="font-black text-[8px]">R$ {vendaRealizada.detalhe_premios.quadra.toFixed(2)}</p></div>
                           </div>
                         ) : (
                           <div className="text-center">
                             <p className="text-[6px] opacity-60 uppercase">ACUMULADO</p>
-                            <p className="font-black text-[11px]">R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}</p>
+                            <p className="font-black text-[10px]">R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}</p>
                           </div>
                         )}
                      </div>
 
                      <div className="text-center py-4 border-y-2 border-dashed border-black/20 mb-6">
-                        <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6 py-2 rounded-full text-[9px]">
+                        <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6 py-1.5 rounded-full text-[8px]">
                           {vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}
                         </Badge>
                      </div>
@@ -355,23 +461,28 @@ export default function VendaPage() {
                      </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 print:hidden">
-                      <Button onClick={handleWhatsApp} className="h-14 bg-green-600 font-black uppercase text-xs rounded-2xl">
+                  <div className="grid grid-cols-2 gap-2 print:hidden">
+                      <Button onClick={handleWhatsApp} className="h-12 bg-green-600 font-black uppercase text-[10px] rounded-xl">
                         <Send className="w-4 h-4 mr-2" /> WhatsApp
                       </Button>
-                      <Button onClick={handlePrint} variant="outline" className="h-14 border-2 font-black uppercase text-xs rounded-2xl">
-                        <Printer className="w-4 h-4 mr-2" /> Imprimir
+                      <Button onClick={() => window.print()} variant="outline" className="h-12 border-2 font-black uppercase text-[10px] rounded-xl">
+                        <Printer className="w-4 h-4 mr-2" /> Impressão Local
                       </Button>
-                      <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="col-span-2 h-12 font-black uppercase text-[10px] rounded-2xl border">
-                        Nova Venda
+                      {btCharacteristic && (
+                        <Button onClick={() => printBluetooth(vendaRealizada)} className="col-span-2 h-12 bg-primary font-black uppercase text-[10px] rounded-xl">
+                          <Bluetooth className="w-4 h-4 mr-2" /> Re-Imprimir Bluetooth
+                        </Button>
+                      )}
+                      <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="col-span-2 h-10 font-black uppercase text-[9px] rounded-xl border">
+                        Novo Bilhete
                       </Button>
                   </div>
                 </div>
               ) : (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white print:hidden">
-                  <TicketIcon className="w-20 h-20 text-primary mb-6" />
-                  <h3 className="text-xl font-black uppercase text-primary text-center">Terminal Pronto</h3>
-                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Sincronizado via Supabase</p>
+                <div className="h-full min-h-[300px] flex flex-col items-center justify-center border-4 border-dashed rounded-[2.5rem] opacity-20 bg-white print:hidden">
+                  <TicketIcon className="w-16 h-16 text-primary mb-4" />
+                  <h3 className="text-lg font-black uppercase text-primary text-center">Terminal Pronto</h3>
+                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Pronto para emitir bilhetes</p>
                 </div>
               )}
             </div>
