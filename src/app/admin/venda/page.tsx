@@ -46,13 +46,13 @@ export default function VendaPage() {
     const eventSales = allTickets.filter((t: any) => String(t.eventoId) === String(eventId) && t.status === 'pago');
     const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
     
-    // MATEMÁTICA DE PRECISÃO: Arredondar sempre para baixo para evitar furos de centavos
+    // MATEMÁTICA DE PRECISÃO: Elimina meios centavos
     const totalNet = Math.floor(totalPaid * 0.65 * 100) / 100;
 
     if (type === 'bingo') {
       const bingoVal = Math.floor(totalNet * 0.50 * 100) / 100;
       const quinaVal = Math.floor(totalNet * 0.30 * 100) / 100;
-      const quadraVal = Number((totalNet - bingoVal - quinaVal).toFixed(2)); // Residuo exato
+      const quadraVal = Number((totalNet - bingoVal - quinaVal).toFixed(2));
 
       setPrizes({
         totalNet: totalNet,
@@ -230,13 +230,14 @@ export default function VendaPage() {
   const handleWhatsApp = () => {
     if (!vendaRealizada) return;
     const host = window.location.origin;
-    const link = `${host}/resultados?c=${vendaRealizada.id}`;
+    const firstTicketId = vendaRealizada.tickets[0].id;
+    const link = `${host}/resultados?c=${firstTicketId}`;
     
     let prizesText = '';
     if (vendaRealizada.tipo === 'bingo') {
-      prizesText = `%0A%0A*PRÊMIOS LÍQUIDOS AGORA:*%0A🎯 BINGO: R$ ${prizes.bingo.toFixed(2)}%0A✋ QUINA: R$ ${prizes.quina.toFixed(2)}%0A🍀 QUADRA: R$ ${prizes.quadra.toFixed(2)}`;
+      prizesText = `%0A%0A*PRÊMIOS LÍQUIDOS:*%0A🎯 BINGO: R$ ${vendaRealizada.detalhePremios.bingo.toFixed(2)}%0A✋ QUINA: R$ ${vendaRealizada.detalhePremios.quina.toFixed(2)}%0A🍀 QUADRA: R$ ${vendaRealizada.detalhePremios.quadra.toFixed(2)}`;
     } else {
-      prizesText = `%0A%0A*PRÊMIO ACUMULADO:* R$ ${prizes.bolao.toFixed(2)}`;
+      prizesText = `%0A%0A*PRÊMIO ACUMULADO:* R$ ${vendaRealizada.detalhePremios.bolao.toFixed(2)}`;
     }
 
     let message = `*LEOBET PRO - RECIBO OFICIAL*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A📦 *QTD:* ${vendaRealizada.qtd} bilhete(s)%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADA' : 'PENDENTE'}${prizesText}%0A%0A*CONFERIR ONLINE:* ${link}`;
@@ -264,7 +265,7 @@ export default function VendaPage() {
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-center gap-3">
                     <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
-                    <p className="text-[9px] font-black text-orange-800 uppercase leading-tight">DADOS OBRIGATÓRIOS PARA LOCALIZAÇÃO EM CASO DE PRÊMIO.</p>
+                    <p className="text-[9px] font-black text-orange-800 uppercase leading-tight">DADOS OBRIGATÓRIOS PARA GARANTIR A ENTREGA DO PRÊMIO MESMO EM CASO DE PERDA DO RECIBO.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -309,25 +310,25 @@ export default function VendaPage() {
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-2xl border-2 border-primary/10 space-y-4">
-                       <h3 className="font-black uppercase text-xs flex items-center gap-2 text-primary"><Zap className="w-4 h-4 text-accent fill-accent" /> Prêmios Líquidos Atuais (65%)</h3>
+                       <h3 className="font-black uppercase text-xs flex items-center gap-2 text-primary"><Zap className="w-4 h-4 text-accent fill-accent" /> Estimativa de Prêmios Líquidos (65%)</h3>
                        {selectedEvent.tipo === 'bingo' ? (
                          <div className="grid grid-cols-3 gap-2">
                             <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black uppercase opacity-60">BINGO</p>
+                               <p className="text-[7px] font-black uppercase opacity-60">BINGO (50%)</p>
                                <p className="text-xs font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
                             </div>
                             <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black uppercase opacity-60">QUINA</p>
+                               <p className="text-[7px] font-black uppercase opacity-60">QUINA (30%)</p>
                                <p className="text-xs font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
                             </div>
                             <div className="bg-white p-2 rounded-xl border text-center">
-                               <p className="text-[7px] font-black uppercase opacity-60">QUADRA</p>
+                               <p className="text-[7px] font-black uppercase opacity-60">QUADRA (20%)</p>
                                <p className="text-xs font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
                             </div>
                          </div>
                        ) : (
                          <div className="bg-white p-4 rounded-xl border flex justify-between items-center">
-                            <p className="text-xs font-black uppercase text-primary">PRÊMIO ACUMULADO</p>
+                            <p className="text-xs font-black uppercase text-primary">PRÊMIO ÚNICO ACUMULADO</p>
                             <p className="text-xl font-black text-green-600">R$ {prizes.bolao.toFixed(2)}</p>
                          </div>
                        )}
@@ -355,7 +356,7 @@ export default function VendaPage() {
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90 text-white" disabled={loading}>
-                    {loading ? "GERANDO..." : "FINALIZAR BILHETE"}
+                    {loading ? "GERANDO..." : "FINALIZAR E GERAR BILHETE"}
                   </Button>
                 </form>
               </CardContent>
@@ -396,20 +397,20 @@ export default function VendaPage() {
                       ) : (
                         <p className="text-2xl font-black">R$ {vendaRealizada.detalhePremios.bolao.toFixed(2)}</p>
                       )}
-                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-1 rounded-full">
-                         {vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}
+                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-1 rounded-full mt-4">
+                         {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO SALDO'}
                       </Badge>
                    </div>
 
                    <div className="mt-8 flex flex-col gap-2 print:hidden">
-                      <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg"><Send className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                      <Button onClick={() => window.print()} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2"><Smartphone className="w-4 h-4 mr-2" /> Impressão</Button>
+                      <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg"><Send className="w-4 h-4 mr-2" /> Enviar WhatsApp</Button>
+                      <Button onClick={() => window.print()} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2"><Smartphone className="w-4 h-4 mr-2" /> Impressão Bluetooth</Button>
                    </div>
                 </div>
               ) : (
                 <div className="h-full min-h-[500px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3.5rem] opacity-20 bg-white">
                    <TicketIcon className="w-24 h-24 text-primary mb-6" />
-                   <h3 className="text-xl font-black uppercase text-primary text-center px-12">Aguardando Seleção</h3>
+                   <h3 className="text-xl font-black uppercase text-primary text-center px-12">Selecione o Evento</h3>
                 </div>
               )}
             </div>
