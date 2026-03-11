@@ -17,6 +17,7 @@ git branch -M main
 git remote add origin https://github.com/lrnegocio/Leobet-Pro.git
 git push -u origin main
 ```
+*Ao pedir o login, use seu e-mail do GitHub e no campo **Password**, cole o **Token** que você gerou.*
 
 ### 2. Deploy na Vercel
 1. Vá para [vercel.com](https://vercel.com) e faça login com seu GitHub.
@@ -30,8 +31,7 @@ git push -u origin main
 ## 🛠️ Tecnologias
 - **Frontend**: Next.js 15 (App Router)
 - **Styling**: Tailwind CSS + ShadCN UI
-- **Database/Auth**: Preparado para Supabase / Firebase
-- **Persistence**: LocalStorage (Modo de Alta Performance)
+- **Persistência**: LocalStorage (Modo de Alta Performance)
 
 ## 📡 Integrações
 - **WhatsApp**: Envio de comprovantes automáticos com palpites detalhados e prêmios.
