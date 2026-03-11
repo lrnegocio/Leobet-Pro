@@ -66,11 +66,13 @@ export function SidebarNav() {
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    localStorage.setItem('leobet_sidebar_collapsed', String(newState));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('leobet_sidebar_collapsed', String(newState));
+    }
   };
 
   if (!mounted || !user) {
-    return null; // Evita Internal Server Error por Hydration
+    return null; 
   }
 
   const filteredItems = navItems.filter(item => item.roles.includes(user.role));
@@ -124,7 +126,7 @@ export function SidebarNav() {
                   </Link>
                 </TooltipTrigger>
                 {collapsed && (
-                  <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary text-white border-none">
+                  <TooltipContent side="right" className="font-black uppercase text-[10px] bg-primary text-white border-none z-[100]">
                     {item.label}
                   </TooltipContent>
                 )}
@@ -147,10 +149,9 @@ export function SidebarNav() {
         </button>
       </div>
 
-      {/* BOTÃO DE COLAPSO CENTRALIZADO NA BORDA (PC APENAS) */}
       <button 
         onClick={toggleCollapse}
-        className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50"
+        className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-[60]"
       >
         {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
       </button>
@@ -159,7 +160,6 @@ export function SidebarNav() {
 
   return (
     <>
-      {/* Botão flutuante mobile no topo */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -173,7 +173,6 @@ export function SidebarNav() {
         </Sheet>
       </div>
 
-      {/* Sidebar Desktop */}
       <aside className={cn(
         "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative border-r bg-white",
         isCollapsed ? "w-20" : "w-64"
