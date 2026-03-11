@@ -27,6 +27,18 @@ function ResultadosContent() {
   const [pixKey, setPixKey] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [eventoData, setEventoData] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const savedSettings = localStorage.getItem('leobet_settings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setYoutubeUrl(parsed.youtubeUrl || '');
+      } catch (e) {}
+    }
+  }, []);
 
   const handleSearch = async (searchCode?: string) => {
     const codeToSearch = (searchCode || code).trim().toUpperCase();
@@ -59,20 +71,14 @@ function ResultadosContent() {
   };
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('leobet_settings');
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setYoutubeUrl(parsed.youtubeUrl || '');
-      } catch (e) {}
+    if (mounted) {
+      const ticketCode = searchParams.get('c');
+      if (ticketCode) { 
+        setCode(ticketCode); 
+        handleSearch(ticketCode); 
+      }
     }
-    
-    const ticketCode = searchParams.get('c');
-    if (ticketCode) { 
-      setCode(ticketCode); 
-      handleSearch(ticketCode); 
-    }
-  }, [searchParams]);
+  }, [searchParams, mounted]);
 
   const handleClaim = async (ticketId: string) => {
     if (!pixKey || pixKey.trim().length < 5) {
@@ -103,7 +109,7 @@ function ResultadosContent() {
   };
 
   const handleGoBack = () => {
-    if (user && user.id !== 'admin-master') {
+    if (user && user.id) {
       if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') {
         router.push('/admin/venda');
       } else {
@@ -113,6 +119,8 @@ function ResultadosContent() {
       router.push('/');
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-muted/30 p-2 md:p-8 flex flex-col items-center font-body pb-32">

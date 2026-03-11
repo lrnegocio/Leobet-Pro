@@ -151,6 +151,7 @@ export function SidebarNav() {
 
       <button 
         onClick={toggleCollapse}
+        type="button"
         className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-[60]"
       >
         {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}

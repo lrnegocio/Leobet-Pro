@@ -52,7 +52,7 @@
 /* Mobile Screen Maximization */
 @media (max-width: 768px) {
   main {
-    padding: 1rem !important;
+    padding: 0.5rem !important;
     width: 100% !important;
     max-width: 100vw !important;
     overflow-x: hidden !important;

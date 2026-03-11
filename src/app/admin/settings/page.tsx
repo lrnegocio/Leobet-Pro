@@ -15,11 +15,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   
-  const [settings, setSettings] = useState({
-    youtubeUrl: '',
-    companyPix: '',
-    systemUrl: 'https://leobet-probets.vercel.app/'
-  });
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [companyPix, setCompanyPix] = useState('');
+  const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
 
   useEffect(() => {
     setMounted(true);
@@ -27,11 +25,9 @@ export default function SettingsPage() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSettings({
-          youtubeUrl: parsed.youtubeUrl || '',
-          companyPix: parsed.companyPix || '',
-          systemUrl: parsed.systemUrl || 'https://leobet-probets.vercel.app/'
-        });
+        setYoutubeUrl(parsed.youtubeUrl || '');
+        setCompanyPix(parsed.companyPix || '');
+        setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
       } catch (e) {
         console.error("Erro ao carregar settings", e);
       }
@@ -42,6 +38,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setLoading(true);
     
+    const settings = { youtubeUrl, companyPix, systemUrl };
     localStorage.setItem('leobet_settings', JSON.stringify(settings));
     
     setTimeout(() => {
@@ -80,8 +77,8 @@ export default function SettingsPage() {
                       <Youtube className="w-5 h-5 text-red-600" />
                     </div>
                     <Input 
-                      value={settings.youtubeUrl} 
-                      onChange={e => setSettings({...settings, youtubeUrl: e.target.value})}
+                      value={youtubeUrl} 
+                      onChange={e => setYoutubeUrl(e.target.value)}
                       placeholder="https://youtube.com/live/seu-canal" 
                       className="h-12 font-bold border-2 rounded-xl"
                     />
@@ -91,8 +88,8 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">URL Oficial do Sistema (Conferência)</Label>
                   <Input 
-                    value={settings.systemUrl} 
-                    onChange={e => setSettings({...settings, systemUrl: e.target.value})}
+                    value={systemUrl} 
+                    onChange={e => setSystemUrl(e.target.value)}
                     placeholder="https://leobet-probets.vercel.app/" 
                     className="h-12 font-bold border-2 rounded-xl"
                   />
@@ -110,8 +107,8 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Principal para Recebimentos</Label>
                   <Input 
-                    value={settings.companyPix} 
-                    onChange={e => setSettings({...settings, companyPix: e.target.value})}
+                    value={companyPix} 
+                    onChange={e => setCompanyPix(e.target.value)}
                     placeholder="CNPJ, Email ou Celular" 
                     className="h-12 font-black text-xl border-2 rounded-xl text-primary"
                   />
