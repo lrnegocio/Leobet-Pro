@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText, Grid3X3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -34,15 +34,14 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
-    // Busca bingos ativos
+    // Busca bingos e bolões ativos simultaneamente
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       return b.status === 'aberto' && now < new Date(drawDate.getTime() - 60000);
     }).map((b: any) => ({ ...b, tipo: 'bingo' }));
 
-    // Busca bolões ativos
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
-      const startDate = new Date(b.dataFim || b.createdAt); 
+      const startDate = new Date(b.dataFim); 
       return b.status === 'aberto' && now < new Date(startDate.getTime() - 60000);
     }).map((b: any) => ({ ...b, tipo: 'bolao' }));
 
@@ -68,7 +67,6 @@ export default function VendaPage() {
         valorTotal: ev.preco,
         tipo: ev.tipo
       });
-      // Reseta palpites se mudar de evento
       setBolaoPalpites(Array(10).fill(''));
     } else {
       setSelectedEvent(null);
@@ -119,7 +117,6 @@ export default function VendaPage() {
       const currentPalpite = bolaoPalpites.join('-');
       const ticketsGenerated: any[] = [];
       
-      // Gera bilhete único para este recibo
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
         numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
@@ -145,7 +142,6 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
-      // Atualiza saldo/comissão se pago na hora
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -189,7 +185,6 @@ export default function VendaPage() {
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
     
-    // Busca prêmio acumulado atual (65% do total pago para este evento)
     const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const eventSales = all.filter((t: any) => String(t.eventoId) === String(vendaRealizada.eventoId) && t.status === 'pago');
     const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
@@ -198,21 +193,15 @@ export default function VendaPage() {
     let palpitesTexto = '';
     if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
       const matches = selectedEvent.partidas || [];
-      palpitesTexto = `%0A%0A*PALPITES DO JOGO:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
-        const time1 = matches[i]?.time1 || `Time ${i+1}A`;
-        const time2 = matches[i]?.time2 || `Time ${i+1}B`;
-        return `⚽ ${time1} x ${time2}: [${p}]`;
+      palpitesTexto = `%0A%0A*MEUS PALPITES DA RODADA:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
+        const t1 = matches[i]?.time1 || `Time ${i+1}A`;
+        const t2 = matches[i]?.time2 || `Time ${i+1}B`;
+        return `⚽ ${t1} x ${t2}: [${p}]`;
       }).join('%0A')}`;
     }
 
-    let message = `*LEOBET PRO - RECIBO DE APOSTA*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A🏆 *PRÊMIO ACUMULADO:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR ONLINE:* ${link}`;
+    let message = `*LEOBET PRO - RECIBO DE APOSTA*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'APOSTA VALIDADA' : 'AGUARDANDO SALDO'}%0A🏆 *PRÊMIO ACUMULADO:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR ONLINE:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
-  };
-
-  const printBluetooth = async () => {
-    if (!vendaRealizada) return;
-    toast({ title: "Pareando Impressora...", description: "Certifique-se de que o Bluetooth está ligado." });
-    setTimeout(() => { window.print(); }, 500);
   };
 
   const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
@@ -227,11 +216,9 @@ export default function VendaPage() {
               <h1 className="text-3xl font-black uppercase text-primary leading-none tracking-tighter">Terminal de Vendas</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Sorteios e Bolões Auditados</p>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
-                 SALDO DISPONÍVEL: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
-              </Badge>
-            </div>
+            <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
+               SALDO DISPONÍVEL: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
+            </Badge>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -270,7 +257,7 @@ export default function VendaPage() {
                           <div key={i} className="flex flex-col gap-2 p-3 bg-white rounded-xl border shadow-sm hover:border-primary transition-colors">
                              <div className="flex justify-between text-[9px] font-black uppercase text-primary/60 px-1">
                                 <span>PARTIDA #{i+1}</span>
-                                <span className="truncate text-primary">{p.time1 || 'CASA'} vs {p.time2 || 'FORA'}</span>
+                                <span className="truncate text-primary font-black">{p.time1 || 'CASA'} vs {p.time2 || 'FORA'}</span>
                              </div>
                              <div className="grid grid-cols-3 gap-2">
                                 {['1', 'X', '2'].map((val) => (
@@ -301,7 +288,7 @@ export default function VendaPage() {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90 text-white transition-all active:scale-95" disabled={loading}>
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90 text-white" disabled={loading}>
                     {loading ? "GERANDO BILHETE..." : "FINALIZAR E GERAR BILHETE"}
                   </Button>
                 </form>
@@ -316,13 +303,13 @@ export default function VendaPage() {
                       <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante Oficial de Aposta</p>
                    </div>
                    
-                   <div className="space-y-1.5 mb-4 text-[9px] uppercase font-bold relative z-10">
+                   <div className="space-y-1.5 mb-4 text-[9px] uppercase font-bold">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span className="text-right">{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>CONCURSO:</span> <span className="text-right">{vendaRealizada.eventoNome}</span></p>
                       <p className="flex justify-between"><span>DATA EMISSÃO:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
 
-                   <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3 relative z-10">
+                   <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
                         <div key={i} className="bg-black/5 p-3 rounded-xl">
                           <p className="font-black flex justify-between text-[8px] mb-2 border-b border-black/10 pb-1">
@@ -343,19 +330,19 @@ export default function VendaPage() {
                       ))}
                    </div>
 
-                   <div className="text-center space-y-3 relative z-10">
+                   <div className="text-center space-y-3">
                       <p className="text-3xl font-black">R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-1 text-[10px] rounded-full">
                          {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO SALDO'}
                       </Badge>
                    </div>
 
-                   <div className="mt-8 flex flex-col gap-2 print:hidden relative z-10">
+                   <div className="mt-8 flex flex-col gap-2 print:hidden">
                       <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg">
-                        <Send className="w-4 h-4 mr-2" /> Compartilhar WhatsApp
+                        <Send className="w-4 h-4 mr-2" /> Enviar WhatsApp
                       </Button>
-                      <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 gap-2">
-                        <Smartphone className="w-4 h-4" /> Impressão Térmica
+                      <Button onClick={() => window.print()} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 gap-2">
+                        <Smartphone className="w-4 h-4" /> Impressão Bluetooth
                       </Button>
                    </div>
                 </div>
@@ -364,7 +351,7 @@ export default function VendaPage() {
                    <div className="bg-muted p-8 rounded-full mb-6">
                       <TicketIcon className="w-24 h-24 text-primary" />
                    </div>
-                   <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 leading-none mb-2">Aguardando Seleção</h3>
+                   <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 mb-2">Aguardando Seleção</h3>
                    <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Escolha um concurso para iniciar o bilhete</p>
                 </div>
               )}

@@ -43,7 +43,6 @@ function ResultadosContent() {
 
       if (foundReceipt) {
         setReceipt(foundReceipt);
-        // Busca os dados reais do evento (incluindo times cadastrados)
         const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
         const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
         const ev = [...allBingos, ...allBoloes].find(e => String(e.id) === String(foundReceipt.eventoId));
@@ -110,7 +109,7 @@ function ResultadosContent() {
              <Trophy className="w-10 h-10" />
           </div>
           <h1 className="text-5xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Auditoria</h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência em Tempo Real 365 Dias</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência de Bilhetes 365 Dias</p>
         </div>
 
         <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-white print:shadow-none print:border-none">
@@ -309,7 +308,7 @@ function ResultadosContent() {
                 </div>
 
                 <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden print:hidden">
-                  <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-80">Suporte ao Apostador</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-80">Central de Suporte Profissional</p>
                   <p className="font-black text-4xl tracking-tighter">(82) 99334-3941</p>
                   <p className="text-[8px] font-bold uppercase opacity-40">LEOBET PRO • Auditoria 365 Dias • Versão 2026.1</p>
                 </div>

@@ -15,7 +15,8 @@ import {
   TrendingUp, 
   Zap,
   Trophy,
-  Grid3X3
+  Grid3X3,
+  Search
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -65,18 +66,34 @@ export default function RelatoriosPage() {
 
   const handleShareValidation = (ticket: any) => {
     const host = window.location.origin;
-    const link = `${host}/resultados?c=${ticket.tickets[0].id}`;
+    const firstTicketId = ticket.tickets[0].id;
+    const link = `${host}/resultados?c=${firstTicketId}`;
     
+    // Busca prêmio acumulado atual para o evento
+    const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const eventSales = all.filter((t: any) => String(t.eventoId) === String(ticket.eventoId) && t.status === 'pago');
+    const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
+    const pool = (totalPaid * 0.65).toFixed(2);
+
     let statusText = ticket.status === 'pago' ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
     const hasWinner = ticket.tickets.some((t: any) => t.status === 'ganhou');
     if (hasWinner) statusText = '🔥 BILHETE PREMIADO';
 
     let extraInfo = '';
     if (ticket.tipo === 'bolao' && ticket.palpite) {
-      extraInfo = `%0A%0A*MEUS PALPITES:*%0A${ticket.palpite.split('-').map((p: string, i: number) => `Jogo ${i+1}: [${p}]`).join('%0A')}`;
+      // Tenta buscar os nomes dos times para o WhatsApp
+      const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
+      const eventData = allBoloes.find((b: any) => String(b.id) === String(ticket.eventoId));
+      const matches = eventData?.partidas || [];
+      
+      extraInfo = `%0A%0A*MEUS PALPITES DA RODADA:*%0A${ticket.palpite.split('-').map((p: string, i: number) => {
+        const t1 = matches[i]?.time1 || `Time ${i+1}A`;
+        const t2 = matches[i]?.time2 || `Time ${i+1}B`;
+        return `⚽ ${t1} x ${t2}: [${p}]`;
+      }).join('%0A')}`;
     }
 
-    const message = `*LEOBET PRO - CONSULTA DE BILHETE*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A🆔 *RECIBO:* ${ticket.id}${extraInfo}%0A%0A*Conferir em tempo real:*%0A${link}`;
+    const message = `*LEOBET PRO - CONSULTA DE BILHETE*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A🏆 *PRÊMIO ACUMULADO:* R$ ${pool}%0A🆔 *RECIBO:* ${ticket.id}${extraInfo}%0A%0A*Conferir em tempo real:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -85,9 +102,9 @@ export default function RelatoriosPage() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
-    const totalBalance = (user.balance || 0) + (user.commissionBalance || 0);
-    if (totalBalance < ticket.valorTotal) {
-      toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
+    const userTotalBalance = (user.balance || 0) + (user.commissionBalance || 0);
+    if (userTotalBalance < ticket.valorTotal) {
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue seu saldo para validar esta venda." });
       return;
     }
 
@@ -120,11 +137,9 @@ export default function RelatoriosPage() {
       if (me) { setUser(me); localStorage.setItem('logged_user', JSON.stringify(me)); }
       setLoading(null);
       loadData();
-      toast({ title: "VENDA VALIDADA!" });
+      toast({ title: "VENDA VALIDADA COM SUCESSO!" });
     }, 1000);
   };
-
-  const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -134,7 +149,7 @@ export default function RelatoriosPage() {
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-black uppercase text-primary leading-none">Relatórios Financeiros</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">Auditoria de Vendas e Comissões</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Auditoria Diária de Movimentações</p>
             </div>
             
             <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center">
@@ -187,8 +202,9 @@ export default function RelatoriosPage() {
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.map((t, i) => {
                   const isVendedor = t.vendedorId === user?.id;
-                  const canValidate = isVendedor && t.status === 'pendente' && userTotalBalance >= t.valorTotal;
                   const isBolao = t.tipo === 'bolao';
+                  const userTotalBalance = (user?.balance || 0) + (user?.commissionBalance || 0);
+                  const canValidate = isVendedor && t.status === 'pendente' && userTotalBalance >= t.valorTotal;
                   
                   return (
                     <Card key={i} className={`p-4 hover:shadow-md transition-all border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'}`}>
@@ -210,16 +226,16 @@ export default function RelatoriosPage() {
                           </div>
                           <div className="flex items-center gap-6 shrink-0">
                              <div className="text-right">
-                                <p className="text-[9px] font-black uppercase text-muted-foreground">Valor Bruto</p>
+                                <p className="text-[9px] font-black uppercase text-muted-foreground">Valor Total</p>
                                 <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
                               </div>
                              <div className="flex gap-2">
                                 {canValidate && (
-                                  <Button onClick={() => handleValidatePending(t.id)} className="bg-accent h-10 gap-2 font-black uppercase text-[10px] rounded-xl animate-pulse" disabled={loading === t.id}>
+                                  <Button onClick={() => handleValidatePending(t.id)} className="bg-orange-600 h-10 gap-2 font-black uppercase text-[10px] rounded-xl animate-pulse" disabled={loading === t.id}>
                                     <Zap className="w-3.5 h-3.5" /> Validar c/ Saldo
                                   </Button>
                                 )}
-                                <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl" disabled={t.status === 'pendente'}>
+                                <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl" disabled={t.status === 'pendente' && !user?.role.includes('admin')}>
                                   <Send className="w-3.5 h-3.5" /> WhatsApp
                                 </Button>
                              </div>
@@ -229,7 +245,10 @@ export default function RelatoriosPage() {
                   );
                 })}
                 {filteredTickets.length === 0 && (
-                  <div className="py-20 text-center opacity-20 font-black uppercase text-xs">Nenhuma venda encontrada para este período.</div>
+                  <div className="py-20 text-center opacity-20 font-black uppercase text-xs flex flex-col items-center gap-4">
+                    <Search className="w-12 h-12" />
+                    Nenhuma venda encontrada para o período selecionado.
+                  </div>
                 )}
              </div>
           </div>
