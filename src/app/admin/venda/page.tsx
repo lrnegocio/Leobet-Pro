@@ -17,6 +17,7 @@ export default function VendaPage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -24,6 +25,11 @@ export default function VendaPage() {
   const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
   const [formData, setFormData] = useState({ cliente: '', whatsapp: '', eventoId: '', eventoNome: '', tipo: 'bingo' as 'bingo' | 'bolao', valorTotal: 0, unitario: 0 });
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    loadEventos();
+  }, []);
 
   const updatePrizes = async (eventId: string, type: 'bingo' | 'bolao') => {
     const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).eq('status', 'pago');
@@ -50,10 +56,6 @@ export default function VendaPage() {
 
     setEventosAtivos([...bFormated, ...bolFormated]);
   };
-
-  useEffect(() => {
-    loadEventos();
-  }, []);
 
   const handleSelectEvent = (eventId: string) => {
     const ev = eventosAtivos.find(e => String(e.id) === String(eventId));
@@ -138,6 +140,8 @@ export default function VendaPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="flex flex-col md:flex-row h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
@@ -157,11 +161,21 @@ export default function VendaPage() {
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Label className="uppercase text-[10px] font-black opacity-60">Nome Apostador</Label>
-                      <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="h-14 font-bold rounded-2xl border-2 text-lg" />
+                      <input 
+                        value={formData.cliente} 
+                        onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} 
+                        required 
+                        className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="uppercase text-[10px] font-black opacity-60">WhatsApp</Label>
-                      <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="h-14 font-bold rounded-2xl border-2 text-lg" />
+                      <input 
+                        value={formData.whatsapp} 
+                        onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
+                        required 
+                        className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
+                      />
                     </div>
                   </div>
 
@@ -178,7 +192,12 @@ export default function VendaPage() {
                        <Label className="uppercase text-[10px] font-black text-primary text-center block">Cartelas</Label>
                        <div className="flex items-center gap-4">
                           <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Minus /></Button>
-                          <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className="h-16 text-center text-3xl font-black border-2 rounded-2xl flex-1 bg-white" />
+                          <input 
+                            type="number" 
+                            value={quantity} 
+                            onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} 
+                            className="h-16 text-center text-3xl font-black border-2 rounded-2xl flex-1 bg-white outline-none" 
+                          />
                           <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Plus /></Button>
                        </div>
                     </div>

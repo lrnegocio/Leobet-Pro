@@ -109,12 +109,14 @@ function ResultadosContent() {
   };
 
   const handleGoBack = () => {
-    if (user && user.id) {
+    if (user && user.id && user.id !== 'admin-master') {
       if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') {
         router.push('/admin/venda');
       } else {
         router.push('/cliente/dashboard');
       }
+    } else if (localStorage.getItem('logged_user') || localStorage.getItem('is_master_admin')) {
+        router.push('/admin/dashboard');
     } else {
       router.push('/');
     }
@@ -147,9 +149,9 @@ function ResultadosContent() {
           <CardContent className="p-6 md:p-12 space-y-8">
             <div className="space-y-4">
                <div className="flex flex-col md:flex-row gap-2">
-                <Input 
+                <input 
                   placeholder="CÓDIGO DO BILHETE" 
-                  className="h-16 md:h-20 font-black text-center text-3xl md:text-4xl tracking-[0.3em] border-2 focus:border-primary rounded-3xl uppercase" 
+                  className="w-full h-16 md:h-20 font-black text-center text-3xl md:text-4xl tracking-[0.3em] border-2 focus:border-primary rounded-3xl uppercase outline-none" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -265,11 +267,11 @@ function ResultadosContent() {
                                         <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                       </div>
                                       <div className="space-y-2">
-                                        <Input 
+                                        <input 
                                           value={pixKey} 
                                           onChange={e => setPixKey(e.target.value)} 
                                           placeholder="CHAVE PIX" 
-                                          className="bg-white/10 text-white placeholder:text-white/40 font-black text-center h-12 border-none rounded-xl" 
+                                          className="w-full bg-white/10 text-white placeholder:text-white/40 font-black text-center h-12 border-none rounded-xl outline-none" 
                                         />
                                         <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
                                           Resgatar

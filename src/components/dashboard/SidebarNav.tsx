@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -63,17 +62,13 @@ export function SidebarNav() {
     if (saved === 'true') setIsCollapsed(true);
   }, []);
 
+  if (!mounted || !user) return null;
+
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('leobet_sidebar_collapsed', String(newState));
-    }
+    localStorage.setItem('leobet_sidebar_collapsed', String(newState));
   };
-
-  if (!mounted || !user) {
-    return null; 
-  }
 
   const filteredItems = navItems.filter(item => item.roles.includes(user.role));
 
@@ -83,7 +78,7 @@ export function SidebarNav() {
   };
 
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
-    <div className="flex flex-col h-full bg-white transition-all duration-300 relative">
+    <div className="flex flex-col h-full bg-white transition-all duration-300 relative border-r">
       <div className={cn(
         "bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
         collapsed ? "p-4 items-center justify-center h-20" : "p-6 h-24"
@@ -121,7 +116,7 @@ export function SidebarNav() {
                       collapsed ? "px-0 justify-center h-12 w-12 mx-auto" : ""
                     )}
                   >
-                    <div className="shrink-0"><Icon className="w-5 h-5" /></div>
+                    <Icon className="w-5 h-5 shrink-0" />
                     {!collapsed && <span className="truncate">{item.label}</span>}
                   </Link>
                 </TooltipTrigger>
@@ -149,12 +144,13 @@ export function SidebarNav() {
         </button>
       </div>
 
+      {/* BOTÃO DE COLAPSO CENTRALIZADO NA BORDA */}
       <button 
         onClick={toggleCollapse}
         type="button"
         className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-[60]"
       >
-        {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
     </div>
   );
@@ -175,7 +171,7 @@ export function SidebarNav() {
       </div>
 
       <aside className={cn(
-        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative border-r bg-white",
+        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative bg-white",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <NavContent collapsed={isCollapsed} />

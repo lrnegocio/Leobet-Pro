@@ -1,9 +1,8 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, ArrowUpCircle, ArrowDownCircle, ExternalLink, Copy, AlertTriangle } from 'lucide-react';
+import { Wallet, ArrowUpCircle, ArrowDownCircle, ExternalLink, Copy, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/use-auth-store';
 import Link from 'next/link';
@@ -21,16 +20,28 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/supabase/client';
 
 export function BalanceCard() {
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
   const { toast } = useToast();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [openWithdraw, setOpenWithdraw] = useState(false);
   const [openDeposit, setOpenDeposit] = useState(false);
   const [companyPix, setCompanyPix] = useState('LEOBET-PIX-OFICIAL');
 
-  if (!user) return null;
+  useEffect(() => {
+    setMounted(true);
+    const settings = localStorage.getItem('leobet_settings');
+    if (settings) {
+      try {
+        const parsed = JSON.parse(settings);
+        if (parsed.companyPix) setCompanyPix(parsed.companyPix);
+      } catch (e) {}
+    }
+  }, []);
+
+  if (!mounted || !user) return null;
 
   const handleDepositRequest = async () => {
     const amount = Number(depositAmount);
@@ -154,7 +165,7 @@ export function BalanceCard() {
                    </div>
                 </div>
                 <DialogFooter>
-                  <Button onClick={handleDepositRequest} disabled={loading} className="w-full h-16 font-black uppercase bg-primary rounded-2xl">
+                  <Button onClick={handleDepositRequest} disabled={loading} className="w-full h-16 font-black uppercase bg-primary rounded-2xl text-white">
                     {loading ? 'Processando...' : 'Paguei, enviar comprovante'}
                   </Button>
                 </DialogFooter>
@@ -172,7 +183,7 @@ export function BalanceCard() {
                    <div className="bg-muted/50 p-4 rounded-2xl"><p className="text-[10px] font-black uppercase text-muted-foreground">Chave PIX:</p><p className="font-black text-primary">{user.pixKey || 'NÃO CADASTRADA'}</p></div>
                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Valor R$</Label><Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="font-black text-xl h-14" /></div>
                 </div>
-                <DialogFooter><Button onClick={handleWithdrawRequest} disabled={loading || !user.pixKey} className="w-full h-14 font-black uppercase bg-primary rounded-xl">Confirmar Saque</Button></DialogFooter>
+                <DialogFooter><Button onClick={handleWithdrawRequest} disabled={loading || !user.pixKey} className="w-full h-14 font-black uppercase bg-primary rounded-xl text-white">Confirmar Saque</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>

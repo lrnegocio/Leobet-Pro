@@ -1,11 +1,9 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Settings, Youtube, Wallet, Globe, Save, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -50,7 +48,11 @@ export default function SettingsPage() {
     }, 800);
   };
 
-  if (!mounted) return null;
+  if (!mounted) return (
+    <div className="h-screen flex items-center justify-center bg-muted/30">
+      <RefreshCcw className="animate-spin text-primary" />
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -76,22 +78,22 @@ export default function SettingsPage() {
                     <div className="bg-red-100 p-3 rounded-xl flex items-center justify-center shrink-0">
                       <Youtube className="w-5 h-5 text-red-600" />
                     </div>
-                    <Input 
+                    <input 
                       value={youtubeUrl} 
                       onChange={e => setYoutubeUrl(e.target.value)}
                       placeholder="https://youtube.com/live/seu-canal" 
-                      className="h-12 font-bold border-2 rounded-xl"
+                      className="w-full h-12 font-bold border-2 rounded-xl px-4 outline-none focus:border-primary bg-white"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">URL Oficial do Sistema (Conferência)</Label>
-                  <Input 
+                  <input 
                     value={systemUrl} 
                     onChange={e => setSystemUrl(e.target.value)}
                     placeholder="https://leobet-probets.vercel.app/" 
-                    className="h-12 font-bold border-2 rounded-xl"
+                    className="w-full h-12 font-bold border-2 rounded-xl px-4 outline-none focus:border-primary bg-white"
                   />
                 </div>
               </CardContent>
@@ -106,11 +108,11 @@ export default function SettingsPage() {
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Principal para Recebimentos</Label>
-                  <Input 
+                  <input 
                     value={companyPix} 
                     onChange={e => setCompanyPix(e.target.value)}
                     placeholder="CNPJ, Email ou Celular" 
-                    className="h-12 font-black text-xl border-2 rounded-xl text-primary"
+                    className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white"
                   />
                   <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1">
                     Esta chave aparecerá para todos os clientes ao solicitarem saldo.
@@ -120,7 +122,7 @@ export default function SettingsPage() {
             </Card>
 
             <div className="flex gap-4">
-              <Button type="submit" className="flex-1 h-16 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
+              <Button type="submit" className="flex-1 h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
                 {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
                 {loading ? 'Salvando...' : 'Salvar Configurações'}
               </Button>
