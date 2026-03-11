@@ -40,7 +40,8 @@ import {
   Zap,
   PlusCircle,
   MinusCircle,
-  Printer
+  Printer,
+  Phone
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile, UserRole } from '@/types/auth';
@@ -97,11 +98,7 @@ function FinanceiroContent() {
     gerenteId: 'admin-master'
   });
 
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
-  });
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const loadData = () => {
@@ -123,11 +120,11 @@ function FinanceiroContent() {
     setTickets(allReceipts);
     setPendingSales(allReceipts.filter((t: any) => t.status === 'pendente'));
 
+    // LÓGICA AMPLIADA: MOSTRA GANHADORES COM RESGATE E SEM RESGATE (PARA LOCALIZAÇÃO MANUAL)
     const payouts: any[] = [];
     allReceipts.forEach((r: any) => {
       r.tickets.forEach((t: any) => {
-        // Mostra todos os ganhadores que ainda não foram marcados como pagos
-        if (t.status === 'pendente-resgate') {
+        if (t.status === 'pendente-resgate' || t.status === 'ganhou') {
           payouts.push({ ...t, receipt: r });
         }
       });
@@ -202,8 +199,6 @@ function FinanceiroContent() {
 
     filteredTickets.forEach(t => {
       brutoRaw += t.valorTotal;
-      
-      // LÓGICA DE MARGEM RESIDUAL: TOTAL DA BANCA É SEMPRE 35%
       if (t.vendedorRole === 'admin') {
         orgRaw += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
@@ -224,7 +219,6 @@ function FinanceiroContent() {
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
     const dGerente = Number(gerenteRaw.toFixed(2));
-    // Prêmios é o resíduo exato de 65%
     const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
     return { org: dOrg, cambista: dCambista, gerente: dGerente, bruto: dBruto, premios: dPremios };
@@ -412,7 +406,7 @@ function FinanceiroContent() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
               <CardContent className="p-4">
-                <p className="text-[9px] font-black uppercase opacity-60">Admin / Banca</p>
+                <p className="text-[9px] font-black uppercase opacity-60">Admin / Banca (20%)</p>
                 <p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p>
               </CardContent>
             </Card>
@@ -430,7 +424,7 @@ function FinanceiroContent() {
             </Card>
             <Card className="bg-green-600 text-white border-none shadow-xl rounded-2xl">
               <CardContent className="p-4">
-                <p className="text-[9px] font-black uppercase opacity-60">Prêmios (65%)</p>
+                <p className="text-[9px] font-black uppercase opacity-60">Prêmios Líquidos (65%)</p>
                 <p className="text-xl font-black">R$ {finance.premios.toFixed(2)}</p>
               </CardContent>
             </Card>
@@ -460,14 +454,31 @@ function FinanceiroContent() {
                  pendingPayouts.map((p, i) => (
                    <Card key={i} className="flex justify-between items-center p-6 bg-green-50 border-green-200 border-l-8 border-l-green-500 rounded-2xl shadow-sm">
                      <div className="space-y-1">
-                       <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
+                       <div className="flex items-center gap-3">
+                         <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
+                         <Badge variant="outline" className="border-green-600 text-green-700 font-black text-[9px] h-5">
+                           {p.status === 'ganhou' ? 'AGUARDANDO CONTATO' : 'RESGATE SOLICITADO'}
+                         </Badge>
+                       </div>
                        <p className="text-xs font-bold text-green-700/70 uppercase">Evento: {p.receipt.eventoNome} • R$ {p.valorPremio.toFixed(2)}</p>
-                       <div className="bg-white/60 p-2 rounded-lg border mt-2">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">CHAVE PIX DO GANHADOR:</p>
-                          <p className="text-sm font-black text-primary">{p.pixResgate || 'Não informado'}</p>
+                       
+                       <div className="flex gap-4 mt-3">
+                          <div className="bg-white/60 p-2 rounded-lg border flex-1">
+                             <p className="text-[9px] font-black uppercase text-muted-foreground">CHAVE PIX INFORMADA:</p>
+                             <p className="text-sm font-black text-primary">{p.pixResgate || 'Aguardando preenchimento'}</p>
+                          </div>
+                          <div className="bg-white/60 p-2 rounded-lg border shrink-0">
+                             <p className="text-[9px] font-black uppercase text-muted-foreground">CONTATO DO GANHADOR:</p>
+                             <button 
+                               onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${p.receipt.whatsapp}`, '_blank')}
+                               className="flex items-center gap-1.5 text-sm font-black text-green-600 hover:underline"
+                             >
+                               <Phone className="w-3.5 h-3.5" /> {p.receipt.whatsapp}
+                             </button>
+                          </div>
                        </div>
                      </div>
-                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
+                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 hover:bg-green-700 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
                    </Card>
                  ))
                )}
@@ -489,7 +500,12 @@ function FinanceiroContent() {
                         <div>
                           <p className="font-black uppercase text-lg">{t.cliente}</p>
                           <p className="text-xs font-bold text-orange-700/70 uppercase">{t.eventoNome} • R$ {t.valorTotal.toFixed(2)}</p>
-                          <Badge className="bg-orange-600 mt-2 font-black uppercase text-[9px]">Vendedor: {t.vendedorNome}</Badge>
+                          <div className="flex gap-2 items-center mt-2">
+                            <Badge className="bg-orange-600 font-black uppercase text-[9px]">Vendedor: {t.vendedorNome}</Badge>
+                            <Badge variant="outline" className="border-orange-600 text-orange-700 font-black text-[9px] h-5 gap-1">
+                              <Phone className="w-2 h-2" /> {t.whatsapp}
+                            </Badge>
+                          </div>
                         </div>
                         <Button onClick={() => approveSale(t.id)} className="bg-orange-600 hover:bg-orange-700 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar e Validar</Button>
                       </Card>
@@ -507,7 +523,7 @@ function FinanceiroContent() {
                      <div className="space-y-1">
                         <p className="font-black uppercase text-lg text-primary">{u.nome}</p>
                         <p className="text-[10px] font-black text-primary/60 uppercase">ID: {u.id}</p>
-                        <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email} • {u.phone}</p>
                      </div>
                      <div className="flex gap-2">
                        <Button onClick={() => rejectUser(u.id)} variant="outline" className="text-destructive font-black uppercase text-xs h-12 rounded-xl">Recusar</Button>
@@ -526,7 +542,7 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-blue-50 border-blue-200 border-l-8 border-l-blue-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg text-blue-900">{d.userName}</p>
-                       <p className="text-xs font-bold text-blue-700/70 uppercase">{d.userRole} • {new Date(d.createdAt).toLocaleString()}</p>
+                       <p className="text-xs font-bold text-blue-700/70 uppercase">{d.userRole} • {new Date(d.createdAt).toLocaleString()} • {d.phone}</p>
                        <Badge className="bg-blue-600 mt-2 h-7 px-4 font-black uppercase text-xs">VALOR: R$ {d.amount.toFixed(2)}</Badge>
                      </div>
                      <div className="flex gap-2">

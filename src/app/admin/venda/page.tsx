@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText, Grid3X3, Zap, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Printer, Send, Ticket as TicketIcon, Trophy, Smartphone, FileText, Grid3X3, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -132,9 +132,14 @@ export default function VendaPage() {
   const handleVenda = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!formData.cliente.trim() || formData.cliente.length < 3) {
+      toast({ variant: "destructive", title: "NOME OBRIGATÓRIO", description: "Informe o nome completo do apostador." });
+      return;
+    }
+
     const cleanPhone = formData.whatsapp.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO", description: "Informe o telefone completo com DDD." });
+      toast({ variant: "destructive", title: "DDD + NÚMERO OBRIGATÓRIO", description: "Informe o telefone completo para localização em caso de prêmio." });
       return;
     }
 
@@ -257,7 +262,7 @@ export default function VendaPage() {
           <div className="flex justify-between items-end print:hidden">
             <div>
               <h1 className="text-3xl font-black uppercase text-primary leading-none tracking-tighter">Terminal de Vendas</h1>
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Estimativa de Prêmios em Tempo Real</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Sorteios e Bolões Auditados</p>
             </div>
             <div className="flex flex-col items-end gap-2">
                <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
@@ -270,14 +275,37 @@ export default function VendaPage() {
             <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white print:hidden">
               <CardContent className="p-8">
                 <form onSubmit={handleVenda} className="space-y-6">
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-center gap-3 mb-2">
+                    <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
+                    <p className="text-[9px] font-black text-orange-800 uppercase leading-tight">
+                      OS DADOS ABAIXO SÃO OBRIGATÓRIOS PARA GARANTIR A ENTREGA DO PRÊMIO MESMO EM CASO DE PERDA DO RECIBO.
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">Nome do Apostador</Label>
-                      <Input placeholder="NOME COMPLETO" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-11 border-2" />
+                      <Label className="uppercase text-[9px] font-black opacity-60 flex items-center gap-1">
+                        Nome do Apostador <span className="text-red-500">*</span>
+                      </Label>
+                      <Input 
+                        placeholder="NOME COMPLETO" 
+                        value={formData.cliente} 
+                        onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} 
+                        required 
+                        className="font-bold h-11 border-2 focus:border-primary" 
+                      />
                     </div>
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp (DDD)</Label>
-                      <Input placeholder="EX: 82993343941" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-11 border-2" />
+                      <Label className="uppercase text-[9px] font-black opacity-60 flex items-center gap-1">
+                        WhatsApp (DDD) <span className="text-red-500">*</span>
+                      </Label>
+                      <Input 
+                        placeholder="EX: 82993343941" 
+                        value={formData.whatsapp} 
+                        onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
+                        required 
+                        className="font-bold h-11 border-2 focus:border-primary" 
+                      />
                     </div>
                   </div>
 
@@ -325,7 +353,7 @@ export default function VendaPage() {
 
                   {selectedEvent?.tipo === 'bolao' && (
                     <div className="space-y-4 bg-muted/30 p-6 rounded-2xl border-2">
-                      <h3 className="font-black uppercase text-xs flex items-center gap-2 text-primary"><Trophy className="w-4 h-4" /> Marcar 10 Jogos</h3>
+                      <h3 className="font-black uppercase text-xs flex items-center gap-2 text-primary"><Trophy className="w-4 h-4" /> Grade de 10 Jogos</h3>
                       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : []).map((p: any, i: number) => (
                           <div key={i} className="flex flex-col gap-2 p-3 bg-white rounded-xl border shadow-sm">
@@ -342,7 +370,7 @@ export default function VendaPage() {
                                     variant={bolaoPalpites[i] === val ? 'default' : 'outline'}
                                     className={`h-10 text-xs font-black rounded-lg ${bolaoPalpites[i] === val ? 'bg-primary text-white' : 'border-2'}`}
                                   >
-                                    {val === '1' ? 'CASA' : val === '2' ? 'FORA' : 'EMPATE'}
+                                    {val === '1' ? 'CASA (1)' : val === '2' ? 'FORA (2)' : 'EMPATE (X)'}
                                   </Button>
                                 ))}
                              </div>
@@ -379,6 +407,7 @@ export default function VendaPage() {
                    
                    <div className="space-y-1.5 mb-4 text-[9px] uppercase font-bold">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span className="text-right">{vendaRealizada.cliente}</span></p>
+                      <p className="flex justify-between"><span>WHATSAPP:</span> <span className="text-right">{vendaRealizada.whatsapp}</span></p>
                       <p className="flex justify-between"><span>CONCURSO:</span> <span className="text-right">{vendaRealizada.eventoNome}</span></p>
                       <p className="flex justify-between"><span>DATA EMISSÃO:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
@@ -427,7 +456,7 @@ export default function VendaPage() {
                       <TicketIcon className="w-24 h-24 text-primary" />
                    </div>
                    <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 mb-2">Aguardando Seleção</h3>
-                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Escolha um concurso para ver os prêmios</p>
+                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Escolha um concurso para iniciar o bilhete</p>
                 </div>
               )}
             </div>
