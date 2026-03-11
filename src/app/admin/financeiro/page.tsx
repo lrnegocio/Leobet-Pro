@@ -126,6 +126,7 @@ function FinanceiroContent() {
     const payouts: any[] = [];
     allReceipts.forEach((r: any) => {
       r.tickets.forEach((t: any) => {
+        // Mostra todos os ganhadores que ainda não foram marcados como pagos
         if (t.status === 'pendente-resgate') {
           payouts.push({ ...t, receipt: r });
         }
@@ -202,32 +203,28 @@ function FinanceiroContent() {
     filteredTickets.forEach(t => {
       brutoRaw += t.valorTotal;
       
-      // LÓGICA DE MARGEM: TOTAL DA BANCA É 35% (Admin + Cambista + Gerente)
+      // LÓGICA DE MARGEM RESIDUAL: TOTAL DA BANCA É SEMPRE 35%
       if (t.vendedorRole === 'admin') {
-        // Admin direto leva os 35% de margem total
         orgRaw += t.valorTotal * 0.35; 
       } else if (t.vendedorRole === 'gerente') {
-        // Gerente vende direto: 15% pra ele (10 vendedor + 5 rede), 20% pro Admin
         orgRaw += t.valorTotal * 0.20; 
         gerenteRaw += t.valorTotal * 0.15; 
       } else if (t.vendedorRole === 'cambista') {
-        // Cambista vende: 10% pra ele, 5% pro gerente dele, 20% pro Admin
         orgRaw += t.valorTotal * 0.20; 
         cambistaRaw += t.valorTotal * 0.10; 
         if (t.gerenteId && t.gerenteId !== 'admin-master') {
           gerenteRaw += t.valorTotal * 0.05; 
         } else {
-          // Se não tem gerente, o Admin pega os 5% da rede
           orgRaw += t.valorTotal * 0.05; 
         }
       }
     });
 
-    // LÓGICA RESIDUAL: O PRÊMIO É O QUE SOBRA (Sempre exatamente 65%)
     const dBruto = Number(brutoRaw.toFixed(2));
     const dOrg = Number(orgRaw.toFixed(2));
     const dCambista = Number(cambistaRaw.toFixed(2));
     const dGerente = Number(gerenteRaw.toFixed(2));
+    // Prêmios é o resíduo exato de 65%
     const dPremios = Number((dBruto - dOrg - dCambista - dGerente).toFixed(2));
 
     return { org: dOrg, cambista: dCambista, gerente: dGerente, bruto: dBruto, premios: dPremios };
@@ -415,7 +412,7 @@ function FinanceiroContent() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
               <CardContent className="p-4">
-                <p className="text-[9px] font-black uppercase opacity-60">Admin (20%)</p>
+                <p className="text-[9px] font-black uppercase opacity-60">Admin / Banca</p>
                 <p className="text-xl font-black">R$ {finance.org.toFixed(2)}</p>
               </CardContent>
             </Card>
@@ -456,6 +453,26 @@ function FinanceiroContent() {
               <TabsTrigger value="settings" className="font-bold rounded-xl whitespace-nowrap"><Settings className="w-4 h-4 mr-2" /> Configurações</TabsTrigger>
             </TabsList>
             
+            <TabsContent value="payouts" className="mt-6 space-y-4">
+               {pendingPayouts.length === 0 ? (
+                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de prêmios</Card>
+               ) : (
+                 pendingPayouts.map((p, i) => (
+                   <Card key={i} className="flex justify-between items-center p-6 bg-green-50 border-green-200 border-l-8 border-l-green-500 rounded-2xl shadow-sm">
+                     <div className="space-y-1">
+                       <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
+                       <p className="text-xs font-bold text-green-700/70 uppercase">Evento: {p.receipt.eventoNome} • R$ {p.valorPremio.toFixed(2)}</p>
+                       <div className="bg-white/60 p-2 rounded-lg border mt-2">
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">CHAVE PIX DO GANHADOR:</p>
+                          <p className="text-sm font-black text-primary">{p.pixResgate || 'Não informado'}</p>
+                       </div>
+                     </div>
+                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
+                   </Card>
+                 ))
+               )}
+            </TabsContent>
+
             <TabsContent value="pendentes" className="mt-6 space-y-4">
                {pendingSales.length === 0 ? (
                  <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Nenhuma venda pendente de aprovação</Card>
@@ -464,7 +481,7 @@ function FinanceiroContent() {
                     <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 flex items-center gap-3">
                        <AlertTriangle className="w-6 h-6 text-orange-600" />
                        <p className="text-[10px] font-black text-orange-800 uppercase leading-relaxed">
-                          IMPORTANTE: Vendas sem saldo ficam em "quarentena". Elas só geram comissão e entram para o prêmio do concurso APÓS você aprovar o recebimento.
+                          Vendas sem saldo ficam em quarentena. Elas só geram comissão e prêmio após aprovação.
                        </p>
                     </div>
                     {pendingSales.map((t, i) => (
@@ -490,7 +507,7 @@ function FinanceiroContent() {
                      <div className="space-y-1">
                         <p className="font-black uppercase text-lg text-primary">{u.nome}</p>
                         <p className="text-[10px] font-black text-primary/60 uppercase">ID: {u.id}</p>
-                        <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email} • {u.phone}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase">{u.role} • {u.email}</p>
                      </div>
                      <div className="flex gap-2">
                        <Button onClick={() => rejectUser(u.id)} variant="outline" className="text-destructive font-black uppercase text-xs h-12 rounded-xl">Recusar</Button>
@@ -509,7 +526,6 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-blue-50 border-blue-200 border-l-8 border-l-blue-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg text-blue-900">{d.userName}</p>
-                       <p className="text-[10px] font-black text-blue-800/50 uppercase">ID USUÁRIO: {d.userId}</p>
                        <p className="text-xs font-bold text-blue-700/70 uppercase">{d.userRole} • {new Date(d.createdAt).toLocaleString()}</p>
                        <Badge className="bg-blue-600 mt-2 h-7 px-4 font-black uppercase text-xs">VALOR: R$ {d.amount.toFixed(2)}</Badge>
                      </div>
@@ -517,26 +533,6 @@ function FinanceiroContent() {
                        <Button onClick={() => rejectDeposit(d.id)} variant="outline" className="border-red-300 text-red-600 font-black uppercase text-xs h-12 px-6 rounded-xl">Recusar</Button>
                        <Button onClick={() => approveDeposit(d.id)} className="bg-blue-600 hover:bg-blue-700 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Aprovar Saldo</Button>
                      </div>
-                   </Card>
-                 ))
-               )}
-            </TabsContent>
-
-            <TabsContent value="payouts" className="mt-6 space-y-4">
-               {pendingPayouts.length === 0 ? (
-                 <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 font-black uppercase text-xs">Sem solicitações de prêmios</Card>
-               ) : (
-                 pendingPayouts.map((p, i) => (
-                   <Card key={i} className="flex justify-between items-center p-6 bg-green-50 border-green-200 border-l-8 border-l-green-500 rounded-2xl shadow-sm">
-                     <div className="space-y-1">
-                       <p className="font-black uppercase text-lg text-green-800">{p.receipt.cliente}</p>
-                       <p className="text-xs font-bold text-green-700/70 uppercase">Bilhete: {p.id} • R$ {p.valorPremio.toFixed(2)}</p>
-                       <div className="bg-white/60 p-2 rounded-lg border mt-2">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">CHAVE PIX DO GANHADOR:</p>
-                          <p className="text-sm font-black text-primary">{p.pixResgate || 'Não informado'}</p>
-                       </div>
-                     </div>
-                     <Button onClick={() => approvePayout(p.id)} className="bg-green-600 font-black uppercase text-xs h-12 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
                    </Card>
                  ))
                )}
@@ -550,7 +546,6 @@ function FinanceiroContent() {
                    <Card key={i} className="flex justify-between items-center p-6 bg-purple-50 border-purple-200 border-l-8 border-l-purple-500 rounded-2xl shadow-sm">
                      <div>
                        <p className="font-black uppercase text-lg">{w.userName}</p>
-                       <p className="text-[10px] font-black text-purple-800/50 uppercase">ID: {w.userId}</p>
                        <p className="text-[10px] font-black uppercase text-muted-foreground">{w.userRole} • R$ {w.amount.toFixed(2)}</p>
                        <div className="bg-white/60 p-2 rounded-lg border mt-2 text-xs font-black">PIX DESTINO: {w.pixKey}</div>
                      </div>
@@ -567,7 +562,7 @@ function FinanceiroContent() {
                     <CardContent>
                       <form onSubmit={handleCreatePartner} className="space-y-4">
                         <div className="space-y-1">
-                          <Label className="text-[10px] font-black uppercase">Role / Cargo</Label>
+                          <Label className="text-[10px] font-black uppercase">Cargo</Label>
                           <select 
                             className="w-full h-10 border rounded-md px-3 font-bold text-xs"
                             value={newPartner.role}
@@ -587,18 +582,8 @@ function FinanceiroContent() {
                             className="w-full h-9 border rounded px-3 text-xs font-bold" 
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                           <div className="space-y-1">
-                             <Label className="text-[10px] font-black uppercase">CPF</Label>
-                             <input value={newPartner.cpf} onChange={e => setNewPartner({...newPartner, cpf: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
-                           </div>
-                           <div className="space-y-1">
-                             <Label className="text-[10px] font-black uppercase">Nascimento</Label>
-                             <input type="date" value={newPartner.birthDate} onChange={e => setNewPartner({...newPartner, birthDate: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
-                           </div>
-                        </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] font-black uppercase">WhatsApp (Com DDD)</Label>
+                          <Label className="text-[10px] font-black uppercase">WhatsApp</Label>
                           <input value={newPartner.phone} onChange={e => setNewPartner({...newPartner, phone: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                         </div>
                         <div className="space-y-1">
@@ -611,16 +596,7 @@ function FinanceiroContent() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] font-black uppercase">Senha Inicial</Label>
-                          <div className="relative">
-                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <input 
-                              type="text" 
-                              value={newPartner.password} 
-                              onChange={e => setNewPartner({...newPartner, password: e.target.value})} 
-                              required 
-                              className="w-full h-9 pl-9 border rounded px-3 text-xs font-bold" 
-                            />
-                          </div>
+                          <input type="text" value={newPartner.password} onChange={e => setNewPartner({...newPartner, password: e.target.value})} required className="w-full h-9 border rounded px-3 text-xs font-bold" />
                         </div>
                         {newPartner.role === 'cambista' && (
                           <div className="space-y-1">
@@ -630,7 +606,7 @@ function FinanceiroContent() {
                               value={newPartner.gerenteId}
                               onChange={e => setNewPartner({...newPartner, gerenteId: e.target.value})}
                             >
-                              <option value="admin-master">ADMIN MASTER (DIRETO)</option>
+                              <option value="admin-master">DIRETO (ADMIN)</option>
                               {gerentes.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
                             </select>
                           </div>
@@ -641,16 +617,13 @@ function FinanceiroContent() {
                   </Card>
 
                   <div className="lg:col-span-2 space-y-4">
-                     <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary"><Store className="w-4 h-4" /> Base de Parceiros e Hierarquia</h3>
-                        <Badge variant="outline" className="font-black uppercase text-[9px]">{allUsers.length} Membros</Badge>
-                     </div>
+                     <h3 className="text-sm font-black uppercase text-primary">Rede de Parceiros</h3>
                      <div className="space-y-2">
                         {allUsers.filter(u => u.id !== 'admin-master').map((u, i) => {
                           const parent = allUsers.find(p => p.id === u.gerenteId);
                           return (
-                            <Card key={i} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-all">
-                               <div className="flex items-center gap-3 flex-1">
+                            <Card key={i} className="p-4 flex justify-between items-center hover:shadow-md transition-all">
+                               <div className="flex items-center gap-3">
                                   <div className="bg-primary/5 p-2 rounded-full"><UserCircle className="w-6 h-6 text-primary" /></div>
                                   <div>
                                      <div className="flex items-center gap-2">
@@ -662,17 +635,14 @@ function FinanceiroContent() {
                                        )}>
                                          {u.role.toUpperCase()}
                                        </Badge>
-                                       <Badge className={`${u.status === 'approved' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black`}>
-                                         {u.status === 'approved' ? 'ATIVO' : 'BLOQUEADO'}
-                                       </Badge>
                                      </div>
-                                     <p className="text-[9px] font-bold text-muted-foreground uppercase">ID: {u.id} • {u.phone}</p>
+                                     <p className="text-[9px] font-bold text-muted-foreground uppercase">{u.phone}</p>
                                      {parent && <p className="text-[8px] font-black text-primary/60 uppercase">Equipe de: {parent.nome}</p>}
                                   </div>
                                </div>
-                               <div className="flex items-center gap-3 shrink-0">
+                               <div className="flex items-center gap-3">
                                   <div className="text-right mr-4">
-                                     <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo Atual</p>
+                                     <p className="text-[9px] font-black uppercase text-muted-foreground">Saldo</p>
                                      <p className="text-xs font-black text-primary">R$ {((u.balance || 0) + (u.commissionBalance || 0)).toFixed(2)}</p>
                                   </div>
                                   <div className="flex gap-1">
@@ -684,51 +654,21 @@ function FinanceiroContent() {
                                        </DialogTrigger>
                                        <DialogContent className="bg-white rounded-[2rem]">
                                          <DialogHeader>
-                                           <DialogTitle className="font-black uppercase text-center">Ajustar Saldo Manual</DialogTitle>
+                                           <DialogTitle className="font-black uppercase text-center">Ajustar Saldo</DialogTitle>
                                          </DialogHeader>
                                          <div className="py-4 space-y-4 text-center">
-                                            <div className="bg-primary/5 p-4 rounded-xl">
-                                               <p className="text-[10px] font-black uppercase text-muted-foreground">Usuário Selecionado</p>
-                                               <p className="font-black text-primary">{u.nome}</p>
-                                            </div>
-                                            <Input 
-                                              type="number" 
-                                              placeholder="0.00" 
-                                              value={manualAmount} 
-                                              onChange={e => setManualAmount(Number(e.target.value))}
-                                              className="h-14 text-center text-2xl font-black rounded-xl"
-                                            />
+                                            <Input type="number" placeholder="0.00" value={manualAmount} onChange={e => setManualAmount(Number(e.target.value))} className="h-14 text-center text-2xl font-black rounded-xl" />
                                             <div className="grid grid-cols-2 gap-4">
-                                               <Button onClick={() => handleManualBalance('add')} className="bg-green-600 font-black h-12 uppercase rounded-xl">
-                                                  <PlusCircle className="w-4 h-4 mr-2" /> Adicionar
-                                               </Button>
-                                               <Button onClick={() => handleManualBalance('sub')} variant="destructive" className="font-black h-12 uppercase rounded-xl">
-                                                  <MinusCircle className="w-4 h-4 mr-2" /> Remover
-                                               </Button>
+                                               <Button onClick={() => handleManualBalance('add')} className="bg-green-600 font-black h-12 uppercase rounded-xl">Adicionar</Button>
+                                               <Button onClick={() => handleManualBalance('sub')} variant="destructive" className="font-black h-12 uppercase rounded-xl">Remover</Button>
                                             </div>
                                          </div>
                                        </DialogContent>
                                      </Dialog>
-
                                      <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => toggleUserStatus(u.id, u.status)}>
                                        {u.status === 'approved' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                                      </Button>
-                                     
-                                     <AlertDialog>
-                                       <AlertDialogTrigger asChild>
-                                         <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                                       </AlertDialogTrigger>
-                                       <AlertDialogContent className="bg-white rounded-2xl">
-                                         <AlertDialogHeader>
-                                           <AlertDialogTitle className="font-black uppercase text-center">Excluir Parceiro?</AlertDialogTitle>
-                                           <AlertDialogDescription className="text-center font-bold">Isso removerá definitivamente da base.</AlertDialogDescription>
-                                         </AlertDialogHeader>
-                                         <AlertDialogFooter className="flex gap-2">
-                                           <AlertDialogCancel className="flex-1 uppercase font-black">Cancelar</AlertDialogCancel>
-                                           <AlertDialogAction onClick={() => deleteUser(u.id)} className="flex-1 bg-destructive uppercase font-black">Excluir</AlertDialogAction>
-                                         </AlertDialogFooter>
-                                       </AlertDialogContent>
-                                     </AlertDialog>
+                                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteUser(u.id)}><Trash2 className="w-4 h-4" /></Button>
                                   </div>
                                </div>
                             </Card>
@@ -746,17 +686,14 @@ function FinanceiroContent() {
                 </CardHeader>
                 <CardContent className="p-8 space-y-6 bg-white">
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase text-muted-foreground">Chave PIX da Banca (Para Receber Depósitos)</Label>
-                    <Input placeholder="CPF, Email, Telefone ou Aleatória" value={companyPix} onChange={e => setCompanyPix(e.target.value)} className="h-14 font-black text-lg border-2 border-primary/20 rounded-2xl" />
+                    <Label className="text-xs font-black uppercase text-muted-foreground">Chave PIX da Banca</Label>
+                    <Input value={companyPix} onChange={e => setCompanyPix(e.target.value)} className="h-14 font-black text-lg border-2 rounded-2xl" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase text-muted-foreground">URL do Canal YouTube (Live Sorteios)</Label>
-                    <div className="relative">
-                      <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-5 h-5" />
-                      <Input placeholder="https://youtube.com/live/..." value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} className="h-14 pl-12 font-bold border-2 rounded-2xl" />
-                    </div>
+                    <Label className="text-xs font-black uppercase text-muted-foreground">URL Live YouTube</Label>
+                    <Input value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} className="h-14 font-bold border-2 rounded-2xl" />
                   </div>
-                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar Configurações</Button>
+                  <Button onClick={saveSettings} className="w-full h-14 bg-primary hover:bg-primary/90 font-black uppercase text-lg rounded-2xl shadow-xl">Salvar</Button>
                 </CardContent>
               </Card>
             </TabsContent>

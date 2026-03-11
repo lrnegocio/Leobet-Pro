@@ -5,17 +5,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, AlertTriangle, Calendar } from 'lucide-react';
+import { ArrowLeft, Trophy, AlertTriangle, Calendar, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 export default function ResultadosBolaoPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = React.use(paramsPromise);
   const { toast } = useToast();
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [results, setResults] = useState<string[]>(Array(10).fill(''));
+  const [scores, setScores] = useState<{p1: string, p2: string}[]>(Array(10).fill({p1: '', p2: ''}));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -28,8 +29,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       String(r.eventoId) === String(params.id) && r.status === 'pago'
     ));
 
-    if (current?.resultados) {
-      setResults(current.resultados);
+    if (current?.scores) {
+      setScores(current.scores);
     }
   }, [params.id]);
 
@@ -37,23 +38,32 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     return tickets.reduce((acc, t) => acc + (t.valorTotal || 0), 0);
   }, [tickets]);
 
-  // LÓGICA EXATA: 65% para prêmios
+  // LÓGICA DE PRECISÃO: 65% EXATOS PARA PRÊMIOS
   const premioLiquidoTotal = Math.round(totalArrecadadoPaga * 0.65 * 100) / 100;
 
-  const handleUpdateResult = (index: number, val: string) => {
-    const newResults = [...results];
-    newResults[index] = val.toUpperCase();
-    setResults(newResults);
+  const handleUpdateScore = (index: number, field: 'p1' | 'p2', val: string) => {
+    const newScores = [...scores];
+    newScores[index] = { ...newScores[index], [field]: val };
+    setScores(newScores);
   };
 
   const calculateWinners = () => {
-    if (results.some(r => !r)) {
-      toast({ variant: "destructive", title: "PLACAR INCOMPLETO", description: "Informe o resultado para todos os 10 jogos." });
+    if (scores.some(s => s.p1 === '' || s.p2 === '')) {
+      toast({ variant: "destructive", title: "PLACAR INCOMPLETO", description: "Informe os gols de todos os 10 jogos." });
       return;
     }
 
     setSaving(true);
     
+    // Converte scores em resultados 1-X-2
+    const results = scores.map(s => {
+      const g1 = parseInt(s.p1);
+      const g2 = parseInt(s.p2);
+      if (g1 > g2) return '1';
+      if (g1 < g2) return '2';
+      return 'X';
+    });
+
     setTimeout(() => {
       let maxHitsFound = 0;
       const participantsData: any[] = [];
@@ -72,7 +82,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         });
       });
 
-      // Ganhador é quem tem o maior número de acertos (Top Scorer)
+      // Ganhador é o Top Scorer (Maior número de acertos da rodada)
       const topScorers = participantsData.filter(p => p.hits === maxHitsFound && p.hits > 0);
       const premioIndividual = topScorers.length > 0 ? premioLiquidoTotal / topScorers.length : 0;
 
@@ -82,11 +92,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         return {
           ...r,
           tickets: r.tickets.map((t: any) => {
-            const isWinner = topScorers.find(w => w.ticketId === t.id);
-            if (isWinner) {
+            const winnerData = topScorers.find(w => w.ticketId === t.id);
+            if (winnerData) {
               return { ...t, status: 'ganhou', valorPremio: premioIndividual, acertos: maxHitsFound };
             }
-            return { ...t, status: 'perdeu', acertos: participantsData.find(pd => pd.ticketId === t.id)?.hits || 0 };
+            const myHits = participantsData.find(pd => pd.ticketId === t.id)?.hits || 0;
+            return { ...t, status: 'perdeu', acertos: myHits };
           })
         };
       });
@@ -95,22 +106,21 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
       const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
       const updatedBoloes = allBoloes.map((b: any) => 
-        String(b.id) === String(params.id) ? { ...b, resultados: results, status: 'finalizado', maxHits: maxHitsFound } : b
+        String(b.id) === String(params.id) ? { ...b, scores, resultados: results, status: 'finalizado', maxHits: maxHitsFound } : b
       );
       localStorage.setItem('leobet_boloes', JSON.stringify(updatedBoloes));
 
       setBolao({ ...bolao, status: 'finalizado', resultados: results, maxHits: maxHitsFound });
       setSaving(false);
-      toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHitsFound}. Prêmios creditados.` });
+      toast({ title: "AUDITORIA FINALIZADA!", description: `Máximo de acertos: ${maxHitsFound}. Prêmios creditados.` });
     }, 1000);
   };
 
   const partidasArray = useMemo(() => {
     if (Array.isArray(bolao?.partidas)) return bolao.partidas;
-    // Fallback para dados corrompidos ou incompletos
     return Array(10).fill(null).map((_, i) => ({
-      time1: `Time ${i + 1}A`,
-      time2: `Time ${i + 1}B`
+      time1: `Jogo ${i + 1} - Casa`,
+      time2: `Jogo ${i + 1} - Fora`
     }));
   }, [bolao]);
 
@@ -132,11 +142,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
               </div>
               <div>
                 <h1 className="text-3xl font-black uppercase text-primary leading-none tracking-tighter">{bolao.nome}</h1>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Lançamento de Placares Oficiais</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">Lançamento de Placares Digitáveis</p>
               </div>
             </div>
             <div className="text-right bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Total do Acertador (65%)</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Top Scorer (65%)</p>
               <p className="text-2xl font-black text-green-600">R$ {premioLiquidoTotal.toFixed(2)}</p>
             </div>
           </div>
@@ -145,43 +155,56 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             <Card className="lg:col-span-2 border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
               <CardHeader className="bg-muted/50 border-b p-6">
                 <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" /> Grade de Resultados (1-X-2)
+                  <Calendar className="w-4 h-4 text-primary" /> Grade de Resultados (Gols Reais)
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
-                 {partidasArray.map((p: any, i: number) => (
-                   <div key={i} className="flex flex-col md:flex-row items-center gap-4 p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-accent transition-all">
-                      <div className="flex-1 space-y-1">
-                         <Badge className="font-black text-[9px] h-5 px-3 mb-1">JOGO #{i+1}</Badge>
-                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-black uppercase truncate max-w-[140px]">{p.time1 || 'Casa'}</span>
-                            <span className="text-[10px] font-black text-accent">VS</span>
-                            <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time2 || 'Fora'}</span>
-                         </div>
-                      </div>
-                      
-                      <div className="flex gap-2 shrink-0">
-                        {['1', 'X', '2'].map((val) => (
-                          <Button
-                            key={val}
-                            type="button"
-                            size="sm"
-                            variant={results[i] === val ? 'default' : 'outline'}
-                            onClick={() => handleUpdateResult(i, val)}
+                 {partidasArray.map((p: any, i: number) => {
+                   const g1 = parseInt(scores[i].p1);
+                   const g2 = parseInt(scores[i].p2);
+                   const res = isNaN(g1) || isNaN(g2) ? '?' : (g1 > g2 ? '1' : g1 < g2 ? '2' : 'X');
+                   
+                   return (
+                     <div key={i} className="flex flex-col md:flex-row items-center gap-4 p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-accent transition-all">
+                        <div className="flex-1 space-y-1">
+                           <Badge className="font-black text-[9px] h-5 px-3 mb-1">JOGO #{i+1}</Badge>
+                           <div className="flex items-center gap-2">
+                              <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time1 || 'CASA'}</span>
+                              <span className="text-[10px] font-black text-accent">VS</span>
+                              <span className="text-xs font-black uppercase truncate max-w-[120px]">{p.time2 || 'FORA'}</span>
+                           </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="w-12 h-12 text-center font-black text-xl rounded-xl border-2"
+                            value={scores[i].p1}
+                            onChange={(e) => handleUpdateScore(i, 'p1', e.target.value)}
                             disabled={bolao.status === 'finalizado'}
-                            className="w-10 h-10 font-black text-sm"
-                          >
-                            {val}
-                          </Button>
-                        ))}
-                      </div>
-                   </div>
-                 ))}
+                          />
+                          <span className="font-black text-muted-foreground">x</span>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="w-12 h-12 text-center font-black text-xl rounded-xl border-2"
+                            value={scores[i].p2}
+                            onChange={(e) => handleUpdateScore(i, 'p2', e.target.value)}
+                            disabled={bolao.status === 'finalizado'}
+                          />
+                          <Badge className={`ml-4 w-10 h-10 flex items-center justify-center rounded-xl font-black text-lg ${res === '?' ? 'bg-muted text-muted-foreground' : 'bg-primary text-white'}`}>
+                            {res}
+                          </Badge>
+                        </div>
+                     </div>
+                   );
+                 })}
               </CardContent>
               {bolao.status !== 'finalizado' && (
                 <div className="p-8 border-t bg-muted/30">
                   <Button onClick={calculateWinners} disabled={saving} className="w-full h-16 bg-accent hover:bg-accent/90 font-black uppercase text-lg shadow-xl rounded-2xl">
-                    {saving ? "EXECUTANDO AUDITORIA..." : "FINALIZAR E CREDITAR PRÊMIOS"}
+                    {saving ? "PROCESSANDO AUDITORIA..." : "FINALIZAR E PAGAR MAIORES ACERTADORES"}
                   </Button>
                 </div>
               )}
@@ -190,14 +213,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             <div className="space-y-4">
                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
                  <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xs font-black uppercase text-white/60">Regras da Rodada</CardTitle>
+                    <CardTitle className="text-xs font-black uppercase text-white/60">Regras do Bolão</CardTitle>
                  </CardHeader>
                  <CardContent className="p-8 pt-0">
                     <div className="p-4 bg-white/10 rounded-xl">
-                       <p className="text-xs font-bold leading-relaxed">{bolao.regras || 'O prêmio principal será dividido entre os maiores pontuadores da rodada.'}</p>
+                       <p className="text-xs font-bold leading-relaxed whitespace-pre-wrap">{bolao.regras || 'O prêmio de 65% será dividido igualmente entre todos os apostadores que atingirem o maior número de acertos na rodada.'}</p>
                     </div>
                     <div className="mt-6 space-y-2">
-                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado</p>
+                       <p className="text-[10px] font-black uppercase opacity-60">Acúmulo Atual</p>
                        <p className="text-3xl font-black">R$ {premioLiquidoTotal.toFixed(2)}</p>
                     </div>
                  </CardContent>
@@ -208,13 +231,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                      <div className="flex gap-3">
                         <AlertTriangle className="w-6 h-6 text-orange-600 shrink-0" />
                         <p className="text-[10px] font-bold text-orange-800 uppercase leading-relaxed">
-                          Apenas bilhetes pagos participam. O ganhador é quem fizer o maior número de acertos. Em caso de empate na pontuação máxima, o prêmio é dividido.
+                          Apenas bilhetes com status "PAGO" participam desta auditoria. O sistema identifica automaticamente a pontuação máxima e divide o prêmio líquido.
                         </p>
                      </div>
                      <div className="pt-4 border-t border-orange-200 flex justify-between items-center">
                         <p className="text-[10px] font-black uppercase text-orange-900">Bilhetes Auditados: {tickets.length}</p>
                         {bolao.status === 'finalizado' && (
-                          <Badge className="bg-green-600 font-black uppercase text-[9px]">Recorde: {bolao.maxHits} pts</Badge>
+                          <Badge className="bg-green-600 font-black uppercase text-[9px]">Top Score: {bolao.maxHits} pts</Badge>
                         )}
                      </div>
                   </CardContent>
