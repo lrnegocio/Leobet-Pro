@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,8 +34,6 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
-    
-    // Carrega Bingos e Bolões Ativos simultaneamente
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       return b.status === 'aberto' && now < new Date(drawDate.getTime() - 60000);
@@ -185,6 +183,12 @@ export default function VendaPage() {
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
     
+    // Busca prêmio acumulado atual para o WhatsApp
+    const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+    const eventSales = all.filter((t: any) => String(t.eventoId) === String(vendaRealizada.eventoId) && t.status === 'pago');
+    const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
+    const pool = (totalPaid * 0.65).toFixed(2);
+
     let palpitesTexto = '';
     if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
       const matches = selectedEvent.partidas || [];
@@ -195,7 +199,7 @@ export default function VendaPage() {
       }).join('%0A')}`;
     }
 
-    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}${palpitesTexto}%0A%0A*CONFERIR:* ${link}`;
+    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A🏆 *PRÊMIO ATUAL:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
