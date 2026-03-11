@@ -9,10 +9,20 @@ import Link from 'next/link';
 import { Plus, Lock, PlayCircle, Settings2, Trash2, Clock, CheckCircle2, TrendingUp, History, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BingoPage() {
   const [bingos, setBingos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+    loadData();
+    const interval = setInterval(loadData, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -25,19 +35,10 @@ export default function BingoPage() {
       setBingos(data || []);
     } catch (err) {
       console.error("Erro Supabase:", err);
-      // Fallback para localStorage se o Supabase falhar
-      const stored = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
-      setBingos(stored);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000); // Atualiza a cada 10s
-    return () => clearInterval(interval);
-  }, []);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'aberto' ? 'encerrado' : 'aberto';
@@ -46,17 +47,38 @@ export default function BingoPage() {
       .update({ status: newStatus })
       .eq('id', id);
     
-    if (!error) loadData();
+    if (!error) {
+      toast({ title: `CONCURSO ${newStatus === 'aberto' ? 'REABERTO' : 'ENCERRADO'}` });
+      loadData();
+    }
   };
+
+  const deleteBingo = async (id: string) => {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação não pode ser desfeita.")) {
+      const { error } = await supabase
+        .from('bingos')
+        .delete()
+        .eq('id', id);
+      
+      if (!error) {
+        toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
+        loadData();
+      } else {
+        toast({ title: "ERRO AO EXCLUIR", description: error.message, variant: "destructive" });
+      }
+    }
+  };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex h-screen bg-muted/30">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary flex items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-black font-headline uppercase tracking-tight text-primary flex items-center gap-3">
                 Gestão de Bingos <Database className="w-6 h-6 text-green-600" />
               </h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Supabase • Atualização Global</p>
@@ -83,7 +105,7 @@ export default function BingoPage() {
                     <div className="flex flex-col md:flex-row items-stretch">
                        <div className="p-6 flex-1 space-y-4">
                           <div className="flex items-center gap-3">
-                            <h3 className="text-2xl font-black uppercase text-primary leading-none">{bingo.nome}</h3>
+                            <h3 className="text-xl md:text-2xl font-black uppercase text-primary leading-none">{bingo.nome}</h3>
                             <Badge variant={isFinished ? 'secondary' : (isSalesClosed ? 'destructive' : 'default')} className="font-black text-[9px] uppercase">
                               {isFinished ? 'Finalizado' : (isSalesClosed ? 'Vendas Encerradas' : 'Em Aberto')}
                             </Badge>
@@ -92,17 +114,17 @@ export default function BingoPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground">Sorteio</p>
-                               <p className="text-xs font-bold flex items-center gap-1">
+                               <p className="text-[10px] md:text-xs font-bold flex items-center gap-1">
                                  <Clock className="w-3 h-3 text-accent" /> {drawDate.toLocaleString('pt-BR')}
                                </p>
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground">Preço</p>
-                               <p className="text-xs font-black text-primary">R$ {(bingo.preco || 0).toFixed(2)}</p>
+                               <p className="text-[10px] md:text-xs font-black text-primary">R$ {(bingo.preco || 0).toFixed(2)}</p>
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground">Vendidos</p>
-                               <p className="text-xs font-black">{bingo.vendidas || 0}</p>
+                               <p className="text-[10px] md:text-xs font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground">UUID Supabase</p>
@@ -112,7 +134,7 @@ export default function BingoPage() {
                        </div>
 
                        <div className="bg-muted/50 p-6 flex items-center gap-3 border-l shrink-0">
-                          <div className="flex flex-col gap-2 min-w-[140px]">
+                          <div className="flex flex-col gap-2 min-w-[140px] w-full md:w-auto">
                              {!isFinished && (
                                <Button 
                                   variant="outline" 
@@ -125,7 +147,7 @@ export default function BingoPage() {
                                </Button>
                              )}
                              
-                             <Link href={isFinished ? `/admin/financeiro` : `/admin/bingo/sorteio/${bingo.id}`}>
+                             <Link href={isFinished ? `/admin/financeiro` : `/admin/bingo/sorteio/${bingo.id}`} className="w-full">
                                <Button 
                                  className={`w-full gap-2 font-black uppercase text-xs h-10 shadow-sm ${isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'}`}
                                  disabled={!isSalesClosed && !isFinished}
@@ -138,6 +160,14 @@ export default function BingoPage() {
                           <div className="flex flex-col gap-2">
                              <Button variant="secondary" size="icon" className="h-9 w-9">
                                <Settings2 className="w-4 h-4 text-primary" />
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                               onClick={() => deleteBingo(bingo.id)}
+                             >
+                               <Trash2 className="w-4 h-4" />
                              </Button>
                           </div>
                        </div>

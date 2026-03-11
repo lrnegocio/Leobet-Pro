@@ -49,7 +49,7 @@ export default function VendaPage() {
     loadEventos();
   }, []);
 
-  const updatePrizes = async (eventId: string, type: 'bingo' | 'bolao') => {
+  const updatePrizes = async (eventId: string, type: string) => {
     try {
       const { data } = await supabase
         .from('tickets')
@@ -154,7 +154,7 @@ export default function VendaPage() {
       vendedor_id: user?.id,
       status: statusVenda,
       tickets_data: ticketsGenerated,
-      detalhe_premios: prizes,
+      detalhe_premios: { ...prizes },
       created_at: new Date().toISOString()
     };
 
@@ -174,17 +174,16 @@ export default function VendaPage() {
 
   const handleWhatsApp = () => {
     if (!vendaRealizada) return;
-    const baseURL = "https://leobet-probets.vercel.app";
-    const link = `${baseURL}/resultados?c=${vendaRealizada.id}`;
+    const link = `https://leobet-probets.vercel.app/resultados?c=${vendaRealizada.id}`;
     
     let premioMsg = "";
     if (vendaRealizada.tipo === 'bingo') {
-      premioMsg = `%0A%0A🏆 *PRÊMIOS ESTIMADOS:*%0A🎯 *BINGO:* R$ ${vendaRealizada.detalhe_premios.bingo.toFixed(2)}%0A🎯 *QUINA:* R$ ${vendaRealizada.detalhe_premios.quina.toFixed(2)}%0A🎯 *QUADRA:* R$ ${vendaRealizada.detalhe_premios.quadra.toFixed(2)}`;
+      premioMsg = `%0A%0A🏆 *PRÊMIOS:*%0A🎯 *BINGO:* R$ ${vendaRealizada.detalhe_premios.bingo.toFixed(2)}%0A🎯 *QUINA:* R$ ${vendaRealizada.detalhe_premios.quina.toFixed(2)}%0A🎯 *QUADRA:* R$ ${vendaRealizada.detalhe_premios.quadra.toFixed(2)}`;
     } else {
       premioMsg = `%0A%0A🏆 *PRÊMIO ACUMULADO:* R$ ${vendaRealizada.detalhe_premios.bolao.toFixed(2)}`;
     }
 
-    const msg = `*LEOBET PRO*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}${premioMsg}%0A%0A*CONFERIR EM TEMPO REAL:*%0A${link}`;
+    const msg = `*LEOBET PRO*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status.toUpperCase()}${premioMsg}%0A%0A*CONFERIR:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
   };
 
@@ -201,9 +200,9 @@ export default function VendaPage() {
         <div className="max-w-5xl mx-auto space-y-6 print:max-w-full">
           
           <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm md:hidden border-2 border-primary/5 print:hidden">
-              <h1 className="font-black uppercase text-sm text-primary">Terminal Vendas</h1>
+              <h1 className="font-black uppercase text-sm text-primary">Vendas</h1>
               <Badge className="bg-primary text-white font-black text-[10px] px-3 h-8">
-                Saldo: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
+                R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
               </Badge>
           </div>
 
@@ -219,7 +218,7 @@ export default function VendaPage() {
                         onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} 
                         required 
                         className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
-                        placeholder="EX: JOÃO SILVA"
+                        placeholder="NOME"
                       />
                     </div>
                     <div className="space-y-1">
@@ -229,7 +228,7 @@ export default function VendaPage() {
                         onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
                         required 
                         className="w-full h-14 font-bold rounded-2xl border-2 px-4 text-lg focus:border-primary outline-none" 
-                        placeholder="82999999999"
+                        placeholder="DDD + NÚMERO"
                       />
                     </div>
                   </div>
@@ -252,61 +251,55 @@ export default function VendaPage() {
                   </div>
 
                   {selectedEvent && (
-                    <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 space-y-6 animate-in fade-in duration-300">
-                       <div className="flex justify-between items-center">
-                          <Label className="uppercase text-[10px] font-black text-primary flex items-center gap-2">
-                             <Trophy className="w-4 h-4" /> Prêmios Estimados
-                          </Label>
-                          <Badge className="bg-green-600 text-white font-black text-[9px] uppercase px-3">65% Pool</Badge>
-                       </div>
-                       
+                    <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 space-y-4 animate-in fade-in duration-300">
+                       <p className="text-[10px] font-black uppercase text-primary text-center">Prêmios Acumulados</p>
                        {selectedEvent.tipo === 'bingo' ? (
                          <div className="grid grid-cols-3 gap-2">
                             <div className="bg-white p-3 rounded-xl border text-center">
                                <p className="text-[8px] font-black opacity-40 uppercase">BINGO</p>
-                               <p className="font-black text-primary text-sm">R$ {prizes.bingo.toFixed(2)}</p>
+                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.bingo.toFixed(2)}</p>
                             </div>
                             <div className="bg-white p-3 rounded-xl border text-center">
                                <p className="text-[8px] font-black opacity-40 uppercase">QUINA</p>
-                               <p className="font-black text-primary text-sm">R$ {prizes.quina.toFixed(2)}</p>
+                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.quina.toFixed(2)}</p>
                             </div>
                             <div className="bg-white p-3 rounded-xl border text-center">
                                <p className="text-[8px] font-black opacity-40 uppercase">QUADRA</p>
-                               <p className="font-black text-primary text-sm">R$ {prizes.quadra.toFixed(2)}</p>
+                               <p className="font-black text-primary text-xs md:text-sm">R$ {prizes.quadra.toFixed(2)}</p>
                             </div>
                          </div>
                        ) : (
                          <div className="bg-white p-4 rounded-xl border flex justify-between items-center">
-                            <p className="text-[10px] font-black opacity-40 uppercase">PRÊMIO ACUMULADO</p>
-                            <p className="font-black text-green-600 text-xl">R$ {prizes.bolao.toFixed(2)}</p>
+                            <p className="text-[10px] font-black opacity-40 uppercase">ACUMULADO</p>
+                            <p className="font-black text-green-600 text-lg md:text-xl">R$ {prizes.bolao.toFixed(2)}</p>
                          </div>
                        )}
 
                        {selectedEvent.tipo === 'bingo' && (
-                         <div className="space-y-4 pt-4 border-t border-primary/10">
-                            <Label className="uppercase text-[10px] font-black text-primary text-center block">Quantidade de Cartelas</Label>
-                            <div className="flex items-center gap-4">
-                               <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Minus /></Button>
+                         <div className="space-y-2 pt-2 border-t border-primary/10">
+                            <Label className="uppercase text-[10px] font-black text-primary text-center block">Qtd. Cartelas</Label>
+                            <div className="flex items-center gap-4 justify-center">
+                               <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-12 w-12 rounded-xl border-2 bg-white"><Minus /></Button>
                                <input 
                                  type="number" 
                                  value={quantity} 
                                  onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} 
-                                 className="h-16 text-center text-3xl font-black border-2 rounded-2xl flex-1 bg-white outline-none" 
+                                 className="h-12 text-center text-xl font-black border-2 rounded-xl w-20 bg-white" 
                                />
-                               <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Plus /></Button>
+                               <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-12 w-12 rounded-xl border-2 bg-white"><Plus /></Button>
                             </div>
                          </div>
                        )}
                     </div>
                   )}
 
-                  <div className="bg-primary/5 p-8 rounded-[2rem] border-2 border-primary/10 text-center">
-                     <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Total Final da Aposta</p>
-                     <p className="text-5xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
+                  <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 text-center">
+                     <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Total da Aposta</p>
+                     <p className="text-4xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
-                  <Button type="submit" className="w-full h-20 font-black uppercase text-xl shadow-2xl rounded-[2.5rem] bg-primary text-white transition-all active:scale-95" disabled={loading}>
-                    {loading ? "GERANDO BILHETES..." : "CONFIRMAR E EMITIR"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-2xl rounded-2xl bg-primary text-white" disabled={loading}>
+                    {loading ? "GERANDO..." : "EMITIR APOSTA"}
                   </Button>
                 </form>
               </CardContent>
@@ -315,84 +308,70 @@ export default function VendaPage() {
             <div className="space-y-6">
               {vendaRealizada ? (
                 <div className="space-y-4 animate-in zoom-in-95 duration-300">
-                  <div id="receipt-content" className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2.5rem] relative overflow-hidden print:shadow-none print:border-none print:p-0 print:rounded-none">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 -mr-16 -mt-16 rounded-full"></div>
+                  <div id="receipt-content" className="bg-[#FFFFF4] p-6 shadow-2xl border border-black/10 font-mono rounded-3xl relative overflow-hidden print:shadow-none print:border-none print:p-0 print:rounded-none">
+                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 -mr-12 -mt-12 rounded-full"></div>
                      
-                     <div className="text-center border-b-2 border-dashed border-black/20 pb-6 mb-6">
-                        <p className="text-3xl font-black text-primary">LEOBET PRO</p>
-                        <p className="font-bold uppercase tracking-widest text-[10px] opacity-60 mt-1">Recibo de Aposta Digital</p>
+                     <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
+                        <p className="text-2xl font-black text-primary uppercase">LEOBET PRO</p>
+                        <p className="font-bold uppercase tracking-widest text-[8px] opacity-60">Recibo Oficial</p>
                      </div>
 
-                     <div className="space-y-3 mb-8 text-[11px] uppercase font-bold">
-                        <p className="flex justify-between"><span>CODIGO:</span> <span>#{vendaRealizada.id}</span></p>
-                        <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
-                        <p className="flex justify-between"><span>EVENTO:</span> <span className="max-w-[180px] truncate text-right">{vendaRealizada.evento_nome}</span></p>
+                     <div className="space-y-2 mb-6 text-[10px] uppercase font-bold">
+                        <p className="flex justify-between"><span>COD:</span> <span>#{vendaRealizada.id}</span></p>
+                        <p className="flex justify-between"><span>CLI:</span> <span className="truncate max-w-[140px]">{vendaRealizada.cliente}</span></p>
+                        <p className="flex justify-between"><span>CON:</span> <span className="truncate max-w-[140px]">{vendaRealizada.evento_nome}</span></p>
                         <p className="flex justify-between"><span>DATA:</span> <span>{new Date(vendaRealizada.created_at).toLocaleString()}</span></p>
-                        <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} UNIDADE(S)</span></p>
-                        <p className="flex justify-between border-t-2 border-dashed pt-4 mt-4 text-primary text-sm font-black">
-                           <span>VALOR TOTAL:</span> 
+                        <p className="flex justify-between border-t-2 border-dashed pt-4 mt-2 text-primary font-black">
+                           <span>TOTAL:</span> 
                            <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span>
                         </p>
                      </div>
 
-                     <div className="p-4 bg-primary/5 rounded-2xl mb-8 space-y-2 border border-primary/10">
-                        <p className="text-[10px] font-black uppercase text-primary text-center mb-2">Prêmios em Jogo</p>
+                     <div className="p-3 bg-primary/5 rounded-xl mb-6 space-y-1.5 border border-primary/10">
+                        <p className="text-[8px] font-black uppercase text-primary text-center">Prêmios Estimados</p>
                         {vendaRealizada.tipo === 'bingo' ? (
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="text-center"><p className="text-[7px] opacity-60">BINGO</p><p className="font-black text-[10px]">R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[7px] opacity-60">QUINA</p><p className="font-black text-[10px]">R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}</p></div>
-                            <div className="text-center"><p className="text-[7px] opacity-60">QUADRA</p><p className="font-black text-[10px]">R$ {vendaRealizada.detalhe_premios.quadra.toFixed(2)}</p></div>
+                          <div className="grid grid-cols-3 gap-1">
+                            <div className="text-center"><p className="text-[6px] opacity-60">BINGO</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</p></div>
+                            <div className="text-center"><p className="text-[6px] opacity-60">QUINA</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}</p></div>
+                            <div className="text-center"><p className="text-[6px] opacity-60">QUADRA</p><p className="font-black text-[9px]">R$ {vendaRealizada.detalhe_premios.quadra.toFixed(2)}</p></div>
                           </div>
                         ) : (
                           <div className="text-center">
-                            <p className="text-[7px] opacity-60 uppercase">ACUMULADO ACERTOS</p>
-                            <p className="font-black text-sm">R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}</p>
+                            <p className="text-[6px] opacity-60 uppercase">ACUMULADO</p>
+                            <p className="font-black text-[11px]">R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}</p>
                           </div>
                         )}
                      </div>
 
-                     <div className="text-center py-6 border-y-2 border-dashed border-black/20 mb-8">
-                        <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-10 py-3 rounded-full text-xs shadow-md">
-                          {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
+                     <div className="text-center py-4 border-y-2 border-dashed border-black/20 mb-6">
+                        <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-6 py-2 rounded-full text-[9px]">
+                          {vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}
                         </Badge>
                      </div>
 
-                     <div className="text-center space-y-2">
-                        <p className="text-[9px] font-black opacity-40 uppercase">Conferir em:</p>
-                        <p className="text-[10px] font-black text-primary">leobet-probets.vercel.app</p>
-                        <div className="pt-4 flex justify-center opacity-10">
-                           <TicketIcon className="w-12 h-12" />
-                        </div>
+                     <div className="text-center space-y-1">
+                        <p className="text-[8px] font-black text-primary">leobet-probets.vercel.app</p>
+                        <TicketIcon className="w-8 h-8 mx-auto opacity-10" />
                      </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 print:hidden">
-                      <Button onClick={handleWhatsApp} className="h-16 bg-green-600 font-black uppercase text-xs text-white rounded-2xl shadow-xl transition-all active:scale-95">
+                  <div className="grid grid-cols-2 gap-3 print:hidden">
+                      <Button onClick={handleWhatsApp} className="h-14 bg-green-600 font-black uppercase text-xs rounded-2xl">
                         <Send className="w-4 h-4 mr-2" /> WhatsApp
                       </Button>
-                      <Button onClick={handlePrint} variant="outline" className="h-16 border-2 font-black uppercase text-xs rounded-2xl hover:bg-muted">
+                      <Button onClick={handlePrint} variant="outline" className="h-14 border-2 font-black uppercase text-xs rounded-2xl">
                         <Printer className="w-4 h-4 mr-2" /> Imprimir
                       </Button>
-                      <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="col-span-2 h-14 font-black uppercase text-[10px] rounded-2xl border">
+                      <Button onClick={() => setVendaRealizada(null)} variant="secondary" className="col-span-2 h-12 font-black uppercase text-[10px] rounded-2xl border">
                         Nova Venda
                       </Button>
                   </div>
                 </div>
               ) : (
-                <div className="h-full min-h-[500px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3.5rem] opacity-20 bg-white print:hidden">
-                  <div className="bg-primary/10 p-10 rounded-full mb-8">
-                    <TicketIcon className="w-24 h-24 text-primary" />
-                  </div>
-                  <h3 className="text-2xl font-black uppercase text-primary text-center px-12 leading-tight">Terminal Pronto</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-4 flex items-center gap-2">
-                     <Database className="w-3 h-3 text-green-600" /> Supabase Live Cloud
-                  </p>
-                  <div className="mt-12 p-6 bg-muted/50 rounded-3xl flex items-center gap-4 border max-w-xs">
-                     <Info className="w-10 h-10 text-primary shrink-0" />
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase leading-relaxed">
-                        Selecione um evento para ver os prêmios acumulados em tempo real antes da venda.
-                     </p>
-                  </div>
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white print:hidden">
+                  <TicketIcon className="w-20 h-20 text-primary mb-6" />
+                  <h3 className="text-xl font-black uppercase text-primary text-center">Terminal Pronto</h3>
+                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Sincronizado via Supabase</p>
                 </div>
               )}
             </div>
@@ -402,12 +381,8 @@ export default function VendaPage() {
       
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #receipt-content, #receipt-content * {
-            visibility: visible;
-          }
+          body * { visibility: hidden; }
+          #receipt-content, #receipt-content * { visibility: visible; }
           #receipt-content {
             position: absolute;
             left: 0;

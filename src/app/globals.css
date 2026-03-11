@@ -56,6 +56,10 @@
   .p-8 {
     @apply p-4;
   }
+  /* Garante que cards e inputs ocupem a largura toda no mobile */
+  .card, .input, select {
+    width: 100% !important;
+  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
