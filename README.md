@@ -1,45 +1,41 @@
 
 # LEOBET PRO - Plataforma de Apostas Profissional
 
-Plataforma completa para gestão de Bingos e Bolões de Futebol, com auditoria em tempo real, integração com WhatsApp e suporte a impressão térmica.
+Plataforma completa para gestão de Bingos e Bolões de Futebol, com auditoria em tempo real, integração com Supabase Cloud e deploy automático via Vercel.
 
-## 🚀 Como subir para o GitHub (Passo a Passo Corrigido)
+## 🚀 Como subir atualizações para o GitHub
 
-Como você já tem um repositório configurado, execute estes comandos no terminal para corrigir a URL e enviar os arquivos:
+Toda vez que você quiser enviar as novas funções do terminal para o seu site, execute estes 3 comandos:
 
 ```bash
-# 1. Corrigir a URL do repositório (Já que o 'origin' já existe)
-git remote set-url origin https://github.com/lrnegocio/Leobet-Pro.git
-
-# 2. Adicionar todos os novos arquivos
+# 1. Adicionar as novas alterações
 git add .
 
-# 3. Criar o registro das alterações
-git commit -m "🚀 Deploy inicial Leobet Pro"
+# 2. Criar um registro do que mudou
+git commit -m "🚀 Atualização de performance e filtros"
 
-# 4. Definir a branch principal como main
-git branch -M main
-
-# 5. Enviar para o GitHub
-# Quando pedir o Username: digite lrnegocio
-# Quando pedir a Password: COLE O TOKEN QUE VOCÊ GEROU (Classic Token)
-git push -u origin main -f
+# 3. Enviar para a nuvem (Use seu Token do GitHub como senha)
+git push
 ```
 
-## 📡 Configuração na Vercel
-1. Vá para [vercel.com](https://vercel.com).
-2. Clique em **"Add New" -> "Project"**.
-3. Importe o repositório **Leobet-Pro**.
-4. Em **Environment Variables**, adicione as chaves do seu Supabase:
-   - `NEXT_PUBLIC_SUPABASE_URL`: `https://sjlnkpqmfmajszcqlguv.supabase.co`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_wynH5nejXXQJrRWnXfsNag_zPPOG9JS`
-5. Clique em **Deploy**.
+A **Vercel** detectará o envio e atualizará seu link automaticamente em 2 minutos.
+
+## 📡 Configurações do Banco de Dados (Supabase)
+
+### Limpeza de Espaço (Mantenha o sistema rápido)
+O Supabase gratuito tem 500MB. Para garantir que ele nunca lote, você pode rodar este comando no **SQL Editor** a cada 3 meses:
+
+```sql
+-- Apaga registros com mais de 90 dias
+DELETE FROM tickets WHERE created_at < NOW() - INTERVAL '90 days';
+DELETE FROM transactions WHERE created_at < NOW() - INTERVAL '90 days';
+```
 
 ## 🛠️ Tecnologias
 - **Frontend**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS + ShadCN UI
-- **Banco de Dados**: Supabase (Pronto para migração)
-- **Persistência**: LocalStorage (Modo de Alta Performance)
+- **Banco de Dados**: Supabase (PostgreSQL)
+- **Hospedagem**: Vercel
+- **Estilização**: Tailwind CSS + ShadCN UI
 
 ---
 © 2026 LEOBET PRO - Sistema Auditado 365 Dias.
