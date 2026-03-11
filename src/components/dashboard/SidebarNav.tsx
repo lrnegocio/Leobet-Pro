@@ -1,7 +1,7 @@
 
 "use client"
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -15,9 +15,13 @@ import {
   ShoppingCart,
   Users,
   UserCircle,
-  FileText
+  FileText,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface NavItem {
   label: string;
@@ -45,6 +49,7 @@ export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const [open, setOpen] = useState(false);
 
   if (!user) return null;
 
@@ -55,10 +60,10 @@ export function SidebarNav() {
     router.push('/');
   };
 
-  return (
-    <div className="w-64 bg-white border-r h-full flex flex-col shadow-2xl z-20">
-      <div className="p-8 border-b bg-primary text-white">
-        <h2 className="text-2xl font-black font-headline tracking-tighter">LEOBET PRO</h2>
+  const NavContent = () => (
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-6 border-b bg-primary text-white">
+        <h2 className="text-xl font-black font-headline tracking-tighter">LEOBET PRO</h2>
         <div className="flex items-center gap-2 mt-2">
            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
            <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{user.role}</p>
@@ -70,11 +75,12 @@ export function SidebarNav() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => setOpen(false)}
             className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-tight",
+              "flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-black transition-all uppercase tracking-tight",
               pathname === item.href 
-                ? "bg-primary text-white shadow-lg scale-105" 
-                : "text-muted-foreground hover:bg-muted hover:text-primary"
+                ? "bg-primary text-white shadow-lg" 
+                : "text-muted-foreground hover:bg-muted"
             )}
           >
             {item.icon}
@@ -84,18 +90,37 @@ export function SidebarNav() {
       </nav>
 
       <div className="p-4 border-t bg-muted/30">
-        <div className="bg-white p-4 rounded-2xl shadow-sm border mb-4">
-           <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Logado como</p>
-           <p className="text-xs font-black text-primary truncate">{user.nome}</p>
-        </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase"
+          className="flex items-center gap-3 px-4 py-4 w-full rounded-xl text-sm font-black text-destructive hover:bg-destructive/10 transition-colors uppercase"
         >
           <LogOut className="w-5 h-5" />
           Sair do Sistema
         </button>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Trigger */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="primary" size="icon" className="h-12 w-12 rounded-2xl shadow-xl">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 border-none">
+            <NavContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-64 border-r h-full flex-col shadow-2xl z-20 shrink-0">
+        <NavContent />
+      </div>
+    </>
   );
 }
