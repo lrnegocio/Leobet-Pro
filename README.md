@@ -10,17 +10,17 @@ Abra o terminal na pasta do projeto e execute estes comandos:
 # 1. Iniciar o git local
 git init
 
-# 2. Adicionar todos os arquivos
+# 2. Adicionar o repositório remoto
+git remote add origin https://github.com/lrnegocio/Leobet-Pro.git
+
+# 3. Adicionar todos os arquivos
 git add .
 
-# 3. Criar o primeiro registro
+# 4. Criar o primeiro registro
 git commit -m "🚀 Deploy inicial Leobet Pro"
 
-# 4. Criar o branch principal
+# 5. Definir a branch principal
 git branch -M main
-
-# 5. Conectar ao seu repositório oficial
-git remote add origin https://github.com/lrnegocio/Leobet-Pro.git
 
 # 6. Enviar para o GitHub
 # Quando o terminal pedir o Username: digite lrnegocio
@@ -28,13 +28,13 @@ git remote add origin https://github.com/lrnegocio/Leobet-Pro.git
 git push -u origin main
 ```
 
-## 📡 Deploy na Vercel
+## 📡 Configuração na Vercel
 1. Vá para [vercel.com](https://vercel.com).
 2. Clique em **"Add New" -> "Project"**.
 3. Importe o repositório **Leobet-Pro**.
 4. Em **Environment Variables**, adicione as chaves do seu Supabase:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_URL`: `https://sjlnkpqmfmajszcqlguv.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_wynH5nejXXQJrRWnXfsNag_zPPOG9JS`
 5. Clique em **Deploy**.
 
 ## 🛠️ Tecnologias
