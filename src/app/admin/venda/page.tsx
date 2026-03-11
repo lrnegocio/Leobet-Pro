@@ -141,7 +141,7 @@ export default function VendaPage() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-4 md:p-8 pt-16 md:pt-8 bg-white md:bg-muted/30">
+      <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 md:pt-8 bg-white md:bg-muted/30">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm md:hidden border-2 border-primary/5">
               <h1 className="font-black uppercase text-sm text-primary">Terminal Vendas</h1>

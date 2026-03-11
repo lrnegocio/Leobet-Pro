@@ -18,8 +18,7 @@ import {
   FileText,
   Menu,
   ChevronLeft,
-  ChevronRight,
-  Database
+  ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
@@ -76,7 +75,7 @@ export function SidebarNav() {
   };
 
   const NavContent = ({ collapsed = false, isMobile = false }: { collapsed?: boolean, isMobile?: boolean }) => (
-    <div className="flex flex-col h-full bg-white transition-all duration-300 relative">
+    <div className="flex flex-col h-full bg-white transition-all duration-300 relative border-r">
       <div className={cn(
         "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
         collapsed ? "p-4 items-center justify-center" : "p-6"
@@ -152,13 +151,14 @@ export function SidebarNav() {
         </TooltipProvider>
       </div>
 
-      {/* Botão de Encolher Centralizado na Lateral Direita do Menu (Desktop) */}
+      {/* BOTÃO DE ENCOLHER CENTRALIZADO NA BORDA DIREITA (DESKTOP) */}
       {!isMobile && (
         <button 
           onClick={toggleCollapse}
           className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50 group"
+          title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
         >
-          {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
       )}
     </div>
@@ -182,7 +182,7 @@ export function SidebarNav() {
 
       {/* Sidebar Desktop */}
       <div className={cn(
-        "hidden md:flex border-r h-full flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative",
+        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <NavContent collapsed={isCollapsed} isMobile={false} />

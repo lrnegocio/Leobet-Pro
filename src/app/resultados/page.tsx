@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Play, ExternalLink } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -36,7 +36,6 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
-      // Procura o recibo por ID ou por algum ticket individual dentro do tickets_data
       const { data: found, error } = await supabase
         .from('tickets')
         .select('*')
@@ -98,20 +97,25 @@ function ResultadosContent() {
     }
   };
 
-  const getBackPath = () => {
-    if (!user) return '/';
-    // Se o usuário estiver logado, volta para sua respectiva área em vez de deslogar
-    if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') return '/admin/venda';
-    return '/cliente/dashboard';
+  const handleGoBack = () => {
+    if (user) {
+      if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') {
+        router.push('/admin/venda');
+      } else {
+        router.push('/cliente/dashboard');
+      }
+    } else {
+      router.push('/');
+    }
   };
 
   return (
     <div className="min-h-screen bg-muted/30 p-2 md:p-8 flex flex-col items-center font-body pb-32">
       <div className="max-w-4xl w-full space-y-6">
         <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border md:border-none">
-          <Link href={getBackPath()} className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase h-10 px-4 rounded-xl border-2">
+          <Button onClick={handleGoBack} variant="outline" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase h-10 px-4 rounded-xl border-2">
             <ArrowLeft className="w-4 h-4" /> Voltar
-          </Link>
+          </Button>
           <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg transition-all active:scale-95">
             <Youtube className="w-5 h-5" /> Sorteio ao Vivo
           </Button>
@@ -287,10 +291,6 @@ function ResultadosContent() {
             )}
           </CardContent>
         </Card>
-        
-        <div className="text-center opacity-30">
-           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">© LEOBET PRO • AUDITORIA CLOUD • SUPABASE</p>
-        </div>
       </div>
     </div>
   );
@@ -298,11 +298,7 @@ function ResultadosContent() {
 
 export default function ResultadosPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">
-        Auditando...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">Auditando...</div>}>
       <ResultadosContent />
     </Suspense>
   );
