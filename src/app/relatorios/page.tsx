@@ -13,7 +13,9 @@ import {
   FileText, 
   CheckCircle2, 
   TrendingUp, 
-  Zap
+  Zap,
+  Trophy,
+  Grid3X3
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -21,12 +23,11 @@ import { useToast } from '@/hooks/use-toast';
 export default function RelatoriosPage() {
   const { user, setUser } = useAuthStore();
   const { toast } = useToast();
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
-  });
+  
+  // PADRÃO: APENAS VENDAS DE HOJE
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -139,7 +140,7 @@ export default function RelatoriosPage() {
             <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center">
               <Calendar className="w-4 h-4 text-primary ml-2" />
               <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-32 border-none shadow-none font-bold text-xs" />
-              <span className="text-muted-foreground text-[10px] font-black uppercase">até</span>
+              <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
               <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-32 border-none shadow-none font-bold text-xs" />
             </div>
           </div>
@@ -179,7 +180,7 @@ export default function RelatoriosPage() {
 
           <div className="space-y-4">
              <div className="flex justify-between items-center">
-               <h3 className="text-sm font-black uppercase text-primary flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Movimentações</h3>
+               <h3 className="text-sm font-black uppercase text-primary flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Movimentações Filtradas</h3>
                <Badge className="bg-primary/10 text-primary font-black uppercase text-[10px]">{filteredTickets.length} REGISTROS</Badge>
              </div>
 
@@ -187,14 +188,17 @@ export default function RelatoriosPage() {
                 {filteredTickets.map((t, i) => {
                   const isVendedor = t.vendedorId === user?.id;
                   const canValidate = isVendedor && t.status === 'pendente' && userTotalBalance >= t.valorTotal;
+                  const isBolao = t.tipo === 'bolao';
+                  
                   return (
                     <Card key={i} className={`p-4 hover:shadow-md transition-all border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'}`}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1">
                              <div className="flex items-center gap-2">
                                 <p className="font-black uppercase text-sm">{t.cliente}</p>
-                                <Badge className="text-[8px] h-4 font-black uppercase bg-primary/10 text-primary">
-                                  {t.tipo === 'bolao' ? '🏆 BOLÃO' : '🎯 BINGO'}
+                                <Badge className={`text-[8px] h-4 font-black uppercase ${isBolao ? 'bg-accent text-white' : 'bg-primary text-white'}`}>
+                                  {isBolao ? <Trophy className="w-2 h-2 mr-1" /> : <Grid3X3 className="w-2 h-2 mr-1" />}
+                                  {isBolao ? 'BOLÃO DE FUTEBOL' : 'BINGO 1-90'}
                                 </Badge>
                                 <Badge variant={t.status === 'pago' ? 'default' : 'destructive'} className="text-[8px] h-4 font-black uppercase">
                                   {t.status === 'pago' ? '✓ Validado' : '⚠ Pendente'}
@@ -206,13 +210,13 @@ export default function RelatoriosPage() {
                           </div>
                           <div className="flex items-center gap-6 shrink-0">
                              <div className="text-right">
-                                <p className="text-[9px] font-black uppercase text-muted-foreground">Valor</p>
+                                <p className="text-[9px] font-black uppercase text-muted-foreground">Valor Bruto</p>
                                 <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
                               </div>
                              <div className="flex gap-2">
                                 {canValidate && (
                                   <Button onClick={() => handleValidatePending(t.id)} className="bg-accent h-10 gap-2 font-black uppercase text-[10px] rounded-xl animate-pulse" disabled={loading === t.id}>
-                                    <Zap className="w-3.5 h-3.5" /> Validar
+                                    <Zap className="w-3.5 h-3.5" /> Validar c/ Saldo
                                   </Button>
                                 )}
                                 <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl" disabled={t.status === 'pendente'}>
@@ -224,6 +228,9 @@ export default function RelatoriosPage() {
                     </Card>
                   );
                 })}
+                {filteredTickets.length === 0 && (
+                  <div className="py-20 text-center opacity-20 font-black uppercase text-xs">Nenhuma venda encontrada para este período.</div>
+                )}
              </div>
           </div>
         </div>

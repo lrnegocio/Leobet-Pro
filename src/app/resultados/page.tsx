@@ -43,6 +43,7 @@ function ResultadosContent() {
 
       if (foundReceipt) {
         setReceipt(foundReceipt);
+        // Busca os dados reais do evento (incluindo times cadastrados)
         const allBingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]');
         const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
         const ev = [...allBingos, ...allBoloes].find(e => String(e.id) === String(foundReceipt.eventoId));
@@ -86,7 +87,7 @@ function ResultadosContent() {
       localStorage.setItem('leobet_tickets', JSON.stringify(updated));
       handleSearch(ticketId);
       setClaiming(null);
-      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Seu prêmio entrará na fila de pagamento Master." });
+      toast({ title: "SOLICITAÇÃO DE PRÊMIO ENVIADA!", description: "Seu resgate entrará na fila de pagamento Master." });
     }, 1000);
   };
 
@@ -109,7 +110,7 @@ function ResultadosContent() {
              <Trophy className="w-10 h-10" />
           </div>
           <h1 className="text-5xl font-black font-headline uppercase text-primary leading-tight tracking-tighter">Central de Auditoria</h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência de Bilhetes 365 Dias</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Conferência em Tempo Real 365 Dias</p>
         </div>
 
         <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-white print:shadow-none print:border-none">
@@ -260,7 +261,7 @@ function ResultadosContent() {
                                     {isWinner ? (
                                       <div className="w-full space-y-6">
                                         <div className="bg-white/10 p-4 rounded-2xl">
-                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Sua Premiação:</p>
+                                          <p className="font-black uppercase text-[9px] tracking-widest opacity-60">Sua Premiação Líquida:</p>
                                           <p className="text-4xl font-black">R$ {(t.valorPremio || 0).toFixed(2)}</p>
                                         </div>
                                         
@@ -287,7 +288,7 @@ function ResultadosContent() {
                                         <div className="bg-white/20 p-6 rounded-[2rem]">
                                           <ShieldCheck className="w-14 h-14 mb-4 mx-auto" />
                                           <p className="font-black uppercase text-lg tracking-tight">PRÊMIO PAGO!</p>
-                                          <p className="text-[10px] font-bold opacity-70 mt-3 uppercase leading-relaxed">Valor de R$ {(t.valorPremio || 0).toFixed(2)} creditado na sua conta.</p>
+                                          <p className="text-[10px] font-bold opacity-70 mt-3 uppercase leading-relaxed">Valor creditado via PIX na conta do apostador.</p>
                                         </div>
                                       </div>
                                     ) : (
@@ -308,7 +309,7 @@ function ResultadosContent() {
                 </div>
 
                 <div className="p-10 bg-primary text-white rounded-[3rem] text-center shadow-2xl space-y-4 relative overflow-hidden print:hidden">
-                  <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-80">Central de Suporte Profissional</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-80">Suporte ao Apostador</p>
                   <p className="font-black text-4xl tracking-tighter">(82) 99334-3941</p>
                   <p className="text-[8px] font-bold uppercase opacity-40">LEOBET PRO • Auditoria 365 Dias • Versão 2026.1</p>
                 </div>
@@ -332,7 +333,7 @@ function ResultadosContent() {
 
 export default function ResultadosPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-xs animate-pulse">Consultando Banco de Dados...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-xs animate-pulse">Consultando Auditoria...</div>}>
       <ResultadosContent />
     </Suspense>
   );

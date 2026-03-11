@@ -34,11 +34,13 @@ export default function VendaPage() {
 
   const loadEventos = () => {
     const now = new Date();
+    // Busca bingos ativos
     const bingos = JSON.parse(localStorage.getItem('leobet_bingos') || '[]').filter((b: any) => {
       const drawDate = new Date(b.dataSorteio);
       return b.status === 'aberto' && now < new Date(drawDate.getTime() - 60000);
     }).map((b: any) => ({ ...b, tipo: 'bingo' }));
 
+    // Busca bolões ativos
     const boloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]').filter((b: any) => {
       const startDate = new Date(b.dataFim || b.createdAt); 
       return b.status === 'aberto' && now < new Date(startDate.getTime() - 60000);
@@ -66,6 +68,7 @@ export default function VendaPage() {
         valorTotal: ev.preco,
         tipo: ev.tipo
       });
+      // Reseta palpites se mudar de evento
       setBolaoPalpites(Array(10).fill(''));
     } else {
       setSelectedEvent(null);
@@ -93,7 +96,7 @@ export default function VendaPage() {
     
     const cleanPhone = formData.whatsapp.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO" });
+      toast({ variant: "destructive", title: "DDD OBRIGATÓRIO", description: "Informe o telefone completo com DDD." });
       return;
     }
 
@@ -115,6 +118,8 @@ export default function VendaPage() {
     setTimeout(() => {
       const currentPalpite = bolaoPalpites.join('-');
       const ticketsGenerated: any[] = [];
+      
+      // Gera bilhete único para este recibo
       ticketsGenerated.push({
         id: Math.random().toString().substring(2, 13),
         numeros: formData.tipo === 'bingo' ? generateUniqueNumbers(15, 90) : null,
@@ -140,6 +145,7 @@ export default function VendaPage() {
       const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
       localStorage.setItem('leobet_tickets', JSON.stringify([...all, receipt]));
 
+      // Atualiza saldo/comissão se pago na hora
       if (statusVenda === 'pago' && user?.role !== 'admin') {
         const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
         const updatedUsers = allUsers.map((u: any) => {
@@ -170,9 +176,9 @@ export default function VendaPage() {
       setLoading(false);
       
       if (statusVenda === 'pendente') {
-        toast({ variant: "destructive", title: "AGUARDANDO APROVAÇÃO MASTER" });
+        toast({ variant: "destructive", title: "VENDIDO SEM SALDO", description: "Bilhete em quarentena até aprovação master." });
       } else {
-        toast({ title: "VENDA REALIZADA COM SUCESSO!" });
+        toast({ title: "BILHETE EMITIDO COM SUCESSO!" });
       }
     }, 800);
   };
@@ -183,7 +189,7 @@ export default function VendaPage() {
     const firstTicketId = vendaRealizada.tickets[0].id;
     const link = `${host}/resultados?c=${firstTicketId}`;
     
-    // Busca prêmio acumulado atual para o WhatsApp
+    // Busca prêmio acumulado atual (65% do total pago para este evento)
     const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
     const eventSales = all.filter((t: any) => String(t.eventoId) === String(vendaRealizada.eventoId) && t.status === 'pago');
     const totalPaid = eventSales.reduce((acc: number, t: any) => acc + (t.valorTotal || 0), 0);
@@ -192,20 +198,20 @@ export default function VendaPage() {
     let palpitesTexto = '';
     if (vendaRealizada.tipo === 'bolao' && vendaRealizada.palpite && selectedEvent) {
       const matches = selectedEvent.partidas || [];
-      palpitesTexto = `%0A%0A*MEUS PALPITES:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
-        const time1 = matches[i]?.time1 || `Jogo ${i+1}A`;
-        const time2 = matches[i]?.time2 || `Jogo ${i+1}B`;
-        return `${time1} x ${time2}: [${p}]`;
+      palpitesTexto = `%0A%0A*PALPITES DO JOGO:*%0A${vendaRealizada.palpite.split('-').map((p: string, i: number) => {
+        const time1 = matches[i]?.time1 || `Time ${i+1}A`;
+        const time2 = matches[i]?.time2 || `Time ${i+1}B`;
+        return `⚽ ${time1} x ${time2}: [${p}]`;
       }).join('%0A')}`;
     }
 
-    let message = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A🏆 *PRÊMIO ATUAL:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR:* ${link}`;
+    let message = `*LEOBET PRO - RECIBO DE APOSTA*%0A%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🎟️ *CONCURSO:* ${vendaRealizada.eventoNome}%0A💰 *VALOR:* R$ ${vendaRealizada.valorTotal.toFixed(2)}%0A✅ *STATUS:* ${vendaRealizada.status === 'pago' ? 'VALIDADO' : 'PENDENTE'}%0A🏆 *PRÊMIO ACUMULADO:* R$ ${pool}${palpitesTexto}%0A%0A*CONFERIR ONLINE:* ${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
   };
 
   const printBluetooth = async () => {
     if (!vendaRealizada) return;
-    toast({ title: "Buscando Impressora...", description: "Inicie o pareamento com o dispositivo Bluetooth." });
+    toast({ title: "Pareando Impressora...", description: "Certifique-se de que o Bluetooth está ligado." });
     setTimeout(() => { window.print(); }, 500);
   };
 
@@ -223,7 +229,7 @@ export default function VendaPage() {
             </div>
             <div className="flex flex-col items-end gap-1">
               <Badge className="bg-primary text-white font-black px-4 py-2 text-sm rounded-xl shadow-lg">
-                 SALDO: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
+                 SALDO DISPONÍVEL: R$ {user?.role === 'admin' ? 'ILIMITADO' : userTotalBalance.toFixed(2)}
               </Badge>
             </div>
           </div>
@@ -234,37 +240,37 @@ export default function VendaPage() {
                 <form onSubmit={handleVenda} className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">Apostador</Label>
-                      <Input placeholder="NOME" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-11" />
+                      <Label className="uppercase text-[9px] font-black opacity-60">Nome do Apostador</Label>
+                      <Input placeholder="NOME COMPLETO" value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="font-bold h-11 border-2" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp</Label>
-                      <Input placeholder="DDD + NÚMERO" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-11" />
+                      <Label className="uppercase text-[9px] font-black opacity-60">WhatsApp (DDD)</Label>
+                      <Input placeholder="EX: 82993343941" value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} required className="font-bold h-11 border-2" />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[9px] font-black opacity-60">Concurso</Label>
+                    <Label className="uppercase text-[9px] font-black opacity-60">Selecione o Concurso</Label>
                     <select 
                       className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-primary"
                       value={formData.eventoId}
                       onChange={e => handleSelectEvent(e.target.value)}
                       required
                     >
-                      <option value="">-- SELECIONE --</option>
-                      {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.tipo.toUpperCase()}: {e.nome} (R$ {e.preco.toFixed(2)})</option>)}
+                      <option value="">-- ESCOLHA O EVENTO --</option>
+                      {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.tipo === 'bolao' ? '🏆 BOLÃO' : '🎯 BINGO'}: {e.nome} (R$ {e.preco.toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   {selectedEvent?.tipo === 'bolao' && (
-                    <div className="space-y-4 bg-muted/30 p-4 rounded-2xl border-2 border-dashed">
-                      <h3 className="font-black uppercase text-xs flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Palpites (10 Jogos)</h3>
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-4 bg-primary/5 p-6 rounded-2xl border-2 border-dashed border-primary/20">
+                      <h3 className="font-black uppercase text-xs flex items-center gap-2 text-primary"><Trophy className="w-4 h-4 text-accent" /> Grade de 10 Jogos</h3>
+                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                         {(Array.isArray(selectedEvent.partidas) ? selectedEvent.partidas : []).map((p: any, i: number) => (
-                          <div key={i} className="flex flex-col gap-1.5 p-2 bg-white rounded-xl border shadow-sm">
-                             <div className="flex justify-between text-[8px] font-black uppercase opacity-60 px-1">
-                                <span>#{i+1}</span>
-                                <span className="truncate">{p.time1 || 'CASA'} vs {p.time2 || 'FORA'}</span>
+                          <div key={i} className="flex flex-col gap-2 p-3 bg-white rounded-xl border shadow-sm hover:border-primary transition-colors">
+                             <div className="flex justify-between text-[9px] font-black uppercase text-primary/60 px-1">
+                                <span>PARTIDA #{i+1}</span>
+                                <span className="truncate text-primary">{p.time1 || 'CASA'} vs {p.time2 || 'FORA'}</span>
                              </div>
                              <div className="grid grid-cols-3 gap-2">
                                 {['1', 'X', '2'].map((val) => (
@@ -273,9 +279,9 @@ export default function VendaPage() {
                                     type="button" 
                                     onClick={() => handleSetPalpite(i, val)} 
                                     variant={bolaoPalpites[i] === val ? 'default' : 'outline'}
-                                    className="h-8 text-[10px] font-black"
+                                    className={`h-10 text-xs font-black rounded-lg ${bolaoPalpites[i] === val ? 'bg-primary text-white' : 'border-2'}`}
                                   >
-                                    {val}
+                                    {val === '1' ? 'CASA (1)' : val === '2' ? 'FORA (2)' : 'EMPATE (X)'}
                                   </Button>
                                 ))}
                              </div>
@@ -286,17 +292,17 @@ export default function VendaPage() {
                   )}
 
                   <div className="relative">
-                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">R$</span>
+                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-2xl text-primary/30">VALOR JOGO: R$</span>
                      <Input 
                       type="number" 
                       value={formData.valorTotal} 
                       readOnly
-                      className="h-20 text-4xl font-black text-center border-primary/20 bg-primary/5 rounded-2xl pl-12" 
+                      className="h-20 text-4xl font-black text-center border-primary/20 bg-primary/5 rounded-2xl pl-32" 
                     />
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "FINALIZAR BILHETE"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase text-lg shadow-xl rounded-2xl bg-primary hover:bg-primary/90 text-white transition-all active:scale-95" disabled={loading}>
+                    {loading ? "GERANDO BILHETE..." : "FINALIZAR E GERAR BILHETE"}
                   </Button>
                 </form>
               </CardContent>
@@ -307,25 +313,32 @@ export default function VendaPage() {
                 <div className="bg-[#FFFFF0] p-8 shadow-2xl border border-black/10 font-mono text-[10px] rounded-[2.5rem] relative overflow-hidden">
                    <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
                       <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
-                      <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante de Aposta</p>
+                      <p className="font-bold uppercase tracking-[0.3em] text-[7px] mt-1">Comprovante Oficial de Aposta</p>
                    </div>
                    
                    <div className="space-y-1.5 mb-4 text-[9px] uppercase font-bold relative z-10">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span className="text-right">{vendaRealizada.cliente}</span></p>
-                      <p className="flex justify-between"><span>EVENTO:</span> <span className="text-right">{vendaRealizada.eventoNome}</span></p>
-                      <p className="flex justify-between"><span>DATA:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
+                      <p className="flex justify-between"><span>CONCURSO:</span> <span className="text-right">{vendaRealizada.eventoNome}</span></p>
+                      <p className="flex justify-between"><span>DATA EMISSÃO:</span> <span className="text-right">{new Date(vendaRealizada.data).toLocaleString()}</span></p>
                    </div>
 
                    <div className="my-4 border-y-2 border-dashed border-black/20 py-4 space-y-3 relative z-10">
                       {vendaRealizada.tickets.map((t: any, i: number) => (
                         <div key={i} className="bg-black/5 p-3 rounded-xl">
-                          <p className="font-black flex justify-between text-[8px] mb-2">
+                          <p className="font-black flex justify-between text-[8px] mb-2 border-b border-black/10 pb-1">
                             <span>BILHETE #{i+1}</span>
                             <span className="text-primary">{t.id}</span>
                           </p>
-                          <p className="text-[10px] font-black leading-relaxed break-all">
-                             {t.numeros ? `NÚMEROS: ${t.numeros.join(' - ')}` : `PALPITES: ${t.palpite}`}
-                          </p>
+                          <div className="text-[9px] font-black leading-relaxed">
+                             {t.numeros ? (
+                               <p className="tracking-widest">NÚMEROS: {t.numeros.join(' - ')}</p>
+                             ) : (
+                               <div className="space-y-1">
+                                  <p className="uppercase text-[7px] opacity-60">MEUS PALPITES DA RODADA:</p>
+                                  <p className="break-all tracking-widest">{t.palpite}</p>
+                               </div>
+                             )}
+                          </div>
                         </div>
                       ))}
                    </div>
@@ -333,16 +346,16 @@ export default function VendaPage() {
                    <div className="text-center space-y-3 relative z-10">
                       <p className="text-3xl font-black">R$ {vendaRealizada.valorTotal.toFixed(2)}</p>
                       <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-1 text-[10px] rounded-full">
-                         {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
+                         {vendaRealizada.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO SALDO'}
                       </Badge>
                    </div>
 
                    <div className="mt-8 flex flex-col gap-2 print:hidden relative z-10">
                       <Button onClick={handleWhatsApp} className="w-full h-12 bg-green-600 hover:bg-green-700 font-black uppercase text-xs text-white rounded-xl shadow-lg">
-                        <Send className="w-4 h-4 mr-2" /> Enviar WhatsApp
+                        <Send className="w-4 h-4 mr-2" /> Compartilhar WhatsApp
                       </Button>
                       <Button onClick={printBluetooth} variant="outline" className="w-full h-12 font-black uppercase text-xs rounded-xl border-2 gap-2">
-                        <Smartphone className="w-4 h-4" /> Impressão Bluetooth
+                        <Smartphone className="w-4 h-4" /> Impressão Térmica
                       </Button>
                    </div>
                 </div>
@@ -351,8 +364,8 @@ export default function VendaPage() {
                    <div className="bg-muted p-8 rounded-full mb-6">
                       <TicketIcon className="w-24 h-24 text-primary" />
                    </div>
-                   <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 leading-none mb-2">Aguardando Venda</h3>
-                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Selecione um concurso para começar</p>
+                   <h3 className="text-xl font-black uppercase text-primary tracking-widest text-center px-12 leading-none mb-2">Aguardando Seleção</h3>
+                   <p className="font-bold text-[10px] uppercase opacity-60 text-center px-12">Escolha um concurso para iniciar o bilhete</p>
                 </div>
               )}
             </div>
