@@ -162,10 +162,10 @@ export function SidebarNav() {
 
   return (
     <>
-      <div className="md:hidden fixed top-4 left-4 z-50">
+      <div className="md:hidden fixed top-3 left-3 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary">
+            <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary border-2 border-white/20">
               <Menu className="w-6 h-6" />
             </Button>
           </SheetTrigger>
