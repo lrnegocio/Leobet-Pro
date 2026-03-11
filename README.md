@@ -1,3 +1,4 @@
+
 # LEOBET PRO - Plataforma de Apostas Profissional
 
 Plataforma completa para gestão de Bingos e Bolões de Futebol, com auditoria em tempo real, integração com WhatsApp e suporte a impressão térmica.
