@@ -36,6 +36,7 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
+      // Procura o recibo por ID ou por algum ticket individual dentro do tickets_data
       const { data: found, error } = await supabase
         .from('tickets')
         .select('*')
@@ -99,6 +100,7 @@ function ResultadosContent() {
 
   const getBackPath = () => {
     if (!user) return '/';
+    // Se o usuário estiver logado, volta para sua respectiva área em vez de deslogar
     if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') return '/admin/venda';
     return '/cliente/dashboard';
   };

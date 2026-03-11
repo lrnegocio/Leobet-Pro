@@ -18,7 +18,8 @@ import {
   FileText,
   Menu,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Database
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
@@ -74,8 +75,8 @@ export function SidebarNav() {
     router.push('/');
   };
 
-  const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
-    <div className="flex flex-col h-full bg-white transition-all duration-300">
+  const NavContent = ({ collapsed = false, isMobile = false }: { collapsed?: boolean, isMobile?: boolean }) => (
+    <div className="flex flex-col h-full bg-white transition-all duration-300 relative">
       <div className={cn(
         "p-6 border-b bg-primary text-white transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
         collapsed ? "p-4 items-center justify-center" : "p-6"
@@ -149,20 +150,24 @@ export function SidebarNav() {
             )}
           </Tooltip>
         </TooltipProvider>
-        
+      </div>
+
+      {/* Botão de Encolher Centralizado na Lateral Direita do Menu (Desktop) */}
+      {!isMobile && (
         <button 
           onClick={toggleCollapse}
-          className="hidden md:flex items-center justify-center w-full h-10 text-muted-foreground hover:text-primary transition-colors bg-white/50 rounded-xl border border-dashed border-muted-foreground/20"
+          className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white border-2 border-primary/20 text-primary w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-all z-50 group"
         >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
-      </div>
+      )}
     </div>
   );
 
   return (
     <>
-      <div className="md:hidden fixed top-3 left-3 z-50">
+      {/* Botão flutuante mobile no topo */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary border-2 border-white/20">
@@ -170,16 +175,17 @@ export function SidebarNav() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
-            <NavContent />
+            <NavContent isMobile={true} />
           </SheetContent>
         </Sheet>
       </div>
 
+      {/* Sidebar Desktop */}
       <div className={cn(
-        "hidden md:flex border-r h-full flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 bg-white ease-in-out",
+        "hidden md:flex border-r h-full flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 bg-white ease-in-out relative",
         isCollapsed ? "w-20" : "w-64"
       )}>
-        <NavContent collapsed={isCollapsed} />
+        <NavContent collapsed={isCollapsed} isMobile={false} />
       </div>
     </>
   );

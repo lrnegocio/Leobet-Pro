@@ -139,22 +139,22 @@ export default function VendaPage() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-muted/30 font-body overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-2 md:p-8 pt-16 lg:pt-8">
-        <div className="max-w-4xl mx-auto space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm lg:hidden border-2 border-primary/5">
-              <h1 className="font-black uppercase text-xs text-primary">Terminal de Vendas</h1>
-              <Badge className="bg-primary text-white font-black text-[10px] px-3 h-7">
-                R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
+      <main className="flex-1 overflow-auto p-4 md:p-8 pt-16 md:pt-8 bg-white md:bg-muted/30">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm md:hidden border-2 border-primary/5">
+              <h1 className="font-black uppercase text-sm text-primary">Terminal Vendas</h1>
+              <Badge className="bg-primary text-white font-black text-[10px] px-3 h-8">
+                Saldo: R$ {user?.role === 'admin' ? 'ILIMITADO' : ((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}
               </Badge>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary">
-              <CardContent className="p-5 md:p-8">
-                <form onSubmit={handleVenda} className="space-y-5">
-                  <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden border-t-8 border-primary">
+              <CardContent className="p-6 md:p-8">
+                <form onSubmit={handleVenda} className="space-y-6">
+                  <div className="space-y-4">
                     <div className="space-y-1">
                       <Label className="uppercase text-[10px] font-black opacity-60">Nome Apostador</Label>
                       <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} required className="h-14 font-bold rounded-2xl border-2 text-lg" />
@@ -166,17 +166,17 @@ export default function VendaPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="uppercase text-[10px] font-black opacity-60">Selecione o Evento</Label>
-                    <select className="w-full h-16 border-2 rounded-2xl px-4 font-black bg-white appearance-none text-primary" value={formData.eventoId} onChange={e => handleSelectEvent(e.target.value)} required>
+                    <Label className="uppercase text-[10px] font-black opacity-60">Evento</Label>
+                    <select className="w-full h-16 border-2 rounded-2xl px-4 font-black bg-white appearance-none text-primary focus:ring-2 focus:ring-primary" value={formData.eventoId} onChange={e => handleSelectEvent(e.target.value)} required>
                       <option value="">-- ESCOLHA O EVENTO --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.tipo === 'bolao' ? '🏆' : '🎯'} {e.nome} (R$ {e.preco.toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   {selectedEvent?.tipo === 'bingo' && (
-                    <div className="p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 space-y-3">
-                       <Label className="uppercase text-[10px] font-black text-primary text-center block">Quantidade de Cartelas</Label>
-                       <div className="flex items-center gap-3">
+                    <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 space-y-4">
+                       <Label className="uppercase text-[10px] font-black text-primary text-center block">Cartelas</Label>
+                       <div className="flex items-center gap-4">
                           <Button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Minus /></Button>
                           <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className="h-16 text-center text-3xl font-black border-2 rounded-2xl flex-1 bg-white" />
                           <Button type="button" onClick={() => setQuantity(quantity + 1)} variant="outline" className="h-16 w-16 rounded-2xl border-2 bg-white"><Plus /></Button>
@@ -184,46 +184,46 @@ export default function VendaPage() {
                     </div>
                   )}
 
-                  <div className="relative">
-                     <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-3xl text-primary/30">R$</span>
-                     <Input type="number" value={formData.valorTotal.toFixed(2)} readOnly className="h-24 text-5xl font-black text-center border-primary/20 bg-primary/5 rounded-[2rem] pl-12" />
+                  <div className="bg-primary/5 p-8 rounded-[2rem] border-2 border-primary/10 text-center">
+                     <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Total a Pagar</p>
+                     <p className="text-5xl font-black text-primary">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
-                  <Button type="submit" className="w-full h-20 font-black uppercase text-xl shadow-2xl rounded-[2rem] bg-primary text-white transition-all active:scale-95" disabled={loading}>
+                  <Button type="submit" className="w-full h-20 font-black uppercase text-xl shadow-2xl rounded-[2.5rem] bg-primary text-white transition-all active:scale-95" disabled={loading}>
                     {loading ? "PROCESSANDO..." : "EMITIR BILHETE"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF0] p-6 shadow-2xl border border-black/10 font-mono rounded-[2.5rem] animate-in zoom-in-95 duration-300">
-                   <div className="text-center border-b-2 border-dashed border-black/20 pb-4 mb-4">
-                      <p className="text-2xl font-black text-primary">LEOBET PRO</p>
-                      <p className="font-bold uppercase tracking-widest text-[9px] opacity-60">Recibo Digital Auditado</p>
+                <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2.5rem] animate-in zoom-in-95 duration-300">
+                   <div className="text-center border-b-2 border-dashed border-black/20 pb-6 mb-6">
+                      <p className="text-3xl font-black text-primary">LEOBET PRO</p>
+                      <p className="font-bold uppercase tracking-widest text-[10px] opacity-60 mt-1">Recibo Digital Auditado</p>
                    </div>
-                   <div className="space-y-2 mb-6 text-[10px] uppercase font-bold">
+                   <div className="space-y-3 mb-8 text-xs uppercase font-bold">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
-                      <p className="flex justify-between"><span>EVENTO:</span> <span className="max-w-[150px] truncate text-right">{vendaRealizada.evento_nome}</span></p>
+                      <p className="flex justify-between"><span>EVENTO:</span> <span className="max-w-[180px] truncate text-right">{vendaRealizada.evento_nome}</span></p>
                       <p className="flex justify-between"><span>VALOR:</span> <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span></p>
-                      <p className="flex justify-between text-primary mt-2"><span>CONFERÊNCIA:</span> <span className="text-[8px]">leobet-probets.vercel.app</span></p>
+                      <p className="flex justify-between text-primary mt-4 border-t pt-4"><span>CONFERÊNCIA:</span> <span className="text-[9px]">leobet-probets.vercel.app</span></p>
                    </div>
-                   <div className="text-center py-5 border-y-2 border-dashed border-black/20 mb-6">
-                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-8 py-2 rounded-full text-xs shadow-md">{vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}</Badge>
+                   <div className="text-center py-6 border-y-2 border-dashed border-black/20 mb-8">
+                      <Badge variant={vendaRealizada.status === 'pago' ? 'default' : 'destructive'} className="uppercase font-black px-10 py-3 rounded-full text-sm shadow-md">{vendaRealizada.status === 'pago' ? '✓ VALIDADA' : '⚠ PENDENTE'}</Badge>
                    </div>
-                   <div className="flex flex-col gap-3">
-                      <Button onClick={handleWhatsApp} className="w-full h-16 bg-green-600 font-black uppercase text-sm text-white rounded-2xl shadow-xl transition-all active:scale-95"><Send className="w-5 h-5 mr-2" /> WhatsApp</Button>
-                      <Button onClick={() => setVendaRealizada(null)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-2xl border-2">Nova Venda</Button>
+                   <div className="flex flex-col gap-4">
+                      <Button onClick={handleWhatsApp} className="w-full h-16 bg-green-600 font-black uppercase text-sm text-white rounded-[1.5rem] shadow-xl transition-all active:scale-95"><Send className="w-5 h-5 mr-2" /> WhatsApp</Button>
+                      <Button onClick={() => setVendaRealizada(null)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-[1.5rem] border-2">Nova Venda</Button>
                    </div>
                 </div>
               ) : (
-                <div className="h-full min-h-[300px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
-                  <TicketIcon className="w-24 h-24 text-primary mb-4" />
-                  <h3 className="text-sm font-black uppercase text-primary text-center px-10 leading-tight">Aguardando Bilhete</h3>
-                  <div className="mt-6 flex flex-col items-center gap-2 opacity-50">
-                    <Database className="w-4 h-4" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-primary">leobet-probets.vercel.app</span>
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
+                  <TicketIcon className="w-32 h-32 text-primary mb-6" />
+                  <h3 className="text-lg font-black uppercase text-primary text-center px-12 leading-tight">Aguardando novo bilhete</h3>
+                  <div className="mt-8 flex flex-col items-center gap-3 opacity-60">
+                    <Database className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Conexão Supabase Live</span>
                   </div>
                 </div>
               )}
