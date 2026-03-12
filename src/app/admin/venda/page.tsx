@@ -60,7 +60,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.warn("Aguardando conexão segura...");
+      console.warn("Conexão Supabase em espera...");
     }
   };
 
@@ -205,7 +205,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NO BANCO", description: "Verifique conexão ou chaves." });
+      toast({ variant: "destructive", title: "FALHA NO BANCO", description: "Verifique as chaves no painel da Vercel." });
     } finally {
       setLoading(false);
     }

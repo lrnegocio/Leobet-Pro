@@ -33,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.warn("Aguardando conexão Supabase...");
+      console.warn("Conexão Supabase em espera...");
     } finally {
       setLoading(false);
     }
