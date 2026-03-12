@@ -56,13 +56,13 @@ export default function VendaPage() {
   const loadEventos = async () => {
     const now = new Date().toISOString();
     try {
-      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto').gt('data_sorteio', now);
-      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto').gt('data_fim', now);
+      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
+      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       const bFormated = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      // Silencioso
+      console.error("Erro ao carregar eventos:", err);
     }
   };
 
@@ -70,24 +70,24 @@ export default function VendaPage() {
     try {
       const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).eq('status', 'pago');
       const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
-      const totalNet = Math.floor(totalPaid * 0.65 * 100) / 100;
+      const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
 
       if (type === 'bingo') {
-        const bingoVal = Math.floor(totalNet * 0.50 * 100) / 100;
-        const quinaVal = Math.floor(totalNet * 0.30 * 100) / 100;
-        const quadraVal = Number((totalNet - bingoVal - quinaVal).toFixed(2));
-        setPrizes({ totalNet, bingo: bingoVal, quina: quinaVal, quadra: quadraVal, bolao: 0 });
+        const bingoVal = Math.floor(pool * 0.50 * 100) / 100;
+        const quinaVal = Math.floor(pool * 0.30 * 100) / 100;
+        const quadraVal = Number((pool - bingoVal - quinaVal).toFixed(2));
+        setPrizes({ totalNet: pool, bingo: bingoVal, quina: quinaVal, quadra: quadraVal, bolao: 0 });
       } else {
-        setPrizes({ totalNet, quadra: 0, quina: 0, bingo: 0, bolao: totalNet });
+        setPrizes({ totalNet: pool, quadra: 0, quina: 0, bingo: 0, bolao: pool });
       }
     } catch (err) {
-      // Silencioso
+      console.error("Erro ao atualizar prêmios:", err);
     }
   };
 
   const connectPrinter = async () => {
     if (typeof window === 'undefined' || !navigator.bluetooth) {
-      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome no Android/PC." });
+      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome no Android/PC e HTTPS." });
       return;
     }
 
@@ -146,12 +146,13 @@ export default function VendaPage() {
       text += "\n\n\n\n";
 
       const data = encoder.encode(text);
-      for (let i = 0; i < data.length; i += 20) {
-        await btCharacteristic.writeValue(data.slice(i, i + 20));
+      // Chunking for bluetooth reliability
+      const chunkSize = 20;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
-      toast({ title: "IMPRESSO!" });
     } catch (e) {
-      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: "Reconecte o Bluetooth." });
+      console.error("Erro de impressão Bluetooth:", e);
     }
   };
 
@@ -193,10 +194,12 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA REALIZADA!", description: "Bilhete registrado com sucesso." });
       
+      // AUTO PRINT IF CONNECTED
       if (btCharacteristic) {
         printReceipt(receipt);
       }
 
+      // WhatsApp Message
       const premioTxt = formData.tipo === 'bingo' 
         ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
         : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;
@@ -206,7 +209,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "O Supabase não respondeu. Verifique sua rede." });
+      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "Verifique suas chaves no Vercel." });
     } finally {
       setLoading(false);
     }
@@ -237,6 +240,11 @@ export default function VendaPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden border-t-8 border-primary">
+              <CardHeader className="p-8 pb-0">
+                <h2 className="text-xl font-black uppercase flex items-center gap-2 text-primary">
+                  <ShoppingCart className="w-6 h-6" /> Novo Bilhete
+                </h2>
+              </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="space-y-1">

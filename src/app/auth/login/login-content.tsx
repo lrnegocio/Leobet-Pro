@@ -34,8 +34,8 @@ export default function LoginContent() {
     // MASCARAMENTO DE CREDENCIAIS MASTER (LEOBET PRO)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
-    const _mU = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); 
-    const _mP = Buffer.from('MTM1Nzk2bFJALiwv', 'base64').toString(); 
+    const _mU = atob('YWRtaW5AbGViZXQ='); 
+    const _mP = atob('MTM1Nzk2bFJALiwv'); 
 
     if (identifier.toLowerCase() === _mU && password === _mP) {
       const masterUser = {

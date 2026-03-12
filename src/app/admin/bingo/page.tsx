@@ -34,7 +34,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      // Silencioso
+      console.warn("Falha ao carregar bingos. Verifique chaves do Vercel.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export default function BingoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3 text-wrap md:text-nowrap">
+              <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3">
                 Gestão de Bingos <Database className="w-6 h-6 text-green-600 hidden md:block" />
               </h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Auditada LEOBET PRO</p>
@@ -84,7 +84,7 @@ export default function BingoPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Conectando ao Supabase...</div>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Conectando ao Banco...</div>
             ) : bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
