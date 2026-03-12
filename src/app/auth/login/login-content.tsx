@@ -31,10 +31,8 @@ export default function LoginContent() {
     setLoading(true);
 
     // SEGURANÇA MÁXIMA: CREDENCIAIS OFUSCADAS EM BASE64
-    // admin@lebet -> YWRtaW5AbGViZXQ=
-    // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
-    const _mU = atob('YWRtaW5AbGViZXQ=');
-    const _mP = atob('MTM1Nzk2bFJALiwv');
+    const _mU = atob('YWRtaW5AbGViZXQ='); // admin@lebet
+    const _mP = atob('MTM1Nzk2bFJALiwv'); // 135796lR@.,/
 
     if (identifier.toLowerCase() === _mU && password === _mP) {
       const masterUser = {

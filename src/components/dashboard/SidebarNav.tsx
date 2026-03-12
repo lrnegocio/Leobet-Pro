@@ -12,7 +12,6 @@ import {
   Wallet,
   Search,
   ShoppingCart,
-  Users,
   UserCircle,
   FileText,
   Menu,
@@ -140,6 +139,7 @@ export function SidebarNav() {
         </button>
       </div>
 
+      {/* Seta de controle centralizada verticalmente */}
       <button 
         onClick={toggleCollapse}
         type="button"
@@ -166,7 +166,7 @@ export function SidebarNav() {
       </div>
 
       <aside className={cn(
-        "hidden md:flex h-full flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative bg-white print:hidden",
+        "hidden md:flex h-screen flex-col z-20 shrink-0 transition-all duration-300 ease-in-out relative bg-white print:hidden",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <NavContent collapsed={isCollapsed} />

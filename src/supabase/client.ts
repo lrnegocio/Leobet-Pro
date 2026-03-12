@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Blindagem absoluta para evitar Internal Server Error durante o build ou falta de chaves
+// O código agora é resiliente e não trava se as variáveis de ambiente estiverem ausentes
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-resiliente.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.resiliente';
 

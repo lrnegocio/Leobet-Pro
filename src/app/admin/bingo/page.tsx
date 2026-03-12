@@ -14,12 +14,17 @@ export default function BingoPage() {
   const [bingos, setBingos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState<Date>(new Date());
   const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
+    setNow(new Date());
     loadData();
-    const interval = setInterval(loadData, 10000);
+    const interval = setInterval(() => {
+      loadData();
+      setNow(new Date());
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -86,7 +91,6 @@ export default function BingoPage() {
             {loading ? (
               <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco...</div>
             ) : bingos.map((bingo) => {
-              const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
               const isFinished = bingo.status === 'finalizado';
               const isSalesClosed = bingo.status === 'encerrado' || isFinished || now >= drawDate;

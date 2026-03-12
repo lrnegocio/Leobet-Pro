@@ -14,11 +14,9 @@ import {
   Trophy,
   Printer,
   Zap,
-  CheckCircle2,
-  Database
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -149,11 +147,10 @@ export default function VendaPage() {
       for (let i = 0; i < data.length; i += chunkSize) {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
-      toast({ title: "IMPRESSO COM SUCESSO!" });
     } catch (e) {
       console.error("Erro Bluetooth");
     }
-  }, [btCharacteristic, toast]);
+  }, [btCharacteristic]);
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,9 +162,16 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
+    // Gera números únicos para o bingo
+    const generateBingoNumbers = () => {
+      const nums = new Set<number>();
+      while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
+      return Array.from(nums).sort((a,b) => a-b);
+    };
+
     const ticketsGenerated = [{
       id: Math.random().toString().substring(2, 10),
-      numeros: formData.tipo === 'bingo' ? Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1).sort((a,b)=>a-b) : null,
+      numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
       status: 'pago'
     }];
 
@@ -193,9 +197,10 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
 
-      // IMPRESSÃO AUTOMÁTICA SE PAREADO
+      // IMPRESSÃO AUTOMÁTICA
       if (btCharacteristic) {
         await printReceipt(receipt);
+        toast({ title: "IMPRESSO COM SUCESSO!" });
       }
       
       const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
