@@ -28,9 +28,16 @@ export default function NovoBingoPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mounted) return;
+    
     setSaving(true);
     
     try {
+      // Verificação básica de conexão antes de tentar inserir
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder')) {
+         throw new Error("Chaves do Supabase não configuradas no Vercel.");
+      }
+
       const { error } = await supabase
         .from('bingos')
         .insert([{
@@ -39,7 +46,8 @@ export default function NovoBingoPage() {
           total_cartelas: quantity === 0 ? 999999 : quantity,
           data_sorteio: new Date(drawDate).toISOString(),
           status: 'aberto',
-          regras: 'Bingo 1-90 LEOBET PRO. Prêmios: Bingo (50%), Quina (30%), Quadra (20%).'
+          regras: 'Bingo 1-90 LEOBET PRO. Prêmios: Bingo (50%), Quina (30%), Quadra (20%).',
+          bolas_sorteadas: []
         }]);
 
       if (error) throw error;
@@ -47,7 +55,12 @@ export default function NovoBingoPage() {
       toast({ title: "BINGO PUBLICADO!", description: "Sincronizado via Supabase." });
       router.push('/admin/bingo');
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NO BANCO", description: "Verifique conexão ou chaves no Vercel." });
+      console.error("Erro ao salvar bingo:", err);
+      toast({ 
+        variant: "destructive", 
+        title: "FALHA NO BANCO", 
+        description: err.message || "Verifique conexão ou chaves no Vercel." 
+      });
     } finally {
       setSaving(false);
     }

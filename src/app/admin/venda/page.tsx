@@ -54,7 +54,6 @@ export default function VendaPage() {
   }, []);
 
   const loadEventos = async () => {
-    const now = new Date().toISOString();
     try {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
@@ -62,7 +61,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.error("Erro ao carregar eventos:", err);
+      console.error("Erro ao carregar eventos");
     }
   };
 
@@ -81,7 +80,7 @@ export default function VendaPage() {
         setPrizes({ totalNet: pool, quadra: 0, quina: 0, bingo: 0, bolao: pool });
       }
     } catch (err) {
-      console.error("Erro ao atualizar prêmios:", err);
+      console.error("Erro ao atualizar prêmios");
     }
   };
 
@@ -146,13 +145,12 @@ export default function VendaPage() {
       text += "\n\n\n\n";
 
       const data = encoder.encode(text);
-      // Chunking for bluetooth reliability
       const chunkSize = 20;
       for (let i = 0; i < data.length; i += chunkSize) {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
     } catch (e) {
-      console.error("Erro de impressão Bluetooth:", e);
+      console.error("Erro de impressão Bluetooth");
     }
   };
 
@@ -194,12 +192,10 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA REALIZADA!", description: "Bilhete registrado com sucesso." });
       
-      // AUTO PRINT IF CONNECTED
       if (btCharacteristic) {
         printReceipt(receipt);
       }
 
-      // WhatsApp Message
       const premioTxt = formData.tipo === 'bingo' 
         ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
         : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;

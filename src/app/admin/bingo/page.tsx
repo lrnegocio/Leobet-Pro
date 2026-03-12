@@ -34,7 +34,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.warn("Falha ao carregar bingos. Verifique chaves do Vercel.");
+      console.warn("Falha ao carregar bingos.");
     } finally {
       setLoading(false);
     }
