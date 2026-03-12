@@ -22,7 +22,8 @@ import {
   Youtube,
   Globe,
   Database,
-  Key
+  Key,
+  Barcode
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
