@@ -156,6 +156,7 @@ export default function VendaPage() {
     }
   }, [btCharacteristic, toast]);
 
+  // IMPRESSÃO AUTOMÁTICA APÓS VENDA
   useEffect(() => {
     if (vendaRealizada && btCharacteristic) {
       printReceipt(vendaRealizada);
@@ -206,7 +207,7 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Venda registrada com sucesso." });
-      setVendaRealizada(receipt); // Fallback para impressão se salvamento falhar mas o fluxo permitir
+      setVendaRealizada(receipt); 
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,7 +37,7 @@
   }
 }
 
-/* LAYOUT MOBILE 100% LARGURA */
+/* LAYOUT MOBILE 100% LARGURA REAL */
 @media (max-width: 768px) {
   main {
     padding-left: 0 !important;
