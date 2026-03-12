@@ -1,7 +1,6 @@
+'use client';
 
-"use client"
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,13 +11,13 @@ import {
   Send, 
   FileText, 
   TrendingUp, 
-  Search, 
   Printer,
   RefreshCcw
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
+import { cn } from '@/lib/utils';
 
 export default function RelatoriosPage() {
   const { user } = useAuthStore();
@@ -30,32 +29,46 @@ export default function RelatoriosPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
-    const all = data || [];
-    if (user?.role === 'admin') {
-      setTickets(all);
-    } else if (user?.role === 'gerente') {
-      setTickets(all.filter((t: any) => t.gerente_id === user?.id || t.vendedor_id === user?.id));
-    } else if (user?.role === 'cambista') {
-      setTickets(all.filter((t: any) => t.vendedor_id === user?.id));
-    } else {
-      setTickets(all.filter((t: any) => t.cliente === user?.nome || t.userId === user?.id));
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
+    setMounted(true);
     const today = new Date().toISOString().split('T')[0];
     setStartDate(today);
     setEndDate(today);
-    setMounted(true);
-    loadData();
-  }, [user]);
+  }, []);
+
+  const loadData = async () => {
+    if (!mounted || !user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      const all = data || [];
+      if (user.role === 'admin') {
+        setTickets(all);
+      } else if (user.role === 'gerente') {
+        setTickets(all.filter((t: any) => t.gerente_id === user.id || t.vendedor_id === user.id));
+      } else if (user.role === 'cambista') {
+        setTickets(all.filter((t: any) => t.vendedor_id === user.id));
+      } else {
+        setTickets(all.filter((t: any) => t.cliente === user.nome || t.vendedor_id === user.id));
+      }
+    } catch (err) {
+      console.error("Erro ao carregar relatórios:", err);
+      toast({ variant: "destructive", title: "Erro ao carregar", description: "Verifique sua conexão." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mounted && user) {
+      loadData();
+    }
+  }, [mounted, user]);
 
   const filteredTickets = useMemo(() => {
-    if (!startDate || !endDate) return [];
+    if (!startDate || !endDate || !tickets) return [];
     return tickets.filter(t => {
       const date = t.created_at ? t.created_at.split('T')[0] : "";
       return date >= startDate && date <= endDate;
@@ -63,6 +76,7 @@ export default function RelatoriosPage() {
   }, [tickets, startDate, endDate]);
 
   const totals = useMemo(() => {
+    if (!filteredTickets) return { bruto: 0, pendente: 0 };
     const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
     const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
     return { bruto, pendente };
@@ -70,7 +84,7 @@ export default function RelatoriosPage() {
 
   const handleShareValidation = (ticket: any) => {
     const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    const systemUrl = savedSettings.systemUrl || 'https://leobet-probets.vercel.app/';
+    const systemUrl = savedSettings.systemUrl || 'https://leobet-probets.vercel.app';
     const youtubeUrl = savedSettings.youtubeUrl || '';
     
     const link = `${systemUrl}/resultados?c=${ticket.id}`;
@@ -78,16 +92,23 @@ export default function RelatoriosPage() {
     
     let prizeMsg = "";
     if (ticket.tipo === 'bingo' && ticket.detalhe_premios) {
-      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${ticket.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${ticket.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${ticket.detalhe_premios.quadra.toFixed(2)}`;
+      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${ticket.detalhe_premios.bingo?.toFixed(2) || '0.00'}%0AQuina: R$ ${ticket.detalhe_premios.quina?.toFixed(2) || '0.00'}%0AQuadra: R$ ${ticket.detalhe_premios.quadra?.toFixed(2) || '0.00'}`;
     } else if (ticket.detalhe_premios) {
-      prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao.toFixed(2)}`;
+      prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao?.toFixed(2) || '0.00'}`;
     }
 
     const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir em tempo real:*%0A${link}%0A%0A📊 *CÓDIGO:* ${ticket.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
-  if (!mounted) return null;
+  if (!mounted || !user) return (
+    <div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary bg-muted/30">
+      <div className="flex flex-col items-center gap-4">
+        <RefreshCcw className="animate-spin w-8 h-8" />
+        <p>Carregando Relatórios...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -144,7 +165,10 @@ export default function RelatoriosPage() {
 
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.map((t, i) => (
-                    <Card key={i} className={`p-4 hover:shadow-md border-l-8 ${['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'} rounded-2xl bg-white`}>
+                    <Card key={i} className={cn(
+                        "p-4 hover:shadow-md border-l-8 rounded-2xl bg-white",
+                        ['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'
+                    )}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1 w-full">
                              <div className="flex items-center gap-2">
@@ -161,7 +185,7 @@ export default function RelatoriosPage() {
                                <Button variant="outline" size="icon" className="h-10 w-10 border-primary/20 hover:bg-primary/10 rounded-xl" onClick={() => window.print()}>
                                  <Printer className="w-4 h-4 text-primary" />
                                </Button>
-                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl">
+                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl text-white">
                                  <Send className="w-3.5 h-3.5" /> WhatsApp
                                </Button>
                              </div>

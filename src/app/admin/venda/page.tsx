@@ -17,7 +17,9 @@ import {
   Minus,
   Database,
   Key,
-  QrCode
+  QrCode,
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -37,7 +39,7 @@ export default function VendaPage() {
   const [btConnecting, setBtConnecting] = useState(false);
 
   const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
-  const [settings, setSettings] = useState({ youtubeUrl: '', systemUrl: 'https://leobet-pro.vercel.app/' });
+  const [settings, setSettings] = useState({ youtubeUrl: '', systemUrl: 'https://leobet-probets.vercel.app' });
   
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -56,7 +58,7 @@ export default function VendaPage() {
     const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
     setSettings({
       youtubeUrl: savedSettings.youtubeUrl || '',
-      systemUrl: savedSettings.systemUrl || 'https://leobet-pro.vercel.app/'
+      systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app'
     });
   }, []);
 
@@ -159,6 +161,19 @@ export default function VendaPage() {
       toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO" });
     }
   }, [btCharacteristic, settings, toast]);
+
+  const handleShareWhatsApp = (receipt: any) => {
+    const link = `${settings.systemUrl}/resultados?c=${receipt.id}`;
+    let prizeMsg = "";
+    if (receipt.tipo === 'bingo') {
+      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
+    } else {
+      prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
+    }
+
+    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
+    window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
+  };
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,7 +324,10 @@ export default function VendaPage() {
                      </div>
                      <p className="text-xl font-black text-primary">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
                      <div className="flex flex-col gap-2 no-print mt-6">
-                        <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase rounded-xl gap-2"><Printer className="w-5 h-5" /> Imprimir</Button>
+                        <div className="flex gap-2">
+                           <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 shadow-lg"><Printer className="w-5 h-5" /> Imprimir</Button>
+                           <Button onClick={() => handleShareWhatsApp(vendaRealizada)} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white shadow-lg"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
+                        </div>
                         <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] opacity-40">Próxima Venda</Button>
                      </div>
                   </div>
