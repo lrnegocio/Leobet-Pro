@@ -192,6 +192,7 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!", description: "Bilhete registrado no banco." });
       
+      // IMPRESSÃO AUTOMÁTICA SE CONECTADO
       if (btCharacteristic) {
         printReceipt(receipt);
       }
@@ -320,7 +321,7 @@ export default function VendaPage() {
                            {vendaRealizada.tickets_data.map((t: any) => (
                              <div key={t.id} className="mb-2">
                                <p className="text-[10px] font-black">BILHETE: {t.id}</p>
-                               {t.numeros && <p className="text-[9px] tracking-widest leading-relaxed">{t.numeros.join(' ')}</p>}
+                               {t.numeros && <p className="text-[9px] tracking-widest font-code leading-relaxed">{t.numeros.join(' ')}</p>}
                              </div>
                            ))}
                         </div>

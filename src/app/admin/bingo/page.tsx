@@ -49,7 +49,7 @@ export default function BingoPage() {
   };
 
   const deleteBingo = async (id: string) => {
-    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível.")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível e apagará todos os bilhetes vinculados.")) {
       try {
         const { error } = await supabase.from('bingos').delete().eq('id', id);
         if (error) throw error;
@@ -135,7 +135,7 @@ export default function BingoPage() {
                                   onClick={() => toggleStatus(bingo.id, bingo.status)}
                                >
                                   {isSalesClosed ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Lock className="w-3 h-3 text-orange-600" />}
-                                  {isSalesClosed ? "Reabrir Vendas" : "Encerrar Vendas"}
+                                  {isSalesClosed ? "Reabrir" : "Encerrar"}
                                </Button>
                              )}
                              
@@ -145,7 +145,7 @@ export default function BingoPage() {
                                  disabled={!isSalesClosed && !isFinished}
                                 >
                                  {isFinished ? <History className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-                                 {isFinished ? "Ver Auditoria" : "Iniciar Sorteio"}
+                                 {isFinished ? "Auditoria" : "Sorteio"}
                                 </Button>
                              </Link>
                           </div>

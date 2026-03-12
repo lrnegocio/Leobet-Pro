@@ -158,7 +158,7 @@ export function SidebarNav() {
             <Button variant="default" size="icon" className="h-12 w-12 rounded-2xl shadow-xl bg-primary">
               <Menu className="w-6 h-6" />
             </Button>
-          </Trigger>
+          </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
             <NavContent />
           </SheetContent>

@@ -30,7 +30,7 @@ export default function LoginContent() {
     if (!mounted) return;
     setLoading(true);
 
-    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA CONTRA PENTESTERS)
+    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
     const _mU = atob('YWRtaW5AbGViZXQ=');
