@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,30 +16,32 @@ import {
   Zap,
   Trophy,
   Grid3X3,
-  Search
+  Search,
+  Printer
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/supabase/client';
 
 export default function RelatoriosPage() {
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
   const { toast } = useToast();
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [mounted, setMounted] = useState(false);
-  
   const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
 
-  const loadData = () => {
-    const all = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
+  const loadData = async () => {
+    const { data } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
+    const all = data || [];
     if (user?.role === 'admin') {
       setTickets(all);
     } else if (user?.role === 'gerente') {
-      setTickets(all.filter((t: any) => t.gerenteId === user?.id || t.vendedorId === user?.id));
+      setTickets(all.filter((t: any) => t.gerente_id === user?.id || t.vendedor_id === user?.id));
     } else if (user?.role === 'cambista') {
-      setTickets(all.filter((t: any) => t.vendedorId === user?.id));
+      setTickets(all.filter((t: any) => t.vendedor_id === user?.id));
     } else {
       setTickets(all.filter((t: any) => t.cliente === user?.nome || t.userId === user?.id));
     }
@@ -51,33 +53,65 @@ export default function RelatoriosPage() {
     setEndDate(today);
     setMounted(true);
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
   const filteredTickets = useMemo(() => {
     if (!startDate || !endDate) return [];
     return tickets.filter(t => {
-      const date = t.data ? t.data.split('T')[0] : "";
+      const date = t.created_at ? t.created_at.split('T')[0] : "";
       return date >= startDate && date <= endDate;
-    }).sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime());
+    });
   }, [tickets, startDate, endDate]);
 
   const totals = useMemo(() => {
-    const bruto = filteredTickets.reduce((acc, t) => acc + (t.status === 'pago' ? t.valorTotal : 0), 0);
-    const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? t.valorTotal : 0), 0);
+    const bruto = filteredTickets.reduce((acc, t) => acc + (t.status === 'pago' ? Number(t.valor_total || 0) : 0), 0);
+    const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
     return { bruto, pendente };
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
-    const host = "https://leobet-probets.vercel.app";
-    const firstTicketId = ticket.id; 
-    const link = `${host}/resultados?c=${firstTicketId}`;
-    
+    const link = `https://leobet-probets.vercel.app/resultados?c=${ticket.id}`;
     let statusText = ticket.status === 'pago' ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
-    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.eventoNome}%0A💰 *VALOR:* R$ ${ticket.valorTotal.toFixed(2)}%0A%0A*Conferir em tempo real:*%0A${link}`;
+    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A*Conferir em tempo real:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
+
+  const printReceipt = useCallback(async (receipt: any) => {
+    if (!btCharacteristic) {
+      toast({ variant: "destructive", title: "IMPRESSORA NÃO CONECTADA", description: "Vá ao Terminal de Vendas para parear." });
+      return;
+    }
+    try {
+      const encoder = new TextEncoder();
+      let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
+      text += "CUPOM REIMPRESSO (2 VIA)\n";
+      text += "--------------------------------\n";
+      text += `CLIENTE: ${receipt.cliente}\n`;
+      text += `JOGO: ${receipt.evento_nome}\n`;
+      text += `DATA: ${new Date(receipt.created_at).toLocaleString()}\n`;
+      text += "--------------------------------\n";
+      receipt.tickets_data.forEach((t: any, i: number) => {
+        text += `BILHETE #${i+1}: ${t.id}\n`;
+        if (t.numeros) text += `NUMEROS: ${t.numeros.join(' ')}\n`;
+        text += "\n";
+      });
+      text += "--------------------------------\n";
+      text += `VALOR TOTAL: R$ ${Number(receipt.valor_total).toFixed(2)}\n`;
+      text += "\x1B\x61\x01www.leobet.pro\n";
+      text += "\n\n\n\n";
+
+      const data = encoder.encode(text);
+      const chunkSize = 20;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
+      }
+      toast({ title: "REIMPRESSO COM SUCESSO!" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERRO NA IMPRESSÃO" });
+    }
+  }, [btCharacteristic, toast]);
 
   if (!mounted) return null;
 
@@ -127,7 +161,7 @@ export default function RelatoriosPage() {
              </Card>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pb-20">
              <div className="flex justify-between items-center">
                <h3 className="text-sm font-black uppercase text-primary">Movimentações</h3>
                <Badge className="bg-primary text-white font-black uppercase text-[10px]">{filteredTickets.length} REGISTROS</Badge>
@@ -135,25 +169,27 @@ export default function RelatoriosPage() {
 
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.map((t, i) => (
-                    <Card key={i} className={`p-4 hover:shadow-md border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'} rounded-2xl`}>
+                    <Card key={i} className={`p-4 hover:shadow-md border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'} rounded-2xl bg-white`}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1 w-full">
                              <div className="flex items-center gap-2">
                                 <p className="font-black uppercase text-sm">{t.cliente}</p>
                                 <Badge className="text-[8px] h-4 font-black uppercase">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
-                                <Badge variant={t.status === 'pago' ? 'default' : 'destructive'} className="text-[8px] h-4 font-black uppercase">
-                                  {t.status === 'pago' ? '✓ Aprovado' : '⚠ Pendente'}
-                                </Badge>
                              </div>
                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                               {t.eventoNome} • {new Date(t.data).toLocaleString()}
+                               {t.evento_nome} • {new Date(t.created_at).toLocaleString()}
                              </p>
                           </div>
-                          <div className="flex items-center gap-4 shrink-0 w-full md:w-auto justify-between md:justify-end">
-                             <p className="text-lg font-black text-primary">R$ {t.valorTotal.toFixed(2)}</p>
-                             <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl">
-                               <Send className="w-3.5 h-3.5" /> WhatsApp
-                             </Button>
+                          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-between md:justify-end">
+                             <p className="text-lg font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
+                             <div className="flex gap-1">
+                               <Button onClick={() => printReceipt(t)} size="icon" variant="outline" className="h-10 w-10 border-primary/20 hover:bg-primary/10 rounded-xl">
+                                 <Printer className="w-4 h-4 text-primary" />
+                               </Button>
+                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl">
+                                 <Send className="w-3.5 h-3.5" /> WhatsApp
+                               </Button>
+                             </div>
                           </div>
                        </div>
                     </Card>

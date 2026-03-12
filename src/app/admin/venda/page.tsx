@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,7 +15,10 @@ import {
   Trophy,
   Printer,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Send,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -28,6 +32,7 @@ export default function VendaPage() {
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [quantity, setQuantity] = useState(1);
   
   const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
   const [btDevice, setBtDevice] = useState<any>(null);
@@ -115,7 +120,10 @@ export default function VendaPage() {
   };
 
   const printReceipt = useCallback(async (receipt: any) => {
-    if (!btCharacteristic) return;
+    if (!btCharacteristic) {
+      toast({ variant: "destructive", title: "IMPRESSORA NÃO CONECTADA" });
+      return;
+    }
     try {
       const encoder = new TextEncoder();
       let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
@@ -123,11 +131,12 @@ export default function VendaPage() {
       text += "--------------------------------\n";
       text += `CLIENTE: ${receipt.cliente}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
-      text += `DATA: ${new Date().toLocaleString()}\n`;
+      text += `DATA: ${new Date(receipt.created_at).toLocaleString()}\n`;
       text += "--------------------------------\n";
-      receipt.tickets_data.forEach((t: any) => {
-        text += `BILHETE: ${t.id}\n`;
+      receipt.tickets_data.forEach((t: any, i: number) => {
+        text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.numeros) text += `NUMEROS: ${t.numeros.join(' ')}\n`;
+        text += "\n";
       });
       text += "--------------------------------\n";
       if (receipt.tipo === 'bingo') {
@@ -147,10 +156,16 @@ export default function VendaPage() {
       for (let i = 0; i < data.length; i += chunkSize) {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
+      toast({ title: "IMPRESSO COM SUCESSO!" });
     } catch (e) {
-      console.error("Erro Bluetooth");
+      toast({ variant: "destructive", title: "ERRO NA IMPRESSÃO" });
     }
-  }, [btCharacteristic]);
+  }, [btCharacteristic, toast]);
+
+  const sendToWhatsapp = (receipt: any) => {
+    const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
+    window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
+  };
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,11 +183,13 @@ export default function VendaPage() {
       return Array.from(nums).sort((a,b) => a-b);
     };
 
-    const ticketsGenerated = [{
+    const ticketsGenerated = Array.from({ length: quantity }).map(() => ({
       id: Math.random().toString().substring(2, 10),
       numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
       status: 'pago'
-    }];
+    }));
+
+    const totalVenda = formData.unitario * quantity;
 
     const receipt = {
       id: receiptId,
@@ -181,7 +198,7 @@ export default function VendaPage() {
       tipo: formData.tipo,
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
-      valor_total: formData.valorTotal,
+      valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       status: 'pago',
       tickets_data: ticketsGenerated,
@@ -195,14 +212,6 @@ export default function VendaPage() {
       
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
-
-      if (btCharacteristic) {
-        await printReceipt(receipt);
-        toast({ title: "CUPOM IMPRESSO!" });
-      }
-      
-      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
-      window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
@@ -237,7 +246,7 @@ export default function VendaPage() {
               </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden border-t-8 border-primary">
               <CardHeader className="p-8 pb-0">
                 <h2 className="text-xl font-black uppercase flex items-center gap-2 text-primary">
@@ -276,31 +285,63 @@ export default function VendaPage() {
                   </div>
 
                   {selectedEvent && (
-                    <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
-                       <div className="grid grid-cols-3 gap-2">
-                          <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                             <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
-                             <p className="text-[8px] font-black uppercase">Bingo</p>
-                             <p className="text-[10px] font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
-                          </div>
-                          <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                             <Zap className="w-4 h-4 mx-auto text-primary mb-1" />
-                             <p className="text-[8px] font-black uppercase">Quina</p>
-                             <p className="text-[10px] font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
-                          </div>
-                          <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                             <CheckCircle2 className="w-4 h-4 mx-auto text-green-600 mb-1" />
-                             <p className="text-[8px] font-black uppercase">Quadra</p>
-                             <p className="text-[10px] font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
-                          </div>
-                       </div>
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Cartelas</Label>
+                        <div className="flex items-center gap-4">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-12 w-12 rounded-xl border-2"
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          >
+                            <Minus className="w-6 h-6" />
+                          </Button>
+                          <Input 
+                            type="number" 
+                            value={quantity} 
+                            onChange={e => setQuantity(Number(e.target.value))} 
+                            className="h-12 text-center font-black text-xl rounded-xl border-2"
+                          />
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-12 w-12 rounded-xl border-2"
+                            onClick={() => setQuantity(quantity + 1)}
+                          >
+                            <Plus className="w-6 h-6" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
+                         <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
+                         <div className="grid grid-cols-3 gap-2">
+                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                               <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
+                               <p className="text-[8px] font-black uppercase">Bingo</p>
+                               <p className="text-[10px] font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
+                            </div>
+                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                               <Zap className="w-4 h-4 mx-auto text-primary mb-1" />
+                               <p className="text-[8px] font-black uppercase">Quina</p>
+                               <p className="text-[10px] font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
+                            </div>
+                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                               <CheckCircle2 className="w-4 h-4 mx-auto text-green-600 mb-1" />
+                               <p className="text-[8px] font-black uppercase">Quadra</p>
+                               <p className="text-[10px] font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
+                            </div>
+                         </div>
+                      </div>
                     </div>
                   )}
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor do Bilhete</p>
-                     <p className="text-4xl font-black text-white">R$ {formData.valorTotal.toFixed(2)}</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor Total</p>
+                     <p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p>
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
@@ -319,11 +360,12 @@ export default function VendaPage() {
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLI:</span> <span>{vendaRealizada.cliente}</span></p>
                         <p className="flex justify-between"><span>CON:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
+                        <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} CARTELAS</span></p>
                         <div className="pt-2 border-t mt-2">
-                           {vendaRealizada.tickets_data.map((t: any) => (
-                             <div key={t.id} className="mb-2">
-                               <p className="text-[10px] font-black">BILHETE: {t.id}</p>
-                               {t.numeros && <p className="text-[9px] tracking-widest font-code leading-relaxed">{t.numeros.join(' ')}</p>}
+                           {vendaRealizada.tickets_data.map((t: any, idx: number) => (
+                             <div key={t.id} className="mb-4">
+                               <p className="text-[10px] font-black">CARTELA #{idx+1}: {t.id}</p>
+                               {t.numeros && <p className="text-[9px] tracking-widest font-code leading-relaxed bg-black/5 p-1 rounded">{t.numeros.join(' ')}</p>}
                              </div>
                            ))}
                         </div>
@@ -331,10 +373,13 @@ export default function VendaPage() {
                      <p className="text-xl font-black text-primary mb-6">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
                      
                      <div className="flex flex-col gap-2 no-print">
-                        <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg">
-                          <Printer className="w-5 h-5 mr-2" /> Reimprimir
+                        <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg gap-2">
+                          <Printer className="w-5 h-5" /> Imprimir Cupom
                         </Button>
-                        <Button onClick={() => setVendaRealizada(null)} variant="outline" className="w-full h-12 font-black uppercase text-[10px] rounded-xl border-2">
+                        <Button onClick={() => sendToWhatsapp(vendaRealizada)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-xl border-2 text-green-600 border-green-200 hover:bg-green-50 gap-2">
+                          <Send className="w-5 h-5" /> Enviar WhatsApp
+                        </Button>
+                        <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] rounded-xl">
                           Próxima Venda
                         </Button>
                      </div>

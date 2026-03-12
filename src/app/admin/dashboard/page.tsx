@@ -21,7 +21,12 @@ export default function AdminDashboard() {
   const loadStats = async () => {
     try {
       const { data: users } = await supabase.from('users').select('role, status');
-      const { data: tickets } = await supabase.from('tickets').select('status, valor_total, cliente, evento_nome').eq('status', 'pendente');
+      
+      // Busca apenas tickets que PRECISAM de aprovação (status pendente e não foram pagos automaticamente)
+      const { data: tickets } = await supabase
+        .from('tickets')
+        .select('status, valor_total, cliente, evento_nome')
+        .eq('status', 'pendente');
 
       setPendingTickets(tickets || []);
 
