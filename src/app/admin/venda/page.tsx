@@ -85,7 +85,7 @@ export default function VendaPage() {
 
   const connectPrinter = async () => {
     if (typeof window === 'undefined' || !navigator.bluetooth) {
-      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome/Android via HTTPS." });
+      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL" });
       return;
     }
 
@@ -107,10 +107,10 @@ export default function VendaPage() {
       if (writeChar) {
         setBtDevice(device);
         setBtCharacteristic(writeChar);
-        toast({ title: "IMPRESSORA PRONTA!", description: device.name });
+        toast({ title: "IMPRESSORA PRONTA!" });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA DE PAREAMENTO", description: "Verifique se a impressora está ligada." });
+      toast({ variant: "destructive", title: "FALHA DE PAREAMENTO" });
     } finally {
       setBtConnecting(false);
     }
@@ -123,7 +123,7 @@ export default function VendaPage() {
       let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
       text += "CUPOM OFICIAL AUDITADO\n";
       text += "--------------------------------\n";
-      text += `\x1B\x61\x00CLIENTE: ${receipt.cliente}\n`;
+      text += `CLIENTE: ${receipt.cliente}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += `DATA: ${new Date().toLocaleString()}\n`;
       text += "--------------------------------\n";
@@ -140,7 +140,7 @@ export default function VendaPage() {
         text += `PREMIO: R$ ${receipt.detalhe_premios.bolao.toFixed(2)}\n`;
       }
       text += "--------------------------------\n";
-      text += `\x1B\x61\x01VALOR TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
+      text += `VALOR TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += "\x1B\x61\x01www.leobet.pro\n";
       text += "\n\n\n\n";
 
@@ -190,23 +190,19 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA CONFIRMADA!", description: "Bilhete registrado no banco." });
+      toast({ title: "VENDA CONFIRMADA!" });
       
       // IMPRESSÃO AUTOMÁTICA SE CONECTADO
       if (btCharacteristic) {
         printReceipt(receipt);
       }
 
-      const premioTxt = formData.tipo === 'bingo' 
-        ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
-        : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;
-
-      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS:*${premioTxt}%0A%0A*Confira:* https://leobet.pro/resultados?c=${receipt.id}`;
+      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet.pro/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NO BANCO", description: "Verifique as chaves no painel da Vercel." });
+      toast({ variant: "destructive", title: "FALHA NO BANCO" });
     } finally {
       setLoading(false);
     }

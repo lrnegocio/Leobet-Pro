@@ -53,7 +53,7 @@ export default function LoginContent() {
         localStorage.setItem('is_master_admin', 'true');
         localStorage.setItem('logged_user', JSON.stringify(masterUser));
       }
-      toast({ title: "ACESSO MASTER LIBERADO", description: "Sincronização global ativa." });
+      toast({ title: "ACESSO MASTER LIBERADO" });
       router.push('/admin/dashboard');
       return;
     }
@@ -67,8 +67,7 @@ export default function LoginContent() {
         .single();
 
       if (error || !user) throw new Error("Credenciais inválidas.");
-      if (user.status === 'pending') throw new Error("Conta em análise.");
-
+      
       const formattedUser = {
         id: user.id,
         nome: user.nome,

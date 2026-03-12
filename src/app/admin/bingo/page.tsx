@@ -33,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.warn("Conexão Supabase em espera...");
+      // Falha silenciosa para evitar overlay de erro no build
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function BingoPage() {
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">ID Auditoria</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Auditoria</p>
                                <p className="text-[7px] font-black uppercase text-primary/40 truncate w-32">{bingo.id}</p>
                             </div>
                           </div>

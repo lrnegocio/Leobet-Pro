@@ -46,14 +46,13 @@ export default function NovoBingoPage() {
 
       if (error) throw error;
 
-      toast({ title: "BINGO PUBLICADO!", description: "Sincronizado via Supabase." });
+      toast({ title: "BINGO PUBLICADO!" });
       router.push('/admin/bingo');
     } catch (err: any) {
-      console.error("Erro ao salvar bingo:", err);
       toast({ 
         variant: "destructive", 
         title: "FALHA NO BANCO", 
-        description: "Verifique conexão ou chaves no Vercel." 
+        description: "Configure NEXT_PUBLIC_SUPABASE_URL e KEY no painel Vercel." 
       });
     } finally {
       setSaving(false);
