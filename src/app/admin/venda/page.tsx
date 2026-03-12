@@ -61,7 +61,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.error("Event load error");
+      // Falha silenciosa
     }
   };
 
@@ -80,7 +80,7 @@ export default function VendaPage() {
         setPrizes({ totalNet, quadra: 0, quina: 0, bingo: 0, bolao: totalNet });
       }
     } catch (err) {
-      console.error("Prize sync error");
+      // Falha silenciosa
     }
   };
 
@@ -138,7 +138,7 @@ export default function VendaPage() {
 
       await btCharacteristic.writeValue(encoder.encode(text));
     } catch (e) {
-      console.error("Print fail", e);
+      // Falha silenciosa
     }
   };
 
@@ -179,9 +179,10 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA REALIZADA COM SUCESSO!" });
       
+      // Auto-impressão Bluetooth se conectado
       if (btCharacteristic) printReceipt(receipt);
 
-      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS:*%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}%0A%0A*Link de Conferência:*%0Ahttps://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
+      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS ESTIMADOS:*%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}%0A%0A*Confira em:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
@@ -250,7 +251,7 @@ export default function VendaPage() {
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios em Tempo Real</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios Acumulados</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />

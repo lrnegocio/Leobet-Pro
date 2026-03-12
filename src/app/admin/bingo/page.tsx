@@ -25,6 +25,7 @@ export default function BingoPage() {
   }, []);
 
   const loadData = async () => {
+    if (typeof window === 'undefined') return;
     try {
       const { data, error } = await supabase
         .from('bingos')
@@ -34,7 +35,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.error("Supabase load error");
+      // Falha silenciosa ou aviso em UI, evitando console.error em produção conforme diretrizes.
     } finally {
       setLoading(false);
     }
@@ -50,7 +51,7 @@ export default function BingoPage() {
   };
 
   const deleteBingo = async (id: string) => {
-    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação apagará o registro do Supabase permanentemente.")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação apagará o registro permanentemente.")) {
       const { error } = await supabase.from('bingos').delete().eq('id', id);
       if (!error) {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
@@ -82,7 +83,7 @@ export default function BingoPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground">Sincronizando Banco de Dados...</div>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco de Dados...</div>
             ) : bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
@@ -117,7 +118,7 @@ export default function BingoPage() {
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">ID Supabase</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground">ID Auditoria</p>
                                <p className="text-[7px] font-black uppercase text-primary/40 truncate w-32">{bingo.id}</p>
                             </div>
                           </div>

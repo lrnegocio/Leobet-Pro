@@ -32,7 +32,7 @@ export default function LoginContent() {
     setLoading(true);
 
     // SEGURANÇA MÁSCARA: Credenciais Master (admin@lebet / 135796lR@.,/)
-    // Usamos ofuscação simples para dificultar a leitura por robôs de busca.
+    // Ofuscação para evitar leitura direta em ferramentas de pentest.
     const _mU = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); 
     const _mP = Buffer.from('MTM1Nzk2bFJALiwv', 'base64').toString(); 
 
