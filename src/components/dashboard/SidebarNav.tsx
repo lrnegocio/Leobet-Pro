@@ -139,7 +139,6 @@ export function SidebarNav() {
         </button>
       </div>
 
-      {/* Seta de controle centralizada verticalmente */}
       <button 
         onClick={toggleCollapse}
         type="button"

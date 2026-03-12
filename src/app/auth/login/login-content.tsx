@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Lock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { ArrowLeft, Loader2, Lock, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -14,6 +14,8 @@ import { supabase } from '@/supabase/client';
 
 export default function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleFromUrl = searchParams.get('role') || 'cliente';
   const setUser = useAuthStore((state) => state.setUser);
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
@@ -66,6 +68,10 @@ export default function LoginContent() {
 
       if (error || !user) throw new Error("Credenciais inválidas.");
       
+      if (user.status === 'pending') {
+        throw new Error("Sua conta está em análise administrativa.");
+      }
+
       const formattedUser = {
         id: user.id,
         nome: user.nome,
@@ -84,7 +90,8 @@ export default function LoginContent() {
       localStorage.setItem('logged_user', JSON.stringify(formattedUser));
       localStorage.removeItem('is_master_admin');
       
-      router.push(`/${user.role}/dashboard`);
+      const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
+      router.push(dashboardPath);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Falha no Login", description: err.message });
     } finally {
@@ -93,6 +100,8 @@ export default function LoginContent() {
   };
 
   if (!mounted) return null;
+
+  const showRegisterLink = roleFromUrl === 'cliente' || roleFromUrl === 'cambista';
 
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center p-4">
@@ -103,7 +112,7 @@ export default function LoginContent() {
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
           <CardTitle className="text-2xl font-black uppercase text-primary">Acesso Seguro</CardTitle>
-          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Auditado LEOBET PRO</CardDescription>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Auditado {roleFromUrl.toUpperCase()}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -120,6 +129,18 @@ export default function LoginContent() {
             </Button>
           </form>
         </CardContent>
+        {showRegisterLink && (
+          <CardFooter className="flex flex-col gap-4 border-t pt-6 bg-muted/30 rounded-b-[2rem]">
+            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">
+              Ainda não tem conta?
+            </p>
+            <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
+              <Button variant="outline" className="w-full border-2 border-primary/20 hover:bg-primary/5 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
+                <UserPlus className="w-4 h-4" /> Cadastre-se Agora
+              </Button>
+            </Link>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
