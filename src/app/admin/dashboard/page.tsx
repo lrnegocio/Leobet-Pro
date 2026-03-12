@@ -56,7 +56,7 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-3xl font-black font-headline uppercase tracking-tighter text-primary">Painel LEOBET PRO</h1>
               <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest flex items-center gap-2">
-                <Database className="w-3 h-3 text-green-600" /> Sincronizado via Supabase Cloud
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Digital Master
               </p>
             </div>
           </div>
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
               <CardHeader><CardTitle className="font-black uppercase text-sm flex items-center gap-2 text-orange-600"><Clock className="w-4 h-4" /> Aprovações Urgentes</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {pendingTickets.length === 0 ? <div className="text-center py-10 opacity-30 font-black text-xs uppercase">Tudo em dia!</div> : pendingTickets.map((sale, i) => (
+                  {pendingTickets.length === 0 ? <div className="text-center py-10 opacity-30 font-black text-xs uppercase">Sem vendas pendentes</div> : pendingTickets.map((sale, i) => (
                     <div key={i} className="flex items-center justify-between p-4 border rounded-2xl bg-orange-50/30">
                       <div><p className="text-xs font-black uppercase">{sale.cliente}</p><p className="text-[9px] font-bold text-muted-foreground uppercase">{sale.evento_nome} • R$ {Number(sale.valor_total).toFixed(2)}</p></div>
                       <Link href="/admin/financeiro?tab=payouts"><Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Validar</Button></Link>
@@ -95,10 +95,10 @@ export default function AdminDashboard() {
               <CardHeader><CardTitle className="font-black uppercase text-sm flex items-center gap-2 text-primary"><ShoppingCart className="w-4 h-4" /> Atalhos Rápidos</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
                 <Link href="/admin/venda" className="p-6 border-2 border-dashed rounded-3xl hover:bg-primary hover:text-white transition-all flex flex-col items-center gap-2 group">
-                  <ShoppingCart className="w-8 h-8 text-primary group-hover:text-white" /><span className="text-[9px] font-black uppercase">Terminal Vendas</span>
+                  <ShoppingCart className="w-8 h-8 text-primary group-hover:text-white" /><span className="text-[9px] font-black uppercase">Vender Bilhetes</span>
                 </Link>
                 <Link href="/admin/financeiro" className="p-6 border-2 border-dashed rounded-3xl hover:bg-destructive hover:text-white transition-all flex flex-col items-center gap-2 group">
-                  <ArrowUpCircle className="w-8 h-8 text-destructive group-hover:text-white" /><span className="text-[9px] font-black uppercase">Financeiro</span>
+                  <ArrowUpCircle className="w-8 h-8 text-destructive group-hover:text-white" /><span className="text-[9px] font-black uppercase">Conferir Caixa</span>
                 </Link>
               </CardContent>
             </Card>

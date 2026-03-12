@@ -50,11 +50,10 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
-      // Busca pelo ID do recibo ou pelo ID individual de um ticket
       const { data: found } = await supabase
         .from('tickets')
         .select('*')
-        .or(`id.eq.${codeToSearch},barcode.eq.${codeToSearch},tickets_data.cs.[{"id":"${codeToSearch}"}]`)
+        .or(`id.eq.${codeToSearch},barcode.eq.${codeToSearch}`)
         .maybeSingle();
 
       if (found) {
@@ -63,7 +62,7 @@ function ResultadosContent() {
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
         
-        // Recalcula prêmios em tempo real para auditoria
+        // RECALCULA PRÊMIOS EM TEMPO REAL
         const { data: allTickets } = await supabase
           .from('tickets')
           .select('valor_total')
@@ -121,7 +120,7 @@ function ResultadosContent() {
 
       if (error) throw error;
       
-      toast({ title: "SOLICITAÇÃO DE RESGATE ENVIADA!" });
+      toast({ title: "RESGATE SOLICITADO!" });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO", description: err.message });
@@ -134,8 +133,6 @@ function ResultadosContent() {
     if (user && user.id && user.id !== 'admin-master') {
       const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
       router.push(dashboardPath);
-    } else if (localStorage.getItem('logged_user') || localStorage.getItem('is_master_admin')) {
-        router.push('/admin/dashboard');
     } else {
       router.push('/');
     }
@@ -153,14 +150,14 @@ function ResultadosContent() {
           <div className="flex gap-2">
             {youtubeUrl && (
               <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg">
-                <Youtube className="w-5 h-5" /> Live
+                <Youtube className="w-5 h-5" /> Assistir Sorteio
               </Button>
             )}
           </div>
         </div>
 
         <div className="text-center space-y-2">
-          <h1 className="text-4xl md:text-6xl font-black font-headline uppercase text-primary tracking-tighter leading-none">Auditoria Online</h1>
+          <h1 className="text-4xl md:text-6xl font-black font-headline uppercase text-primary tracking-tighter leading-none">Auditoria Digital</h1>
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em] opacity-60 flex items-center justify-center gap-2">
             <Database className="w-3 h-3 text-green-600" /> Sincronizado via Supabase
           </p>
@@ -171,7 +168,7 @@ function ResultadosContent() {
             <div className="space-y-4">
                <div className="flex flex-col md:flex-row gap-2">
                 <input 
-                  placeholder="CÓDIGO OU BARCODE" 
+                  placeholder="CÓDIGO DO BILHETE" 
                   className="w-full h-16 md:h-20 font-black text-center text-2xl md:text-3xl border-2 focus:border-primary rounded-3xl uppercase outline-none" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -186,22 +183,22 @@ function ResultadosContent() {
             {loading ? (
               <div className="py-20 flex flex-col items-center gap-4">
                 <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Processando Auditoria...</p>
+                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Consultando Auditoria...</p>
               </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
                 <div className="bg-primary/5 p-6 md:p-8 rounded-[2rem] border-2 border-primary/10 space-y-6">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div>
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cliente Apostador</p>
                         <p className="font-black text-primary text-3xl md:text-4xl tracking-tight leading-none truncate">{receipt.cliente}</p>
                         <div className="mt-4">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso Atual</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso</p>
                           <p className="font-black uppercase text-lg md:text-xl text-primary leading-tight">{receipt.evento_nome}</p>
                         </div>
                       </div>
                       <div className="bg-white px-5 py-5 rounded-[2rem] shadow-xl border border-primary/5 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Prêmios em Tempo Real</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Prêmios Acumulados (65%)</p>
                         {receipt.tipo === 'bingo' ? (
                           <div className="space-y-2">
                              <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60 uppercase">Bingo:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}</span></div>
@@ -224,7 +221,7 @@ function ResultadosContent() {
                         )}>
                           {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
                         </Badge>
-                        <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">{receipt.barcode}</Badge>
+                        <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
                       </div>
                       <div className="text-right flex items-center gap-2">
                         <Globe className="w-4 h-4 text-primary/20" />
@@ -241,17 +238,17 @@ function ResultadosContent() {
                     return (
                       <Card key={idx} className={cn(
                         "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                        isWinner ? 'bg-green-50 border-green-400' : isPaid ? 'bg-blue-50 border-blue-400' : 'bg-white border-muted-foreground/10'
+                        isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
                       )}>
                          <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
                              <div className="flex-1 space-y-4">
                                 <div className="flex justify-between items-center">
-                                  <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{t.id}</span>
+                                  <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
                                   <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
                                     "font-black uppercase text-[9px] h-6 px-4",
                                     isWinner ? 'bg-green-600 animate-bounce' : ''
                                   )}>
-                                    {isWinner ? "🔥 GANHADOR!" : isPaid ? "✓ ATIVO" : isPending ? "⌚ ANALISE" : "AGUARDANDO"}
+                                    {isWinner ? "🔥 GANHADOR!" : isPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
                                   </Badge>
                                 </div>
                                 {t.numeros ? (
@@ -287,7 +284,7 @@ function ResultadosContent() {
                                   {isWinner ? (
                                     <>
                                       <div>
-                                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
+                                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Prêmio Estimado:</p>
                                         <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                       </div>
                                       <div className="space-y-2">
@@ -306,7 +303,7 @@ function ResultadosContent() {
                                     <div className="space-y-3">
                                        <Clock className="w-8 h-8 mx-auto animate-pulse" />
                                        <p className="font-black uppercase text-md leading-tight">SOLICITAÇÃO ENVIADA</p>
-                                       <p className="text-[9px] font-bold opacity-60 uppercase">Aguarde a auditoria pagar seu PIX.</p>
+                                       <p className="text-[9px] font-bold opacity-60 uppercase">Aguarde a liberação administrativa.</p>
                                     </div>
                                   )}
                                </div>
@@ -316,21 +313,12 @@ function ResultadosContent() {
                     );
                   })}
                 </div>
-
-                <div className="pt-8 flex flex-col items-center gap-4 opacity-30">
-                   <div className="bg-white p-4 rounded-3xl shadow-sm border">
-                      <Smartphone className="w-8 h-8 text-primary" />
-                   </div>
-                   <p className="text-[9px] font-black uppercase text-center max-w-xs leading-relaxed">
-                     ESTE COMPROVANTE É SEGURO E AUDITADO DIGITALMENTE VIA SUPABASE CLOUD. GUARDE SEU CÓDIGO {receipt.barcode}.
-                   </p>
-                </div>
               </div>
             ) : searched && (
               <div className="text-center py-16 bg-red-50 rounded-[3rem] border-2 border-dashed border-red-100">
                 <XCircle className="w-20 h-20 mx-auto mb-4 text-red-200" />
-                <h3 className="font-black uppercase text-2xl text-red-600 leading-none">Aposta Não Localizada</h3>
-                <p className="text-red-400 font-bold uppercase text-[9px] tracking-widest mt-3">Verifique o código ou barcode no seu bilhete</p>
+                <h3 className="font-black uppercase text-2xl text-red-600 leading-none">Bilhete não encontrado</h3>
+                <p className="text-red-400 font-bold uppercase text-[9px] tracking-widest mt-3">Verifique o código e tente novamente.</p>
               </div>
             )}
           </CardContent>
@@ -342,7 +330,7 @@ function ResultadosContent() {
 
 export default function ResultadosPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">Auditando Sistema...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary">Auditando Sistema...</div>}>
       <ResultadosContent />
     </Suspense>
   );

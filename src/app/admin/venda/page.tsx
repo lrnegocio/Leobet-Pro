@@ -34,7 +34,6 @@ export default function VendaPage() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   
   const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
@@ -99,7 +98,7 @@ export default function VendaPage() {
         setPrizes({ totalNet: pool, quadra: 0, quina: 0, bingo: 0, bolao: pool });
       }
     } catch (err) {
-      console.error("Erro ao calcular prêmios em tempo real");
+      console.error("Erro ao calcular prêmios");
     }
   };
 
@@ -127,10 +126,10 @@ export default function VendaPage() {
       if (writeChar) {
         setBtDevice(device);
         setBtCharacteristic(writeChar);
-        toast({ title: "IMPRESSORA PRONTA!" });
+        toast({ title: "IMPRESSORA CONECTADA!" });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA DE PAREAMENTO" });
+      toast({ variant: "destructive", title: "FALHA DE CONEXÃO" });
     } finally {
       setBtConnecting(false);
     }
@@ -156,7 +155,7 @@ export default function VendaPage() {
         text += "\n";
       });
       text += "--------------------------------\n";
-      text += "PREMIACAO ESTIMADA (65%):\n";
+      text += "PREMIACAO ACUMULADA (65%):\n";
       if (receipt.tipo === 'bingo') {
         text += `BINGO: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}\n`;
         text += `QUINA: R$ ${receipt.detalhe_premios.quina.toFixed(2)}\n`;
@@ -173,7 +172,7 @@ export default function VendaPage() {
       
       text += `CONFERIR NO SITE:\n${settings.systemUrl}\n`;
       text += "--------------------------------\n";
-      text += `COD: ${receipt.barcode}\n\n`;
+      text += `BARCODE: ${receipt.barcode}\n\n`;
       text += "     [ QR CODE DIGITAL ]\n";
       text += `  ${settings.systemUrl}/resultados?c=${receipt.id}\n`;
       text += "\x1B\x61\x01BOA SORTE!\n";
@@ -186,7 +185,7 @@ export default function VendaPage() {
       }
       toast({ title: "CUPOM IMPRESSO!" });
     } catch (e) {
-      toast({ variant: "destructive", title: "ERRO NA IMPRESSÃO" });
+      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO" });
     }
   }, [btCharacteristic, settings, toast]);
 
@@ -211,7 +210,7 @@ export default function VendaPage() {
 
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
-    const barcode = Math.floor(10000000000 + Math.random() * 90000000000).toString(); // 11 digitos
+    const barcode = Math.floor(10000000000 + Math.random() * 90000000000).toString(); 
     
     const generateBingoNumbers = () => {
       const nums = new Set<number>();
@@ -250,11 +249,9 @@ export default function VendaPage() {
       
       setVendaRealizada(receipt);
       toast({ title: "VENDA REGISTRADA!" });
-      
-      // Atualiza os prêmios globais após a venda
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO DE CONEXÃO" });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
     } finally {
       setLoading(false);
     }
@@ -269,26 +266,26 @@ export default function VendaPage() {
         <div className="max-w-5xl mx-auto space-y-6">
           
           <div className="flex flex-col md:flex-row gap-4 items-stretch">
-            <Card className="flex-1 bg-white p-4 rounded-3xl shadow-sm border-2 border-primary/5 flex items-center justify-between">
+            <Card className="flex-1 bg-white p-4 rounded-3xl shadow-sm border flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={cn("p-3 rounded-2xl", btCharacteristic ? "bg-green-100" : "bg-muted")}>
                     <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p>
-                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "OFFLINE"}</p>
+                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADO"}</p>
                   </div>
                 </div>
-                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl">
-                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "PRONTA" : "CONECTAR")}
+                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
+                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
                 </Button>
             </Card>
 
-            <Card className="bg-red-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-4 border-none cursor-pointer hover:bg-red-700 transition-all" onClick={() => window.open(settings.youtubeUrl, '_blank')}>
+            <Card className="bg-red-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-4 border-none cursor-pointer" onClick={() => window.open(settings.youtubeUrl, '_blank')}>
                <Youtube className="w-8 h-8" />
                <div className="text-left">
                   <p className="text-[9px] font-black uppercase opacity-60">Sorteio Online</p>
-                  <p className="text-xs font-black uppercase">Link YouTube Ativo</p>
+                  <p className="text-xs font-black uppercase">Assistir YouTube</p>
                </div>
             </Card>
           </div>
@@ -303,8 +300,8 @@ export default function VendaPage() {
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Apostador</Label>
-                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Nome do Apostador</Label>
+                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="EX: JOÃO DA SILVA" className="h-12 font-bold uppercase" required />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
@@ -319,20 +316,19 @@ export default function VendaPage() {
                       onChange={e => {
                         const ev = eventosAtivos.find(ev => ev.id === e.target.value);
                         if (ev) {
-                          setSelectedEvent(ev);
                           setFormData({...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, valorTotal: ev.preco, tipo: ev.tipo});
                           updatePrizes(ev.id, ev.tipo);
                         }
                       }} 
                       required
                     >
-                      <option value="">-- SELECIONE --</option>
+                      <option value="">-- SELECIONE O JOGO --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Quantas Cartelas?</Label>
                     <div className="flex items-center gap-4">
                       <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl border-2" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
                         <Minus className="w-6 h-6" />
@@ -346,7 +342,7 @@ export default function VendaPage() {
 
                   <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
                      <p className="text-[10px] font-black uppercase text-center opacity-60 flex items-center justify-center gap-2">
-                       <Database className="w-3 h-3 text-green-600" /> Prêmios Acumulados (Tempo Real)
+                       <Database className="w-3 h-3 text-green-600" /> Prêmios Acumulados (65%)
                      </p>
                      <div className="grid grid-cols-3 gap-2">
                         <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
@@ -368,12 +364,12 @@ export default function VendaPage() {
                   </div>
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total da Venda</p>
                      <p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p>
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
-                    {loading ? "Sincronizando..." : "Registrar Aposta"}
+                    {loading ? "Processando..." : "Registrar Aposta"}
                   </Button>
                 </form>
               </CardContent>
@@ -388,12 +384,12 @@ export default function VendaPage() {
                      <p className="text-[8px] font-bold uppercase opacity-60">Cupom de Auditoria</p>
                      
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
-                        <p className="flex justify-between"><span>CLI:</span> <span>{vendaRealizada.cliente}</span></p>
-                        <p className="flex justify-between"><span>CON:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
+                        <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
+                        <p className="flex justify-between"><span>CONCURSO:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
                         <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} CARTELAS</span></p>
                         
                         <div className="pt-2 border-t mt-2">
-                           <p className="text-[9px] font-black uppercase mb-2">Prêmios Acumulados:</p>
+                           <p className="text-[9px] font-black uppercase mb-2">Prêmios Acumulados (65%):</p>
                            {vendaRealizada.tipo === 'bingo' ? (
                              <div className="bg-black/5 p-2 rounded space-y-1 text-[10px]">
                                <p className="flex justify-between"><span>Bingo:</span> <span>R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)}</span></p>
@@ -417,17 +413,17 @@ export default function VendaPage() {
                         </div>
                      </div>
                      
-                     <div className="space-y-2 mb-6">
-                        <p className="text-xl font-black text-primary">VALOR: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase">{vendaRealizada.barcode}</p>
+                     <div className="space-y-2 mb-6 text-center">
+                        <p className="text-xl font-black text-primary">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase">BARCODE: {vendaRealizada.barcode}</p>
                      </div>
 
                      <div className="flex flex-col gap-2 no-print">
                         <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg gap-2">
-                          <Printer className="w-5 h-5" /> Imprimir Vias
+                          <Printer className="w-5 h-5" /> Imprimir Cupom
                         </Button>
                         <Button onClick={() => sendToWhatsapp(vendaRealizada)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-xl border-2 text-green-600 border-green-200 hover:bg-green-50 gap-2">
-                          <Send className="w-5 h-5" /> WhatsApp Ganhador
+                          <Send className="w-5 h-5" /> Enviar WhatsApp
                         </Button>
                         <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] rounded-xl opacity-40">
                           Próxima Venda
