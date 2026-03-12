@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Globe, Smartphone, Key } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, Globe, Key, QrCode } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -216,8 +216,7 @@ function ResultadosContent() {
                         <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
                       </div>
                       <div className="text-right flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-primary/20" />
-                        <p className="text-[8px] font-black uppercase text-primary/40 truncate w-40">{systemUrl}</p>
+                        <QrCode className="w-8 h-8 text-primary" />
                       </div>
                    </div>
                 </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,17 +12,12 @@ import {
   Bluetooth,
   RefreshCcw,
   Smartphone,
-  Trophy,
   Printer,
-  Zap,
-  CheckCircle2,
-  Send,
   Plus,
   Minus,
-  Youtube,
-  Globe,
   Database,
-  Key
+  Key,
+  QrCode
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -215,7 +209,8 @@ export default function VendaPage() {
       toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique conexão ou saldo." });
+      console.error(err);
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique se as tabelas existem no Supabase." });
     } finally {
       setLoading(false);
     }
