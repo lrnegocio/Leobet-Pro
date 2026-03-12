@@ -21,7 +21,8 @@ import {
   QrCode,
   Send,
   MessageCircle,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -206,7 +207,7 @@ export default function VendaPage() {
     const totalVenda = formData.unitario * quantity;
     const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
 
-    // Se o vendedor tiver saldo, já sai como pago. Se não tiver, sai como pendente para aprovação do admin.
+    // MELHORIA: Se não tiver saldo, permite a venda mas marca como pendente para aprovação posterior
     const hasBalance = (user?.balance || 0) >= totalVenda;
     const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
 
