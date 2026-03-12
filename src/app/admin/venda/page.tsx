@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -156,13 +155,6 @@ export default function VendaPage() {
     }
   }, [btCharacteristic, toast]);
 
-  // IMPRESSÃO AUTOMÁTICA APÓS VENDA
-  useEffect(() => {
-    if (vendaRealizada && btCharacteristic) {
-      printReceipt(vendaRealizada);
-    }
-  }, [vendaRealizada, btCharacteristic, printReceipt]);
-
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.eventoId) {
@@ -200,14 +192,18 @@ export default function VendaPage() {
       
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
+
+      // IMPRESSÃO AUTOMÁTICA SE PAREADO
+      if (btCharacteristic) {
+        await printReceipt(receipt);
+      }
       
-      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet.pro/resultados?c=${receipt.id}`;
+      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Venda registrada com sucesso." });
-      setVendaRealizada(receipt); 
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique conexão." });
     } finally {
       setLoading(false);
     }

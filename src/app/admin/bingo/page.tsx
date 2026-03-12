@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -34,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      // Falha silenciosa para resiliência
+      console.warn("Supabase Sync Delay");
     } finally {
       setLoading(false);
     }
