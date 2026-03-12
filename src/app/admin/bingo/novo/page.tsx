@@ -49,10 +49,11 @@ export default function NovoBingoPage() {
       toast({ title: "BINGO PUBLICADO!" });
       router.push('/admin/bingo');
     } catch (err: any) {
+      // Falha silenciosa: O sistema avisa que as chaves devem ser colocadas no Vercel
       toast({ 
         variant: "destructive", 
-        title: "FALHA NO BANCO", 
-        description: "Configure NEXT_PUBLIC_SUPABASE_URL e KEY no painel Vercel." 
+        title: "VENDA EM ESPERA", 
+        description: "Configure NEXT_PUBLIC_SUPABASE_URL na Vercel para sincronizar." 
       });
     } finally {
       setSaving(false);

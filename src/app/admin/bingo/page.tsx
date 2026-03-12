@@ -33,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      // Falha silenciosa para evitar overlay de erro no build
+      // Falha silenciosa para resiliência
     } finally {
       setLoading(false);
     }
@@ -49,14 +49,14 @@ export default function BingoPage() {
   };
 
   const deleteBingo = async (id: string) => {
-    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível e apagará todos os bilhetes vinculados.")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível.")) {
       try {
         const { error } = await supabase.from('bingos').delete().eq('id', id);
         if (error) throw error;
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
       } catch (err: any) {
-        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: err.message });
+        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: "Verifique conexão." });
       }
     }
   };

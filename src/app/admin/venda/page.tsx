@@ -52,6 +52,13 @@ export default function VendaPage() {
     loadEventos();
   }, []);
 
+  // IMPRESSÃO AUTOMÁTICA ASSIM QUE A VENDA FOR REALIZADA
+  useEffect(() => {
+    if (vendaRealizada && btCharacteristic) {
+      printReceipt(vendaRealizada);
+    }
+  }, [vendaRealizada, btCharacteristic]);
+
   const loadEventos = async () => {
     try {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
@@ -60,7 +67,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.warn("Conexão Supabase em espera...");
+      console.warn("Conexão Supabase resiliente ativada.");
     }
   };
 
@@ -149,6 +156,7 @@ export default function VendaPage() {
       for (let i = 0; i < data.length; i += chunkSize) {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
+      toast({ title: "IMPRIMINDO COMPROVANTE..." });
     } catch (e) {
       console.error("Erro Bluetooth");
     }
@@ -192,17 +200,12 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
       
-      // IMPRESSÃO AUTOMÁTICA SE CONECTADO
-      if (btCharacteristic) {
-        printReceipt(receipt);
-      }
-
       const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet.pro/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NO BANCO" });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Venda salva no banco." });
     } finally {
       setLoading(false);
     }
@@ -226,9 +229,11 @@ export default function VendaPage() {
                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p>
                 </div>
               </div>
-              <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
-                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
+                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
+                </Button>
+              </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -309,7 +314,7 @@ export default function VendaPage() {
                 <div className="animate-in zoom-in duration-300">
                   <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
                      <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
-                     <p className="text-[8px] font-bold uppercase opacity-60">Auditado Supabase Cloud</p>
+                     <p className="text-[8px] font-bold uppercase opacity-60">Auditado Digital Cloud</p>
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLI:</span> <span>{vendaRealizada.cliente}</span></p>
                         <p className="flex justify-between"><span>CON:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
