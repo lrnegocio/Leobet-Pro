@@ -1,5 +1,4 @@
-
-"use client"
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
@@ -61,7 +60,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.error("Erro ao carregar eventos");
+      console.warn("Chaves Supabase aguardadas no Vercel...");
     }
   };
 
@@ -205,7 +204,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "Verifique suas chaves no Vercel." });
+      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "Verifique chaves do Supabase no Vercel." });
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,4 @@
-
-"use client"
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -35,10 +34,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, roles: ['admin'] },
-  { label: 'Meu Painel', href: '/gerente/dashboard', icon: LayoutDashboard, roles: ['gerente'] },
-  { label: 'Minha Rede', href: '/gerente/cambistas', icon: Users, roles: ['gerente'] },
-  { label: 'Meu Painel', href: '/cambista/dashboard', icon: LayoutDashboard, roles: ['cambista'] },
-  { label: 'Área do Apostador', href: '/cliente/dashboard', icon: LayoutDashboard, roles: ['cliente'] },
   { label: 'Terminal Vendas', href: '/admin/venda', icon: ShoppingCart, roles: ['admin', 'cambista', 'gerente'] },
   { label: 'Relatórios', href: '/relatorios', icon: FileText, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: Search, roles: ['admin', 'cambista', 'gerente', 'cliente'] },

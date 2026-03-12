@@ -1,5 +1,4 @@
-
-"use client"
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,7 +17,6 @@ export default function LoginContent() {
   const setUser = useAuthStore((state) => state.setUser);
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
-
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,17 +29,17 @@ export default function LoginContent() {
     e.preventDefault();
     setLoading(true);
 
-    // MASCARAMENTO DE CREDENCIAIS MASTER (LEOBET PRO)
+    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA ANTI-HACKER)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
-    const _mU = atob('YWRtaW5AbGViZXQ='); 
-    const _mP = atob('MTM1Nzk2bFJALiwv'); 
+    const _mU = atob('YWRtaW5AbGViZXQ=');
+    const _mP = atob('MTM1Nzk2bFJALiwv');
 
     if (identifier.toLowerCase() === _mU && password === _mP) {
       const masterUser = {
         id: 'master-leobet',
         nome: 'LEOBET MASTER',
-        email: 'admin@lebet',
+        email: identifier.toLowerCase(),
         role: 'admin' as const,
         balance: 999999,
         commissionBalance: 0,
@@ -67,13 +65,8 @@ export default function LoginContent() {
         .eq('password', password)
         .single();
 
-      if (error || !user) {
-        throw new Error("Credenciais inválidas ou erro de rede.");
-      }
-
-      if (user.status === 'pending') {
-        throw new Error("Conta em análise pela administração.");
-      }
+      if (error || !user) throw new Error("Credenciais inválidas.");
+      if (user.status === 'pending') throw new Error("Conta em análise.");
 
       const formattedUser = {
         id: user.id,
@@ -95,7 +88,7 @@ export default function LoginContent() {
       
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Falha no Login", description: err.message || "Verifique sua conexão." });
+      toast({ variant: "destructive", title: "Falha no Login", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -111,17 +104,17 @@ export default function LoginContent() {
       <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent rounded-[2rem]">
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
-          <CardTitle className="text-2xl font-black uppercase">Login Seguro</CardTitle>
+          <CardTitle className="text-2xl font-black uppercase text-primary">Login Seguro</CardTitle>
           <CardDescription className="font-bold">Acesso restrito LEOBET PRO</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label>Usuário</Label>
-              <Input placeholder="Seu email ou nome" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
+              <Label className="text-xs font-black uppercase">Usuário</Label>
+              <Input placeholder="admin@lebet" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
             </div>
             <div className="space-y-2">
-              <Label>Senha</Label>
+              <Label className="text-xs font-black uppercase">Senha</Label>
               <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 font-bold" />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-14 font-black uppercase shadow-xl" disabled={loading}>

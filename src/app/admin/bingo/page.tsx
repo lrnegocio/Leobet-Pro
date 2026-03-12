@@ -1,5 +1,4 @@
-
-"use client"
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
@@ -20,7 +19,7 @@ export default function BingoPage() {
   useEffect(() => {
     setMounted(true);
     loadData();
-    const interval = setInterval(loadData, 15000);
+    const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -34,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.warn("Falha ao carregar bingos.");
+      console.warn("Aguardando chaves do Supabase no Vercel...");
     } finally {
       setLoading(false);
     }
@@ -56,7 +55,7 @@ export default function BingoPage() {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
       } else {
-        toast({ variant: "destructive", title: "ERRO AO EXCLUIR", description: "Verifique conexão com banco." });
+        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: "Verifique conexão com banco no Vercel." });
       }
     }
   };
