@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,8 @@ import {
   Printer,
   Zap,
   CheckCircle2,
-  Phone
+  Phone,
+  Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -51,13 +52,6 @@ export default function VendaPage() {
     setMounted(true);
     loadEventos();
   }, []);
-
-  // IMPRESSÃO AUTOMÁTICA ASSIM QUE A VENDA FOR REALIZADA
-  useEffect(() => {
-    if (vendaRealizada && btCharacteristic) {
-      printReceipt(vendaRealizada);
-    }
-  }, [vendaRealizada, btCharacteristic]);
 
   const loadEventos = async () => {
     try {
@@ -123,7 +117,7 @@ export default function VendaPage() {
     }
   };
 
-  const printReceipt = async (receipt: any) => {
+  const printReceipt = useCallback(async (receipt: any) => {
     if (!btCharacteristic) return;
     try {
       const encoder = new TextEncoder();
@@ -156,11 +150,17 @@ export default function VendaPage() {
       for (let i = 0; i < data.length; i += chunkSize) {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
-      toast({ title: "IMPRIMINDO COMPROVANTE..." });
+      toast({ title: "IMPRESSO COM SUCESSO!" });
     } catch (e) {
       console.error("Erro Bluetooth");
     }
-  };
+  }, [btCharacteristic, toast]);
+
+  useEffect(() => {
+    if (vendaRealizada && btCharacteristic) {
+      printReceipt(vendaRealizada);
+    }
+  }, [vendaRealizada, btCharacteristic, printReceipt]);
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,7 +186,7 @@ export default function VendaPage() {
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       valor_total: formData.valorTotal,
-      vendedor_id: user?.id,
+      vendedor_id: user?.id || 'admin-master',
       status: 'pago',
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },

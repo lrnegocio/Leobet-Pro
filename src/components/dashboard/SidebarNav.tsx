@@ -140,7 +140,6 @@ export function SidebarNav() {
         </button>
       </div>
 
-      {/* SETA CENTRALIZADA VERTICALMENTE */}
       <button 
         onClick={toggleCollapse}
         type="button"
