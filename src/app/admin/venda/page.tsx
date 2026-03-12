@@ -5,6 +5,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { 
   ShoppingCart, 
   Bluetooth,
@@ -195,7 +196,6 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
 
-      // IMPRESSÃO AUTOMÁTICA SE CONECTADO
       if (btCharacteristic) {
         await printReceipt(receipt);
         toast({ title: "CUPOM IMPRESSO!" });
@@ -206,7 +206,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "O sistema salvará localmente." });
+      toast({ variant: "destructive", title: "FALHA NA CONEXÃO" });
     } finally {
       setLoading(false);
     }
