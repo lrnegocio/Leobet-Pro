@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -12,7 +13,8 @@ import {
   FileText, 
   TrendingUp, 
   Printer,
-  RefreshCcw
+  RefreshCcw,
+  Eraser
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +103,13 @@ export default function RelatoriosPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
+  const clearFilters = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setStartDate(today);
+    setEndDate(today);
+    loadData();
+  };
+
   if (!mounted || !user) return (
     <div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary bg-muted/30">
       <div className="flex flex-col items-center gap-4">
@@ -121,12 +130,17 @@ export default function RelatoriosPage() {
               <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">Auditoria Diária Supabase</p>
             </div>
             
-            <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center w-full md:w-auto">
-              <Calendar className="w-4 h-4 text-primary ml-2" />
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
-              <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
-              <Button onClick={loadData} variant="ghost" size="icon" className="h-9 w-9"><RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} /></Button>
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center flex-1 md:flex-none">
+                <Calendar className="w-4 h-4 text-primary ml-2" />
+                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
+                <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
+                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
+                <Button onClick={loadData} variant="ghost" size="icon" className="h-9 w-9"><RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} /></Button>
+              </div>
+              <Button onClick={clearFilters} variant="outline" className="h-14 gap-2 font-black uppercase text-[10px] px-6 rounded-2xl border-2">
+                 <Eraser className="w-4 h-4" /> Limpar Filtros
+              </Button>
             </div>
           </div>
 
@@ -164,19 +178,23 @@ export default function RelatoriosPage() {
              </div>
 
              <div className="grid grid-cols-1 gap-3">
-                {filteredTickets.map((t, i) => (
+                {filteredTickets.length === 0 ? (
+                   <Card className="py-20 text-center border-dashed opacity-30 rounded-2xl bg-white">
+                      <p className="font-black uppercase text-xs">Nenhum registro para este período</p>
+                   </Card>
+                ) : filteredTickets.map((t, i) => (
                     <Card key={i} className={cn(
                         "p-4 hover:shadow-md border-l-8 rounded-2xl bg-white",
                         ['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'
                     )}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                          <div className="flex-1 w-full">
-                             <div className="flex items-center gap-2">
+                          <div className="flex-1 w-full text-center md:text-left">
+                             <div className="flex items-center gap-2 justify-center md:justify-start">
                                 <p className="font-black uppercase text-sm">{t.cliente}</p>
                                 <Badge className="text-[8px] h-4 font-black uppercase">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
                              </div>
                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                               {t.evento_nome} • {new Date(t.created_at).toLocaleString()}
+                               {t.evento_nome} • {t.created_at ? new Date(t.created_at).toLocaleString() : '---'}
                              </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-between md:justify-end">

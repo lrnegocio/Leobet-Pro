@@ -6,30 +6,21 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Lock, PlayCircle, Trash2, Clock, CheckCircle2, Database, History } from 'lucide-react';
+import { Plus, Lock, PlayCircle, Trash2, Clock, CheckCircle2, Database, History, RefreshCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function BingoPage() {
   const [bingos, setBingos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [now, setNow] = useState<Date>(new Date());
+  const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    setMounted(true);
-    setNow(new Date());
-    loadData();
-    const interval = setInterval(() => {
-      loadData();
-      setNow(new Date());
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
   const loadData = async () => {
+    setSyncing(true);
     try {
       const { data, error } = await supabase
         .from('bingos')
@@ -38,12 +29,25 @@ export default function BingoPage() {
 
       if (error) throw error;
       setBingos(data || []);
-    } catch (err) {
-      console.warn("Supabase Sync Delay");
+    } catch (err: any) {
+      console.error("Erro Supabase:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro de Sincronização",
+        description: "Verifique se a tabela 'bingos' existe no seu SQL Editor."
+      });
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
   };
+
+  useEffect(() => {
+    setMounted(true);
+    loadData();
+    const interval = setInterval(loadData, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'aberto' ? 'encerrado' : 'aberto';
@@ -62,7 +66,7 @@ export default function BingoPage() {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
       } catch (err: any) {
-        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: "Verifique conexão." });
+        toast({ variant: "destructive", title: "FALHA AO EXCLUIR" });
       }
     }
   };
@@ -81,23 +85,42 @@ export default function BingoPage() {
               </h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Auditada LEOBET PRO</p>
             </div>
-            <Link href="/admin/bingo/novo">
-              <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
-                <Plus className="w-4 h-4" /> Novo Concurso
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={loadData}
+                className="h-12 w-12 rounded-xl border-2"
+                disabled={syncing}
+              >
+                <RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} />
               </Button>
-            </Link>
+              <Link href="/admin/bingo/novo">
+                <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
+                  <Plus className="w-4 h-4" /> Novo Concurso
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 px-4 md:px-0">
             {loading ? (
               <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco...</div>
+            ) : bingos.length === 0 ? (
+              <Card className="py-20 text-center border-dashed rounded-3xl opacity-30 bg-white">
+                <History className="w-12 h-12 mx-auto mb-4" />
+                <p className="font-black uppercase text-xs">Nenhum concurso localizado</p>
+                <p className="text-[10px] mt-2">Clique em "Novo Concurso" para iniciar</p>
+              </Card>
             ) : bingos.map((bingo) => {
-              const drawDate = new Date(bingo.data_sorteio);
+              const drawDate = bingo.data_sorteio ? new Date(bingo.data_sorteio) : new Date();
               const isFinished = bingo.status === 'finalizado';
-              const isSalesClosed = bingo.status === 'encerrado' || isFinished || now >= drawDate;
+              const isSalesClosed = bingo.status === 'encerrado' || isFinished;
               
               return (
-                <Card key={bingo.id} className={`hover:shadow-md transition-all border-l-8 overflow-hidden rounded-2xl ${isFinished ? 'border-l-green-600' : 'border-l-primary'}`}>
+                <Card key={bingo.id} className={cn(
+                  "hover:shadow-md transition-all border-l-8 overflow-hidden rounded-2xl",
+                  isFinished ? 'border-l-green-600' : 'border-l-primary'
+                )}>
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row items-stretch">
                        <div className="p-6 flex-1 space-y-4">
@@ -117,14 +140,14 @@ export default function BingoPage() {
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Preço</p>
-                               <p className="text-[10px] font-black text-primary">R$ {(bingo.preco || 0).toFixed(2)}</p>
+                               <p className="text-[10px] font-black text-primary">R$ {(Number(bingo.preco) || 0).toFixed(2)}</p>
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Vendidos</p>
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Auditoria</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">ID Banco</p>
                                <p className="text-[7px] font-black uppercase text-primary/40 truncate w-32">{bingo.id}</p>
                             </div>
                           </div>
@@ -146,7 +169,10 @@ export default function BingoPage() {
                              
                              <Link href={isFinished ? `/admin/financeiro` : `/admin/bingo/sorteio/${bingo.id}`} className="w-full">
                                <Button 
-                                 className={`w-full gap-2 font-black uppercase text-xs h-10 shadow-lg ${isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'}`}
+                                 className={cn(
+                                   "w-full gap-2 font-black uppercase text-xs h-10 shadow-lg",
+                                   isFinished ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'
+                                 )}
                                  disabled={!isSalesClosed && !isFinished}
                                 >
                                  {isFinished ? <History className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}

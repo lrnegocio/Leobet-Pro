@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -16,7 +17,8 @@ import {
   Phone, 
   Trash2,
   AlertTriangle,
-  Printer
+  Printer,
+  Eraser
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -95,6 +97,18 @@ function FinanceiroContent() {
     }
   };
 
+  const clearHistory = async () => {
+    if (confirm("🚨 ATENÇÃO: Deseja apagar TODOS os registros de bilhetes e vendas? Esta ação é irreversível e apagará o histórico total de arrecadação.")) {
+       const { error } = await supabase.from('tickets').delete().neq('id', '0'); // Deleta todos
+       if (!error) {
+         toast({ title: "HISTÓRICO LIMPO!", variant: "destructive" });
+         loadData();
+       } else {
+         toast({ variant: "destructive", title: "FALHA AO LIMPAR", description: "Verifique as permissões da tabela." });
+       }
+    }
+  };
+
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
       const cliente = (t.cliente || "").toLowerCase();
@@ -127,6 +141,9 @@ function FinanceiroContent() {
                </div>
                <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2 hover:bg-primary transition-all">
                  <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
+               </Button>
+               <Button onClick={clearHistory} variant="destructive" className="h-14 gap-2 font-black uppercase text-[10px] px-6 rounded-2xl shadow-lg">
+                 <Eraser className="w-5 h-5" /> Limpar Histórico
                </Button>
             </div>
           </div>
@@ -184,7 +201,15 @@ function FinanceiroContent() {
                )}
             </TabsContent>
             <TabsContent value="history" className="mt-6">
-               <Card className="rounded-[2.5rem] overflow-hidden bg-white">
+               <div className="mb-4">
+                  <Input 
+                    placeholder="Pesquisar por cliente ou bilhete..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="h-12 rounded-xl font-bold border-2"
+                  />
+               </div>
+               <Card className="rounded-[2.5rem] overflow-hidden bg-white shadow-xl">
                   <div className="overflow-x-auto">
                      <table className="w-full text-left">
                         <thead className="bg-primary text-white text-[10px] font-black uppercase">
@@ -193,7 +218,7 @@ function FinanceiroContent() {
                         <tbody className="divide-y text-[10px] font-bold uppercase">
                            {filteredTickets.map((t, i) => (
                              <tr key={i} className="hover:bg-muted/30">
-                                <td className="p-8">{new Date(t.created_at).toLocaleDateString()}</td>
+                                <td className="p-8">{t.created_at ? new Date(t.created_at).toLocaleDateString() : '---'}</td>
                                 <td className="p-8 font-black text-primary">{t.cliente}</td>
                                 <td className="p-8">{t.evento_nome}</td>
                                 <td className="p-8">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
