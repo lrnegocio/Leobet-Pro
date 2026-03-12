@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useState } from 'react';
@@ -13,10 +14,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     setMounted(true);
     const checkAuth = () => {
+      if (typeof window === 'undefined') return;
+
       const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
       
-      // Se for o acesso master, reconstrói o objeto de forma segura
       if (isMaster) {
         if (!user) {
           setUser({
@@ -63,7 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="font-black uppercase tracking-widest text-[10px]">Protegendo sua Conexão...</p>
+          <p className="font-black uppercase tracking-widest text-[10px]">Protegendo Conexão...</p>
         </div>
       </div>
     );
