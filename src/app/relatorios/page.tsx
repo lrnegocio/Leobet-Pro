@@ -14,7 +14,9 @@ import {
   TrendingUp, 
   Printer,
   RefreshCcw,
-  Eraser
+  Eraser,
+  Trophy,
+  ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -57,7 +59,7 @@ export default function RelatoriosPage() {
       }
     } catch (err) {
       console.error("Erro ao carregar relatórios:", err);
-      toast({ variant: "destructive", title: "Erro ao carregar", description: "Verifique sua conexão." });
+      toast({ variant: "destructive", title: "Erro de Sincronização", description: "Verifique sua conexão com o Supabase." });
     } finally {
       setLoading(false);
     }
@@ -78,10 +80,11 @@ export default function RelatoriosPage() {
   }, [tickets, startDate, endDate]);
 
   const totals = useMemo(() => {
-    if (!filteredTickets) return { bruto: 0, pendente: 0 };
+    if (!filteredTickets) return { bruto: 0, pendente: 0, ganhos: 0 };
     const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
     const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
-    return { bruto, pendente };
+    const ganhos = filteredTickets.filter(t => t.status === 'ganhou' || t.status === 'premio_pago').length;
+    return { bruto, pendente, ganhos };
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
@@ -90,7 +93,7 @@ export default function RelatoriosPage() {
     const youtubeUrl = savedSettings.youtubeUrl || '';
     
     const link = `${systemUrl}/resultados?c=${ticket.id}`;
-    let statusText = ['pago', 'ganhou', 'premio_pago'].includes(ticket.status) ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
+    let statusText = ['pago', 'ganhou', 'premio_pago'].includes(ticket.status) ? '✅ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
     
     let prizeMsg = "";
     if (ticket.tipo === 'bingo' && ticket.detalhe_premios) {
@@ -99,25 +102,11 @@ export default function RelatoriosPage() {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao?.toFixed(2) || '0.00'}`;
     }
 
-    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir em tempo real:*%0A${link}%0A%0A📊 *CÓDIGO:* ${ticket.barcode}`;
+    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${ticket.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
-  const clearFilters = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setStartDate(today);
-    setEndDate(today);
-    loadData();
-  };
-
-  if (!mounted || !user) return (
-    <div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary bg-muted/30">
-      <div className="flex flex-col items-center gap-4">
-        <RefreshCcw className="animate-spin w-8 h-8" />
-        <p>Carregando Relatórios...</p>
-      </div>
-    </div>
-  );
+  if (!mounted || !user) return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -126,85 +115,77 @@ export default function RelatoriosPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
-              <h1 className="text-3xl font-black uppercase text-primary leading-none">Relatórios Financeiros</h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">Auditoria Diária Supabase</p>
+              <h1 className="text-3xl font-black uppercase text-primary leading-none">Relatórios de Rede</h1>
+              <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">Sincronização Cloud Supabase</p>
             </div>
             
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border items-center flex-1 md:flex-none">
+              <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border items-center flex-1 md:flex-none">
                 <Calendar className="w-4 h-4 text-primary ml-2" />
-                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
+                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
                 <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
-                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
-                <Button onClick={loadData} variant="ghost" size="icon" className="h-9 w-9"><RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} /></Button>
+                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
               </div>
-              <Button onClick={clearFilters} variant="outline" className="h-14 gap-2 font-black uppercase text-[10px] px-6 rounded-2xl border-2">
-                 <Eraser className="w-4 h-4" /> Limpar Filtros
+              <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2 hover:bg-primary transition-all group">
+                <RefreshCcw className={cn("w-5 h-5 group-hover:text-white", loading && "animate-spin")} />
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-             <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
-               <CardContent className="p-6">
-                 <p className="text-[10px] font-black uppercase opacity-60">Vendas Pagas</p>
+             <Card className="bg-primary text-white border-none shadow-xl rounded-2xl p-6">
+                 <p className="text-[10px] font-black uppercase opacity-60">Vendas Liquidadas</p>
                  <p className="text-3xl font-black">R$ {totals.bruto.toFixed(2)}</p>
-               </CardContent>
              </Card>
-             <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl">
-               <CardContent className="p-6">
-                 <p className="text-[10px] font-black uppercase opacity-60">Aguardando Pagamento</p>
+             <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl p-6">
+                 <p className="text-[10px] font-black uppercase opacity-60">Vendas Pendentes</p>
                  <p className="text-3xl font-black">R$ {totals.pendente.toFixed(2)}</p>
-               </CardContent>
              </Card>
-             <Card className="bg-white border-none shadow-sm rounded-2xl">
-               <CardContent className="p-6 flex justify-between items-center">
-                 <div><p className="text-[10px] font-black uppercase text-muted-foreground">Volume</p><p className="text-3xl font-black">{filteredTickets.length}</p></div>
+             <Card className="bg-white border-none shadow-sm rounded-2xl p-6 flex justify-between items-center">
+                 <div><p className="text-[10px] font-black uppercase text-muted-foreground">Volume de Apostas</p><p className="text-3xl font-black">{filteredTickets.length}</p></div>
                  <FileText className="w-8 h-8 text-primary/20" />
-               </CardContent>
              </Card>
-             <Card className="bg-white border-none shadow-sm rounded-2xl">
-               <CardContent className="p-6 flex justify-between items-center">
+             <Card className="bg-white border-none shadow-sm rounded-2xl p-6 flex justify-between items-center">
                  <div><p className="text-[10px] font-black uppercase text-muted-foreground">Minha Comissão</p><p className="text-3xl font-black text-green-600">R$ {(user?.commissionBalance || 0).toFixed(2)}</p></div>
                  <TrendingUp className="w-8 h-8 text-green-600/20" />
-               </CardContent>
              </Card>
           </div>
 
           <div className="space-y-4 pb-20">
-             <div className="flex justify-between items-center">
-               <h3 className="text-sm font-black uppercase text-primary">Movimentações</h3>
-               <Badge className="bg-primary text-white font-black uppercase text-[10px]">{filteredTickets.length} REGISTROS</Badge>
+             <div className="flex justify-between items-center px-2">
+               <h3 className="text-sm font-black uppercase text-primary">Detalhamento de Movimentações</h3>
+               <Badge className="bg-primary text-white font-black uppercase text-[10px] h-7 px-4">{filteredTickets.length} Registros</Badge>
              </div>
 
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.length === 0 ? (
-                   <Card className="py-20 text-center border-dashed opacity-30 rounded-2xl bg-white">
-                      <p className="font-black uppercase text-xs">Nenhum registro para este período</p>
+                   <Card className="py-20 text-center border-dashed opacity-30 rounded-3xl bg-white">
+                      <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                      <p className="font-black uppercase text-xs">Sem registros para o período selecionado</p>
                    </Card>
                 ) : filteredTickets.map((t, i) => (
                     <Card key={i} className={cn(
-                        "p-4 hover:shadow-md border-l-8 rounded-2xl bg-white",
+                        "p-5 hover:shadow-md border-l-8 rounded-2xl bg-white transition-all",
                         ['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'
                     )}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1 w-full text-center md:text-left">
                              <div className="flex items-center gap-2 justify-center md:justify-start">
-                                <p className="font-black uppercase text-sm">{t.cliente}</p>
-                                <Badge className="text-[8px] h-4 font-black uppercase">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
+                                <p className="font-black uppercase text-base text-primary">{t.cliente}</p>
+                                <Badge variant="outline" className="text-[8px] h-5 font-black uppercase border-2">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
                              </div>
                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                               {t.evento_nome} • {t.created_at ? new Date(t.created_at).toLocaleString() : '---'}
+                               {t.evento_nome} • {t.created_at ? new Date(t.created_at).toLocaleString('pt-BR') : '---'}
                              </p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-between md:justify-end">
-                             <p className="text-lg font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
-                             <div className="flex gap-1">
-                               <Button variant="outline" size="icon" className="h-10 w-10 border-primary/20 hover:bg-primary/10 rounded-xl" onClick={() => window.print()}>
-                                 <Printer className="w-4 h-4 text-primary" />
+                          <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-between md:justify-end">
+                             <p className="text-xl font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
+                             <div className="flex gap-2">
+                               <Button variant="outline" size="icon" className="h-12 w-12 border-2 rounded-xl" onClick={() => window.print()}>
+                                 <Printer className="w-5 h-5 text-primary" />
                                </Button>
-                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl text-white">
-                                 <Send className="w-3.5 h-3.5" /> WhatsApp
+                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 font-black uppercase text-[10px] px-6 rounded-xl shadow-lg">
+                                 <Send className="w-4 h-4" /> WhatsApp
                                </Button>
                              </div>
                           </div>
