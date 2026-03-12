@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   Eraser,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  XCircle,
+  ShieldAlert
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -89,6 +91,16 @@ function FinanceiroContent() {
     if (!error) {
       toast({ title: "APOSTA VALIDADA!" });
       loadData();
+    }
+  };
+
+  const rejectTicket = async (ticketId: string) => {
+    if (confirm("🚨 REJEITAR APOSTA? Esta ação cancela o bilhete permanentemente e ele não participará do sorteio.")) {
+      const { error } = await supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', ticketId);
+      if (!error) {
+        toast({ title: "APOSTA REJEITADA COM SUCESSO!", variant: "destructive" });
+        loadData();
+      }
     }
   };
 
@@ -194,15 +206,21 @@ function FinanceiroContent() {
                           <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
                        </div>
                        <Badge variant="outline" className="font-black text-[8px] uppercase block w-fit mt-2 border-2">
-                          {t.status === 'pendente' ? 'Venda em Análise' : 'Premiado - Pagar Agora'}
+                          {t.status === 'pendente' ? 'Aguardando Pagamento / Auditoria' : 'Premiado - Pagar Agora'}
                        </Badge>
                      </div>
-                     <div className="flex gap-2 w-full md:w-auto">
-                        <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="flex-1 h-16 font-black uppercase text-[10px] rounded-2xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                        {t.status === 'pendente' ? (
-                           <Button onClick={() => approveTicket(t.id)} className="flex-[2] bg-primary text-white font-black uppercase text-xs h-16 rounded-2xl shadow-xl">Aprovar Pagamento</Button>
-                        ) : (
-                           <Button onClick={() => confirmPrizePayout(t.id)} className="flex-[2] bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-16 rounded-2xl shadow-xl">Confirmar Pagamento</Button>
+                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
+                        <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
+                        
+                        {t.status === 'pendente' && (
+                          <div className="flex gap-2">
+                            <Button onClick={() => approveTicket(t.id)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Validar Aposta</Button>
+                            <Button onClick={() => rejectTicket(t.id)} variant="ghost" className="bg-destructive/10 text-destructive hover:bg-destructive/20 font-black uppercase text-[10px] h-14 px-6 rounded-xl border border-destructive/20 flex-1">Rejeitar</Button>
+                          </div>
+                        )}
+
+                        {t.status === 'ganhou' && (
+                           <Button onClick={() => confirmPrizePayout(t.id)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Confirmar Pagamento Prêmio</Button>
                         )}
                      </div>
                    </Card>
@@ -237,11 +255,13 @@ function FinanceiroContent() {
                                      "font-black text-[8px] uppercase h-7 px-4",
                                      t.status === 'pago' ? 'bg-blue-600' : 
                                      t.status === 'premio_pago' ? 'bg-green-600' : 
-                                     t.status === 'ganhou' ? 'bg-accent' : 'bg-muted text-muted-foreground'
+                                     t.status === 'ganhou' ? 'bg-accent' : 
+                                     t.status === 'rejeitado' ? 'bg-destructive' : 'bg-muted text-muted-foreground'
                                    )}>
                                      {t.status === 'pago' ? 'Aprovada' : 
                                       t.status === 'premio_pago' ? 'Prêmio Pago' : 
-                                      t.status === 'ganhou' ? 'Premiado' : 'Pendente'}
+                                      t.status === 'ganhou' ? 'Premiado' : 
+                                      t.status === 'rejeitado' ? 'Cancelada' : 'Pendente'}
                                    </Badge>
                                 </td>
                              </tr>

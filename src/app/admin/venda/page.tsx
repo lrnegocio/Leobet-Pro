@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,7 +20,8 @@ import {
   Key,
   QrCode,
   Send,
-  MessageCircle
+  MessageCircle,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -136,6 +138,9 @@ export default function VendaPage() {
       const encoder = new TextEncoder();
       let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
       text += "CUPOM OFICIAL AUDITADO\n";
+      if (receipt.status === 'pendente') {
+        text += "*** AGUARDANDO PAGAMENTO ***\n";
+      }
       text += "--------------------------------\n";
       text += `CLIENTE: ${receipt.cliente}\n`;
       text += `PIX SEGURO: ${receipt.pix_resgate}\n`;
@@ -164,6 +169,7 @@ export default function VendaPage() {
 
   const handleShareWhatsApp = (receipt: any) => {
     const link = `${settings.systemUrl}/resultados?c=${receipt.id}`;
+    let statusMsg = receipt.status === 'pendente' ? "⚠️ *STATUS:* AGUARDANDO PAGAMENTO (Pendente de Validação)%0A" : "✅ *STATUS:* VALIDADO E ATIVO%0A";
     let prizeMsg = "";
     if (receipt.tipo === 'bingo') {
       prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
@@ -171,7 +177,7 @@ export default function VendaPage() {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
     }
 
-    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
+    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A${statusMsg}👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -194,11 +200,15 @@ export default function VendaPage() {
     const ticketsGenerated = Array.from({ length: quantity }).map(() => ({
       id: Math.random().toString().substring(2, 10),
       numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
-      status: 'pago'
+      status: 'ativo'
     }));
 
     const totalVenda = formData.unitario * quantity;
     const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
+
+    // Se o vendedor tiver saldo, já sai como pago. Se não tiver, sai como pendente para aprovação do admin.
+    const hasBalance = (user?.balance || 0) >= totalVenda;
+    const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
 
     const receipt = {
       id: receiptId,
@@ -211,7 +221,7 @@ export default function VendaPage() {
       pix_resgate: formData.pixKey, 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
-      status: isMaster ? 'pago' : 'pendente', 
+      status: finalStatus, 
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
       created_at: new Date().toISOString()
@@ -220,8 +230,12 @@ export default function VendaPage() {
     try {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
+      
       setVendaRealizada(receipt);
-      toast({ title: "VENDA REGISTRADA!" });
+      toast({ 
+        title: finalStatus === 'pago' ? "VENDA REGISTRADA!" : "APOSTA EM ESPERA", 
+        description: finalStatus === 'pago' ? "Bilhete validado com sucesso." : "Bilhete aguardando pagamento/aprovação." 
+      });
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
       console.error(err);
@@ -305,7 +319,13 @@ export default function VendaPage() {
             <div className="space-y-4">
               {vendaRealizada ? (
                 <div className="animate-in zoom-in duration-300">
-                  <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center">
+                  <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative overflow-hidden">
+                     {vendaRealizada.status === 'pendente' && (
+                       <div className="absolute top-4 right-4 text-orange-600 animate-pulse flex items-center gap-1">
+                         <AlertCircle className="w-4 h-4" />
+                         <span className="text-[8px] font-black uppercase">Venda Pendente</span>
+                       </div>
+                     )}
                      <p className="text-2xl font-black text-primary">LEOBET PRO</p>
                      <p className="text-[8px] font-bold uppercase opacity-60">Cupom de Auditoria</p>
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">

@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, Globe, Key, QrCode } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, Globe, Key, QrCode, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -209,9 +210,11 @@ function ResultadosContent() {
                       <div className="flex gap-2 items-center">
                         <Badge className={cn(
                           "text-white border-none font-black uppercase h-10 px-6 rounded-2xl text-[10px] shadow-lg",
-                          receipt.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'
+                          receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago' ? 'bg-green-600' : 
+                          receipt.status === 'rejeitado' ? 'bg-destructive' : 'bg-orange-600'
                         )}>
-                          {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
+                          {receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago' ? '✓ APOSTA VALIDADA' : 
+                           receipt.status === 'rejeitado' ? '✖ APOSTA REJEITADA' : '⚠ AGUARDANDO PAGAMENTO'}
                         </Badge>
                         <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
                       </div>
@@ -221,86 +224,96 @@ function ResultadosContent() {
                    </div>
                 </div>
 
-                <div className="space-y-4">
-                  {receipt.tickets_data?.map((t: any, idx: number) => {
-                    const isWinner = t.status === 'ganhou';
-                    const isPending = t.status === 'pendente-resgate';
-                    const isBetPaid = receipt.status === 'pago';
-                    return (
-                      <Card key={idx} className={cn(
-                        "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                        isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
-                      )}>
-                         <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
-                             <div className="flex-1 space-y-4">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
-                                  <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
-                                    "font-black uppercase text-[9px] h-6 px-4",
-                                    isWinner ? 'bg-green-600 animate-bounce' : ''
-                                  )}>
-                                    {isWinner ? "🔥 GANHADOR!" : isBetPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
-                                  </Badge>
-                                </div>
-                                {t.numeros ? (
-                                  <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
-                                    {t.numeros.map((n: number) => {
-                                      const isDrawn = eventoData?.bolas_sorteadas?.includes(n);
-                                      return (
-                                        <div key={n} className={cn(
-                                          "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center border-2 rounded-xl font-black text-md md:text-lg transition-all shadow-sm",
-                                          isDrawn ? "bg-green-600 text-white border-green-700 scale-105" : "bg-white border-muted/20 text-muted-foreground/40"
-                                        )}>
-                                          {n.toString().padStart(2, '0')}
-                                        </div>
-                                      );
-                                    })}
+                {receipt.status === 'rejeitado' ? (
+                  <div className="bg-red-50 p-12 rounded-[2rem] border-2 border-red-100 text-center space-y-4">
+                    <ShieldAlert className="w-16 h-16 mx-auto text-red-200" />
+                    <h3 className="text-xl font-black text-red-600 uppercase">BILHETE CANCELADO</h3>
+                    <p className="text-xs font-bold text-red-400 uppercase leading-relaxed">
+                      Esta aposta foi rejeitada pela auditoria administrativa por falta de pagamento ou descumprimento das regras.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {receipt.tickets_data?.map((t: any, idx: number) => {
+                      const isWinner = t.status === 'ganhou';
+                      const isPending = t.status === 'pendente-resgate';
+                      const isBetPaid = receipt.status === 'pago';
+                      return (
+                        <Card key={idx} className={cn(
+                          "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
+                          isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
+                        )}>
+                           <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
+                               <div className="flex-1 space-y-4">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
+                                    <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
+                                      "font-black uppercase text-[9px] h-6 px-4",
+                                      isWinner ? 'bg-green-600 animate-bounce' : ''
+                                    )}>
+                                      {isWinner ? "🔥 GANHADOR!" : isBetPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
+                                    </Badge>
                                   </div>
-                                ) : (
-                                  <div className="grid grid-cols-5 gap-2">
-                                    {(t.palpite || '').split('-').map((g: string, i: number) => (
-                                      <div key={i} className="p-3 md:p-4 rounded-xl border-2 text-center font-black text-lg md:text-xl shadow-sm bg-muted/10">
-                                        {g}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                             </div>
-                             {(isWinner || isPending) && (
-                               <div className={cn(
-                                 "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
-                                 isWinner ? 'bg-green-600' : 'bg-orange-600',
-                                 "text-white"
-                               )}>
-                                  {isWinner ? (
-                                    <>
-                                      <div>
-                                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Prêmio Estimado:</p>
-                                        <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
-                                      </div>
-                                      <div className="bg-white/10 p-4 rounded-xl space-y-1">
-                                         <p className="text-[8px] font-black uppercase opacity-60">PIX de Resgate (Gravado):</p>
-                                         <p className="font-black text-sm truncate">{receipt.pix_resgate}</p>
-                                      </div>
-                                      <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
-                                        SOLICITAR RESGATE
-                                      </Button>
-                                    </>
+                                  {t.numeros ? (
+                                    <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+                                      {t.numeros.map((n: number) => {
+                                        const isDrawn = eventoData?.bolas_sorteadas?.includes(n);
+                                        return (
+                                          <div key={n} className={cn(
+                                            "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center border-2 rounded-xl font-black text-md md:text-lg transition-all shadow-sm",
+                                            isDrawn ? "bg-green-600 text-white border-green-700 scale-105" : "bg-white border-muted/20 text-muted-foreground/40"
+                                          )}>
+                                            {n.toString().padStart(2, '0')}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   ) : (
-                                    <div className="space-y-3">
-                                       <Clock className="w-8 h-8 mx-auto animate-pulse" />
-                                       <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
-                                       <p className="text-[9px] font-bold opacity-60 uppercase">Chave: {receipt.pix_resgate}</p>
-                                       <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado automaticamente.</p>
+                                    <div className="grid grid-cols-5 gap-2">
+                                      {(t.palpite || '').split('-').map((g: string, i: number) => (
+                                        <div key={i} className="p-3 md:p-4 rounded-xl border-2 text-center font-black text-lg md:text-xl shadow-sm bg-muted/10">
+                                          {g}
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
                                </div>
-                             )}
-                         </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                               {(isWinner || isPending) && (
+                                 <div className={cn(
+                                   "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
+                                   isWinner ? 'bg-green-600' : 'bg-orange-600',
+                                   "text-white"
+                                 )}>
+                                    {isWinner ? (
+                                      <>
+                                        <div>
+                                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Prêmio Estimado:</p>
+                                          <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
+                                        </div>
+                                        <div className="bg-white/10 p-4 rounded-xl space-y-1">
+                                           <p className="text-[8px] font-black uppercase opacity-60">PIX de Resgate (Gravado):</p>
+                                           <p className="font-black text-sm truncate">{receipt.pix_resgate}</p>
+                                        </div>
+                                        <button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
+                                          SOLICITAR RESGATE
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <div className="space-y-3">
+                                         <Clock className="w-8 h-8 mx-auto animate-pulse" />
+                                         <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
+                                         <p className="text-[9px] font-bold opacity-60 uppercase">Chave: {receipt.pix_resgate}</p>
+                                         <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado automaticamente.</p>
+                                      </div>
+                                    )}
+                                 </div>
+                               )}
+                           </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : searched && (
               <div className="text-center py-16 bg-red-50 rounded-[3rem] border-2 border-dashed border-red-100">
