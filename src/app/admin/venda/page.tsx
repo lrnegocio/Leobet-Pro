@@ -61,7 +61,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      // Falha silenciosa
+      // Silencioso
     }
   };
 
@@ -80,7 +80,7 @@ export default function VendaPage() {
         setPrizes({ totalNet, quadra: 0, quina: 0, bingo: 0, bolao: totalNet });
       }
     } catch (err) {
-      // Falha silenciosa
+      // Silencioso
     }
   };
 
@@ -111,7 +111,7 @@ export default function VendaPage() {
         toast({ title: "IMPRESSORA PRONTA!", description: device.name });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Certifique-se que a impressora está ligada." });
+      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Verifique o pareamento do dispositivo." });
     } finally {
       setBtConnecting(false);
     }
@@ -133,12 +133,25 @@ export default function VendaPage() {
         if (t.numeros) text += `NUMEROS: ${t.numeros.join(' ')}\n`;
       });
       text += "--------------------------------\n";
+      if (receipt.tipo === 'bingo') {
+        text += `BINGO: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}\n`;
+        text += `QUINA: R$ ${receipt.detalhe_premios.quina.toFixed(2)}\n`;
+        text += `QUADRA: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}\n`;
+      } else {
+        text += `PREMIO: R$ ${receipt.detalhe_premios.bolao.toFixed(2)}\n`;
+      }
+      text += "--------------------------------\n";
       text += `\x1B\x61\x01TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += "\n\n\n\n";
 
-      await btCharacteristic.writeValue(encoder.encode(text));
+      // Envia em blocos para evitar estouro de buffer bluetooth
+      const data = encoder.encode(text);
+      for (let i = 0; i < data.length; i += 20) {
+        await btCharacteristic.writeValue(data.slice(i, i + 20));
+      }
+      toast({ title: "IMPRESSO COM SUCESSO!" });
     } catch (e) {
-      // Falha silenciosa
+      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: "Verifique a conexão Bluetooth." });
     }
   };
 
@@ -151,6 +164,8 @@ export default function VendaPage() {
 
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
+    
+    // Gerador de bilhete simples para Bingo
     const ticketsGenerated = [{
       id: Math.random().toString().substring(2, 10),
       numeros: formData.tipo === 'bingo' ? Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1).sort((a,b)=>a-b) : null,
@@ -177,17 +192,24 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA REALIZADA COM SUCESSO!" });
+      toast({ title: "VENDA REALIZADA!", description: "Bilhete sincronizado no banco." });
       
-      // Auto-impressão Bluetooth se conectado
-      if (btCharacteristic) printReceipt(receipt);
+      // AUTO-IMPRESSÃO BLUETOOTH
+      if (btCharacteristic) {
+        printReceipt(receipt);
+      }
 
-      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS ESTIMADOS:*%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}%0A%0A*Confira em:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
+      // WHATSAPP COM DETALHES DE PREMIOS
+      const premioTxt = formData.tipo === 'bingo' 
+        ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
+        : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;
+
+      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS ESTIMADOS:*${premioTxt}%0A%0A*Conferir:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO PROCESSAR VENDA" });
+      toast({ variant: "destructive", title: "ERRO NA VENDA", description: "Verifique sua conexão de rede." });
     } finally {
       setLoading(false);
     }
@@ -207,12 +229,12 @@ export default function VendaPage() {
                   <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Bluetooth</p>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica Bluetooth</p>
                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p>
                 </div>
               </div>
               <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
-                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
+                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "RECONECTAR" : "PAREAR")}
               </Button>
           </div>
 
@@ -221,16 +243,16 @@ export default function VendaPage() {
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label>
-                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO APOSTADOR" className="h-12 font-bold" required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Nome do Apostador</Label>
+                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="EX: JOÃO DA SILVA" className="h-12 font-bold uppercase" required />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
-                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="82 9..." className="h-12 font-bold" required />
+                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required />
                   </div>
                   
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Selecionar Concurso Aberto</Label>
                     <select 
                       className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" 
                       value={formData.eventoId} 
@@ -244,14 +266,14 @@ export default function VendaPage() {
                       }} 
                       required
                     >
-                      <option value="">-- SELECIONE --</option>
+                      <option value="">-- SELECIONE O JOGO --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios Acumulados</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
@@ -273,7 +295,7 @@ export default function VendaPage() {
                   )}
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Receber</p>
                      <p className="text-4xl font-black text-white">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
@@ -287,7 +309,7 @@ export default function VendaPage() {
             <div className="space-y-4">
               {vendaRealizada ? (
                 <div className="animate-in zoom-in duration-300">
-                  <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
+                  <div id="print-area" className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
                      <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
                      <p className="text-[8px] font-bold uppercase opacity-60">Auditado Supabase Cloud</p>
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
@@ -303,12 +325,13 @@ export default function VendaPage() {
                         </div>
                      </div>
                      <p className="text-xl font-black text-primary mb-6">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
-                     <div className="flex gap-2 no-print">
-                        <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-12 bg-primary font-black uppercase text-[10px] rounded-xl">
-                          <Printer className="w-4 h-4 mr-2" /> Imprimir
+                     
+                     <div className="flex flex-col gap-2 no-print">
+                        <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg">
+                          <Printer className="w-5 h-5 mr-2" /> Imprimir Recibo
                         </Button>
-                        <Button onClick={() => setVendaRealizada(null)} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px] rounded-xl border-2">
-                          Novo Jogo
+                        <Button onClick={() => setVendaRealizada(null)} variant="outline" className="w-full h-12 font-black uppercase text-[10px] rounded-xl border-2">
+                          Nova Venda
                         </Button>
                      </div>
                   </div>
@@ -316,8 +339,8 @@ export default function VendaPage() {
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
-                  <h3 className="text-xl font-black uppercase text-primary">Pronto para Vender</h3>
-                  <p className="text-[10px] font-black uppercase">Recibo aparecerá aqui</p>
+                  <h3 className="text-xl font-black uppercase text-primary">Terminal de Vendas</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest">O bilhete aparecerá aqui</p>
                 </div>
               )}
             </div>
@@ -325,7 +348,12 @@ export default function VendaPage() {
         </div>
       </main>
       <style jsx global>{`
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          body * { visibility: hidden; }
+          #print-area, #print-area * { visibility: visible; }
+          #print-area { position: absolute; left: 0; top: 0; width: 100%; border: none; shadow: none; }
+          .no-print { display: none !important; }
+        }
       `}</style>
     </div>
   );

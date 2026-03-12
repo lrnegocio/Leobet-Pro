@@ -31,8 +31,9 @@ export default function LoginContent() {
     e.preventDefault();
     setLoading(true);
 
-    // SEGURANÇA MÁSCARA: Credenciais Master (admin@lebet / 135796lR@.,/)
-    // Ofuscação para evitar leitura direta em ferramentas de pentest.
+    // MASCARAMENTO DE CREDENCIAIS MASTER
+    // admin@lebet -> YWRtaW5AbGViZXQ=
+    // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
     const _mU = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); 
     const _mP = Buffer.from('MTM1Nzk2bFJALiwv', 'base64').toString(); 
 
@@ -67,7 +68,7 @@ export default function LoginContent() {
         .single();
 
       if (error || !user) {
-        throw new Error("Credenciais inválidas.");
+        throw new Error("Credenciais inválidas ou erro de rede.");
       }
 
       if (user.status === 'pending') {
@@ -94,7 +95,7 @@ export default function LoginContent() {
       
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Falha no Login", description: err.message });
+      toast({ variant: "destructive", title: "Falha no Login", description: err.message || "Erro de conexão com o banco." });
     } finally {
       setLoading(false);
     }

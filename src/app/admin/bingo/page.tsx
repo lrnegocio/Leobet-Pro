@@ -25,7 +25,6 @@ export default function BingoPage() {
   }, []);
 
   const loadData = async () => {
-    if (typeof window === 'undefined') return;
     try {
       const { data, error } = await supabase
         .from('bingos')
@@ -35,7 +34,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      // Falha silenciosa ou aviso em UI, evitando console.error em produção conforme diretrizes.
+      // Falha silenciosa para evitar overlay de erro do Next.js
     } finally {
       setLoading(false);
     }
@@ -56,6 +55,8 @@ export default function BingoPage() {
       if (!error) {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
+      } else {
+        toast({ variant: "destructive", title: "ERRO AO EXCLUIR", description: "Verifique se existem bilhetes vinculados." });
       }
     }
   };
