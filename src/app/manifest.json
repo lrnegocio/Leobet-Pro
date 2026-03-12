@@ -9,7 +9,7 @@
   "theme_color": "#1E3A8A",
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=512&h=512&auto=format&fit=crop",
+      "src": "https://picsum.photos/seed/leobet/512/512",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

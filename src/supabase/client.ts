@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Blindagem absoluta para evitar erros durante build ou falta de chaves
