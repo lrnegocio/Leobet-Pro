@@ -21,7 +21,8 @@ import {
   Minus,
   Youtube,
   Globe,
-  Database
+  Database,
+  Key
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -46,6 +47,7 @@ export default function VendaPage() {
   const [formData, setFormData] = useState({ 
     cliente: '', 
     whatsapp: '', 
+    pixKey: '',
     eventoId: '', 
     eventoNome: '', 
     tipo: 'bingo' as 'bingo' | 'bolao', 
@@ -144,6 +146,7 @@ export default function VendaPage() {
       text += "CUPOM OFICIAL AUDITADO\n";
       text += "--------------------------------\n";
       text += `CLIENTE: ${receipt.cliente}\n`;
+      text += `PIX REGISTRADO: ${receipt.pix_resgate}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += `DATA: ${new Date(receipt.created_at).toLocaleString()}\n`;
       text += "--------------------------------\n";
@@ -195,7 +198,7 @@ export default function VendaPage() {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
     }
 
-    const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${settings.youtubeUrl}%0A%0A🔍 *CONFERIR:* ${settings.systemUrl}/resultados?c=${receipt.id}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
+    const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX:* ${receipt.pix_resgate}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${settings.youtubeUrl}%0A%0A🔍 *CONFERIR:* ${settings.systemUrl}/resultados?c=${receipt.id}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
   };
 
@@ -233,6 +236,7 @@ export default function VendaPage() {
       tipo: formData.tipo,
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
+      pix_resgate: formData.pixKey,
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       status: isMaster ? 'pago' : 'pendente', 
@@ -274,9 +278,11 @@ export default function VendaPage() {
                     <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADO"}</p>
                   </div>
                 </div>
-                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
-                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
+                    {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
+                  </Button>
+                </div>
             </Card>
 
             <Card className="bg-red-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-4 border-none cursor-pointer" onClick={() => window.open(settings.youtubeUrl, '_blank')}>
@@ -297,13 +303,23 @@ export default function VendaPage() {
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Nome do Apostador</Label>
-                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="EX: JOÃO DA SILVA" className="h-12 font-bold uppercase" required />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase opacity-60">Nome do Apostador</Label>
+                      <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="EX: JOÃO DA SILVA" className="h-12 font-bold uppercase" required />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
+                      <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required />
+                    </div>
                   </div>
+
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
-                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required />
+                    <Label className="text-[10px] font-black uppercase opacity-60 flex items-center gap-2">
+                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Para Resgate Seguro)
+                    </Label>
+                    <Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX DO GANHADOR" className="h-12 font-black border-accent/30 focus:border-accent" required />
+                    <p className="text-[8px] font-bold text-orange-600 uppercase">A chave ficará travada no bilhete para segurança total.</p>
                   </div>
                   
                   <div className="space-y-1">
@@ -383,6 +399,7 @@ export default function VendaPage() {
                      
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
+                        <p className="flex justify-between"><span>PIX SEGURO:</span> <span className="truncate ml-2">{vendaRealizada.pix_resgate}</span></p>
                         <p className="flex justify-between"><span>CONCURSO:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
                         <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} CARTELAS</span></p>
                         

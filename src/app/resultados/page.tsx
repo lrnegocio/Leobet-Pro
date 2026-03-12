@@ -4,9 +4,8 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Globe, Smartphone } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Globe, Smartphone, Key } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -24,7 +23,6 @@ function ResultadosContent() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
-  const [pixKey, setPixKey] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
   const [eventoData, setEventoData] = useState<any>(null);
@@ -102,15 +100,10 @@ function ResultadosContent() {
   }, [searchParams, mounted]);
 
   const handleClaim = async (ticketId: string) => {
-    if (!pixKey || pixKey.trim().length < 5) {
-      toast({ variant: "destructive", title: "PIX OBRIGATÓRIO" });
-      return;
-    }
-
     setClaiming(ticketId);
     try {
       const updatedTickets = receipt.tickets_data.map((t: any) => 
-        t.id === ticketId ? { ...t, status: 'pendente-resgate', pixResgate: pixKey } : t
+        t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
       );
 
       const { error } = await supabase
@@ -120,7 +113,7 @@ function ResultadosContent() {
 
       if (error) throw error;
       
-      toast({ title: "RESGATE SOLICITADO!" });
+      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX registrada." });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO", description: err.message });
@@ -234,7 +227,7 @@ function ResultadosContent() {
                   {receipt.tickets_data?.map((t: any, idx: number) => {
                     const isWinner = t.status === 'ganhou';
                     const isPending = t.status === 'pendente-resgate';
-                    const isPaid = t.status === 'pago';
+                    const isBetPaid = receipt.status === 'pago';
                     return (
                       <Card key={idx} className={cn(
                         "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
@@ -248,7 +241,7 @@ function ResultadosContent() {
                                     "font-black uppercase text-[9px] h-6 px-4",
                                     isWinner ? 'bg-green-600 animate-bounce' : ''
                                   )}>
-                                    {isWinner ? "🔥 GANHADOR!" : isPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
+                                    {isWinner ? "🔥 GANHADOR!" : isBetPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
                                   </Badge>
                                 </div>
                                 {t.numeros ? (
@@ -287,23 +280,20 @@ function ResultadosContent() {
                                         <p className="text-[10px] font-black uppercase opacity-60 mb-1">Prêmio Estimado:</p>
                                         <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                       </div>
-                                      <div className="space-y-2">
-                                        <input 
-                                          value={pixKey} 
-                                          onChange={e => setPixKey(e.target.value)} 
-                                          placeholder="CHAVE PIX" 
-                                          className="w-full bg-white/10 text-white placeholder:text-white/40 font-black text-center h-12 border-none rounded-xl outline-none" 
-                                        />
-                                        <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
-                                          SOLICITAR RESGATE
-                                        </Button>
+                                      <div className="bg-white/10 p-4 rounded-xl space-y-1">
+                                         <p className="text-[8px] font-black uppercase opacity-60">PIX Registrado:</p>
+                                         <p className="font-black text-sm truncate">{receipt.pix_resgate}</p>
                                       </div>
+                                      <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
+                                        SOLICITAR RESGATE
+                                      </Button>
                                     </>
                                   ) : (
                                     <div className="space-y-3">
                                        <Clock className="w-8 h-8 mx-auto animate-pulse" />
                                        <p className="font-black uppercase text-md leading-tight">SOLICITAÇÃO ENVIADA</p>
-                                       <p className="text-[9px] font-bold opacity-60 uppercase">Aguarde a liberação administrativa.</p>
+                                       <p className="text-[9px] font-bold opacity-60 uppercase">Chave: {receipt.pix_resgate}</p>
+                                       <p className="text-[8px] font-black opacity-40 uppercase">Aguarde a liberação administrativa.</p>
                                     </div>
                                   )}
                                </div>

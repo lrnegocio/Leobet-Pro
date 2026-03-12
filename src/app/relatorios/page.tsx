@@ -13,7 +13,8 @@ import {
   FileText, 
   TrendingUp, 
   Search, 
-  Printer
+  Printer,
+  RefreshCcw
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -27,8 +28,10 @@ export default function RelatoriosPage() {
   const [endDate, setEndDate] = useState('');
   const [mounted, setMounted] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const loadData = async () => {
+    setLoading(true);
     const { data } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
     const all = data || [];
     if (user?.role === 'admin') {
@@ -40,6 +43,7 @@ export default function RelatoriosPage() {
     } else {
       setTickets(all.filter((t: any) => t.cliente === user?.nome || t.userId === user?.id));
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -48,8 +52,6 @@ export default function RelatoriosPage() {
     setEndDate(today);
     setMounted(true);
     loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
   }, [user]);
 
   const filteredTickets = useMemo(() => {
@@ -103,6 +105,7 @@ export default function RelatoriosPage() {
               <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
               <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
               <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-full md:w-32 border-none shadow-none font-bold text-xs" />
+              <Button onClick={loadData} variant="ghost" size="icon" className="h-9 w-9"><RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} /></Button>
             </div>
           </div>
 
@@ -127,7 +130,7 @@ export default function RelatoriosPage() {
              </Card>
              <Card className="bg-white border-none shadow-sm rounded-2xl">
                <CardContent className="p-6 flex justify-between items-center">
-                 <div><p className="text-[10px] font-black uppercase text-muted-foreground">Comissão</p><p className="text-3xl font-black text-green-600">R$ {(user?.commissionBalance || 0).toFixed(2)}</p></div>
+                 <div><p className="text-[10px] font-black uppercase text-muted-foreground">Minha Comissão</p><p className="text-3xl font-black text-green-600">R$ {(user?.commissionBalance || 0).toFixed(2)}</p></div>
                  <TrendingUp className="w-8 h-8 text-green-600/20" />
                </CardContent>
              </Card>

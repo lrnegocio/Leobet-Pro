@@ -164,7 +164,11 @@ function FinanceiroContent() {
                      <div className="space-y-2 flex-1 w-full">
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
-                       <Badge variant="outline" className="font-black text-[8px] uppercase">
+                       <div className="bg-muted/50 p-2 rounded-lg inline-block">
+                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Registrada:</p>
+                          <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO INFORMADA'}</p>
+                       </div>
+                       <Badge variant="outline" className="font-black text-[8px] uppercase block w-fit mt-2">
                           {t.status === 'pendente' ? 'Venda Aguardando Validação' : 'Ganhador - Realizar Pagamento'}
                        </Badge>
                      </div>
