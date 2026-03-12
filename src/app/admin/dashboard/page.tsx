@@ -22,6 +22,7 @@ export default function AdminDashboard() {
     try {
       const { data: users } = await supabase.from('users').select('role, status');
       
+      // Busca APENAS o que é realmente pendente de pagamento
       const { data: tickets } = await supabase
         .from('tickets')
         .select('status, valor_total, cliente, evento_nome')
@@ -82,7 +83,9 @@ export default function AdminDashboard() {
               <CardHeader><CardTitle className="font-black uppercase text-sm flex items-center gap-2 text-orange-600"><Clock className="w-4 h-4" /> Aprovações Urgentes</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {pendingTickets.length === 0 ? <div className="text-center py-10 opacity-30 font-black text-xs uppercase">Sem vendas pendentes</div> : pendingTickets.map((sale, i) => (
+                  {pendingTickets.length === 0 ? (
+                    <div className="text-center py-10 opacity-30 font-black text-xs uppercase">Sem vendas pendentes</div>
+                  ) : pendingTickets.map((sale, i) => (
                     <div key={i} className="flex items-center justify-between p-4 border rounded-2xl bg-orange-50/30">
                       <div><p className="text-xs font-black uppercase">{sale.cliente}</p><p className="text-[9px] font-bold text-muted-foreground uppercase">{sale.evento_nome} • R$ {Number(sale.valor_total).toFixed(2)}</p></div>
                       <Link href="/admin/financeiro?tab=payouts"><Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Validar</Button></Link>

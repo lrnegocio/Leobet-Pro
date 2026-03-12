@@ -60,7 +60,7 @@ function ResultadosContent() {
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
         
-        // RECALCULA PRÊMIOS EM TEMPO REAL
+        // RECALCULA PRÊMIOS EM TEMPO REAL (65% da Arrecadação)
         const { data: allTickets } = await supabase
           .from('tickets')
           .select('valor_total')
@@ -113,7 +113,7 @@ function ResultadosContent() {
 
       if (error) throw error;
       
-      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX registrada." });
+      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX gravada." });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO", description: err.message });
@@ -183,7 +183,7 @@ function ResultadosContent() {
                 <div className="bg-primary/5 p-6 md:p-8 rounded-[2rem] border-2 border-primary/10 space-y-6">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div>
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cliente Apostador</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador</p>
                         <p className="font-black text-primary text-3xl md:text-4xl tracking-tight leading-none truncate">{receipt.cliente}</p>
                         <div className="mt-4">
                           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso</p>
@@ -191,7 +191,7 @@ function ResultadosContent() {
                         </div>
                       </div>
                       <div className="bg-white px-5 py-5 rounded-[2rem] shadow-xl border border-primary/5 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Prêmios Acumulados (65%)</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Auditoria Real (65%)</p>
                         {receipt.tipo === 'bingo' ? (
                           <div className="space-y-2">
                              <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60 uppercase">Bingo:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}</span></div>
@@ -281,7 +281,7 @@ function ResultadosContent() {
                                         <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                       </div>
                                       <div className="bg-white/10 p-4 rounded-xl space-y-1">
-                                         <p className="text-[8px] font-black uppercase opacity-60">PIX Registrado:</p>
+                                         <p className="text-[8px] font-black uppercase opacity-60">PIX de Resgate (Gravado):</p>
                                          <p className="font-black text-sm truncate">{receipt.pix_resgate}</p>
                                       </div>
                                       <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
@@ -291,9 +291,9 @@ function ResultadosContent() {
                                   ) : (
                                     <div className="space-y-3">
                                        <Clock className="w-8 h-8 mx-auto animate-pulse" />
-                                       <p className="font-black uppercase text-md leading-tight">SOLICITAÇÃO ENVIADA</p>
+                                       <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
                                        <p className="text-[9px] font-bold opacity-60 uppercase">Chave: {receipt.pix_resgate}</p>
-                                       <p className="text-[8px] font-black opacity-40 uppercase">Aguarde a liberação administrativa.</p>
+                                       <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado automaticamente.</p>
                                     </div>
                                   )}
                                </div>

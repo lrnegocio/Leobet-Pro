@@ -81,6 +81,7 @@ function FinanceiroContent() {
   }, [tickets]);
 
   const approveTicket = async (ticketId: string) => {
+    // Altera para status 'pago' (aposta validada para sorteio)
     const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "APOSTA VALIDADA!" });
@@ -89,9 +90,10 @@ function FinanceiroContent() {
   };
 
   const confirmPrizePayout = async (ticketId: string) => {
+    // Status para quando realmente paga o prêmio ao ganhador
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', ticketId);
     if (!error) {
-      toast({ title: "PRÊMIO PAGO!" });
+      toast({ title: "PRÊMIO PAGO AO GANHADOR!" });
       loadData();
     }
   };
@@ -165,11 +167,11 @@ function FinanceiroContent() {
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
                        <div className="bg-muted/50 p-2 rounded-lg inline-block">
-                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Registrada:</p>
+                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Gravada:</p>
                           <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO INFORMADA'}</p>
                        </div>
                        <Badge variant="outline" className="font-black text-[8px] uppercase block w-fit mt-2">
-                          {t.status === 'pendente' ? 'Venda Aguardando Validação' : 'Ganhador - Realizar Pagamento'}
+                          {t.status === 'pendente' ? 'Venda Aguardando Validação' : 'Ganhador - Pagar Prêmio'}
                        </Badge>
                      </div>
                      <div className="flex gap-2 w-full md:w-auto">
@@ -205,7 +207,7 @@ function FinanceiroContent() {
                                      t.status === 'premio_pago' ? 'bg-green-600' : 
                                      t.status === 'ganhou' ? 'bg-accent' : 'bg-muted'
                                    )}>
-                                     {t.status === 'pago' ? 'Aposta Validada' : 
+                                     {t.status === 'pago' ? 'Validada' : 
                                       t.status === 'premio_pago' ? 'Prêmio Pago' : 
                                       t.status === 'ganhou' ? 'Ganhador' : 'Pendente'}
                                    </Badge>

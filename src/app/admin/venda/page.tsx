@@ -190,7 +190,7 @@ export default function VendaPage() {
     }
   }, [btCharacteristic, settings, toast]);
 
-  const sendToWhatsapp = (receipt: any) => {
+  const sendToWhatsApp = (receipt: any) => {
     let prizeMsg = "";
     if (receipt.tipo === 'bingo') {
       prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
@@ -316,7 +316,7 @@ export default function VendaPage() {
 
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60 flex items-center gap-2">
-                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Para Resgate Seguro)
+                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Resgate Seguro)
                     </Label>
                     <Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX DO GANHADOR" className="h-12 font-black border-accent/30 focus:border-accent" required />
                     <p className="text-[8px] font-bold text-orange-600 uppercase">A chave ficará travada no bilhete para segurança total.</p>
@@ -437,7 +437,7 @@ export default function VendaPage() {
                         <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg gap-2">
                           <Printer className="w-5 h-5" /> Imprimir Cupom
                         </Button>
-                        <Button onClick={() => sendToWhatsapp(vendaRealizada)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-xl border-2 text-green-600 border-green-200 hover:bg-green-50 gap-2">
+                        <Button onClick={() => sendToWhatsApp(vendaRealizada)} variant="outline" className="w-full h-14 font-black uppercase text-xs rounded-xl border-2 text-green-600 border-green-200 hover:bg-green-50 gap-2">
                           <Send className="w-5 h-5" /> Enviar WhatsApp
                         </Button>
                         <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] rounded-xl opacity-40">
