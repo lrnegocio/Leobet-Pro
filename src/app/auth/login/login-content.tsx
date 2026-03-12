@@ -31,7 +31,7 @@ export default function LoginContent() {
     e.preventDefault();
     setLoading(true);
 
-    // MASCARAMENTO DE CREDENCIAIS MASTER
+    // MASCARAMENTO DE CREDENCIAIS MASTER (LEOBET PRO)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
     const _mU = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); 
@@ -95,7 +95,7 @@ export default function LoginContent() {
       
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Falha no Login", description: err.message || "Erro de conexão com o banco." });
+      toast({ variant: "destructive", title: "Falha no Login", description: err.message || "Verifique sua conexão." });
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export default function LoginContent() {
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
           <CardTitle className="text-2xl font-black uppercase">Login Seguro</CardTitle>
-          <CardDescription className="font-bold">Acesso restrito ao sistema LEOBET</CardDescription>
+          <CardDescription className="font-bold">Acesso restrito LEOBET PRO</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

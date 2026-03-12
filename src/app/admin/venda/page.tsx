@@ -15,7 +15,8 @@ import {
   Trophy,
   Printer,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Phone
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +87,7 @@ export default function VendaPage() {
 
   const connectPrinter = async () => {
     if (typeof window === 'undefined' || !navigator.bluetooth) {
-      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use o Chrome em um dispositivo Bluetooth." });
+      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome no Android/PC." });
       return;
     }
 
@@ -108,10 +109,10 @@ export default function VendaPage() {
       if (writeChar) {
         setBtDevice(device);
         setBtCharacteristic(writeChar);
-        toast({ title: "IMPRESSORA PRONTA!", description: device.name });
+        toast({ title: "IMPRESSORA PAREADA!", description: device.name });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Verifique o pareamento do dispositivo." });
+      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Verifique o pareamento bluetooth." });
     } finally {
       setBtConnecting(false);
     }
@@ -144,32 +145,30 @@ export default function VendaPage() {
       text += `\x1B\x61\x01TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += "\n\n\n\n";
 
-      // Envia em blocos para evitar estouro de buffer bluetooth
       const data = encoder.encode(text);
       for (let i = 0; i < data.length; i += 20) {
         await btCharacteristic.writeValue(data.slice(i, i + 20));
       }
-      toast({ title: "IMPRESSO COM SUCESSO!" });
+      toast({ title: "IMPRESSO!" });
     } catch (e) {
-      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: "Verifique a conexão Bluetooth." });
+      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: "Reconecte o Bluetooth." });
     }
   };
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.eventoId) {
-      toast({ variant: "destructive", title: "ESCOLHA UM JOGO" });
+      toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
       return;
     }
 
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // Gerador de bilhete simples para Bingo
     const ticketsGenerated = [{
       id: Math.random().toString().substring(2, 10),
       numeros: formData.tipo === 'bingo' ? Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1).sort((a,b)=>a-b) : null,
-      status: 'aberto'
+      status: 'pago'
     }];
 
     const receipt = {
@@ -192,14 +191,12 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA REALIZADA!", description: "Bilhete sincronizado no banco." });
+      toast({ title: "VENDA REALIZADA!", description: "Bilhete registrado com sucesso." });
       
-      // AUTO-IMPRESSÃO BLUETOOTH
       if (btCharacteristic) {
         printReceipt(receipt);
       }
 
-      // WHATSAPP COM DETALHES DE PREMIOS
       const premioTxt = formData.tipo === 'bingo' 
         ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
         : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;
@@ -209,7 +206,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO NA VENDA", description: "Verifique sua conexão de rede." });
+      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "O Supabase não respondeu. Verifique sua rede." });
     } finally {
       setLoading(false);
     }
@@ -229,7 +226,7 @@ export default function VendaPage() {
                   <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica Bluetooth</p>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica</p>
                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p>
                 </div>
               </div>
@@ -244,7 +241,7 @@ export default function VendaPage() {
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">Nome do Apostador</Label>
-                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="EX: JOÃO DA SILVA" className="h-12 font-bold uppercase" required />
+                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
@@ -252,7 +249,7 @@ export default function VendaPage() {
                   </div>
                   
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Selecionar Concurso Aberto</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Escolher Concurso</Label>
                     <select 
                       className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" 
                       value={formData.eventoId} 
@@ -273,7 +270,7 @@ export default function VendaPage() {
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios em Tempo Real (65%)</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
@@ -295,12 +292,12 @@ export default function VendaPage() {
                   )}
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Receber</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor do Bilhete</p>
                      <p className="text-4xl font-black text-white">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
-                    {loading ? "PROCESSANDO..." : "VENDER AGORA"}
+                    {loading ? "GERANDO..." : "VENDER AGORA"}
                   </Button>
                 </form>
               </CardContent>
@@ -340,7 +337,7 @@ export default function VendaPage() {
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
                   <h3 className="text-xl font-black uppercase text-primary">Terminal de Vendas</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest">O bilhete aparecerá aqui</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Aguardando Apostador...</p>
                 </div>
               )}
             </div>

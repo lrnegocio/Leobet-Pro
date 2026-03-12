@@ -34,7 +34,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      // Falha silenciosa para evitar overlay de erro do Next.js
+      // Silencioso
     } finally {
       setLoading(false);
     }
@@ -50,13 +50,13 @@ export default function BingoPage() {
   };
 
   const deleteBingo = async (id: string) => {
-    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação apagará o registro permanentemente.")) {
+    if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível.")) {
       const { error } = await supabase.from('bingos').delete().eq('id', id);
       if (!error) {
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
       } else {
-        toast({ variant: "destructive", title: "ERRO AO EXCLUIR", description: "Verifique se existem bilhetes vinculados." });
+        toast({ variant: "destructive", title: "ERRO AO EXCLUIR", description: "Verifique conexão com banco." });
       }
     }
   };
@@ -70,10 +70,10 @@ export default function BingoPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3">
-                Gestão de Bingos <Database className="w-6 h-6 text-green-600" />
+              <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3 text-wrap md:text-nowrap">
+                Gestão de Bingos <Database className="w-6 h-6 text-green-600 hidden md:block" />
               </h1>
-              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Auditada em Tempo Real</p>
+              <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Base de Dados Auditada LEOBET PRO</p>
             </div>
             <Link href="/admin/bingo/novo">
               <Button className="gap-2 bg-accent hover:bg-accent/90 font-black uppercase h-12 rounded-xl shadow-lg">
@@ -84,7 +84,7 @@ export default function BingoPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco de Dados...</div>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Conectando ao Supabase...</div>
             ) : bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
@@ -99,7 +99,7 @@ export default function BingoPage() {
                           <div className="flex items-center gap-3">
                             <h3 className="text-xl md:text-2xl font-black uppercase text-primary leading-none">{bingo.nome}</h3>
                             <Badge variant={isFinished ? 'secondary' : (isSalesClosed ? 'destructive' : 'default')} className="font-black text-[9px] uppercase">
-                              {isFinished ? 'Finalizado' : (isSalesClosed ? 'Vendas Encerradas' : 'Vendas Abertas')}
+                              {isFinished ? 'Finalizado' : (isSalesClosed ? 'Encerrado' : 'Aberto')}
                             </Badge>
                           </div>
                           
