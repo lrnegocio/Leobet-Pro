@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -249,9 +249,9 @@ export default function VendaPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden border-t-8 border-primary">
               <CardHeader className="p-8 pb-0">
-                <h2 className="text-xl font-black uppercase flex items-center gap-2 text-primary">
+                <CardTitle className="text-xl font-black uppercase flex items-center gap-2 text-primary">
                   <ShoppingCart className="w-6 h-6" /> Novo Bilhete
-                </h2>
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
