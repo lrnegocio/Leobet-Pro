@@ -9,13 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
   ShoppingCart, 
-  Send, 
-  Printer, 
   Bluetooth,
   RefreshCcw,
-  Database,
   Smartphone,
-  Trophy
+  Trophy,
+  Printer,
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +26,8 @@ import { cn } from '@/lib/utils';
 export default function VendaPage() {
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   
@@ -52,15 +52,23 @@ export default function VendaPage() {
     loadEventos();
   }, []);
 
+  const loadEventos = async () => {
+    const now = new Date().toISOString();
+    try {
+      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto').gt('data_sorteio', now);
+      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto').gt('data_fim', now);
+      const bFormated = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
+      const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
+      setEventosAtivos([...bFormated, ...bolFormated]);
+    } catch (err) {
+      console.error("Event load error");
+    }
+  };
+
   const updatePrizes = async (eventId: string, type: string) => {
     try {
-      const { data } = await supabase
-        .from('tickets')
-        .select('valor_total')
-        .eq('evento_id', eventId)
-        .eq('status', 'pago');
-      
-      const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total), 0);
+      const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).eq('status', 'pago');
+      const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
       const totalNet = Math.floor(totalPaid * 0.65 * 100) / 100;
 
       if (type === 'bingo') {
@@ -76,29 +84,15 @@ export default function VendaPage() {
     }
   };
 
-  const loadEventos = async () => {
-    const now = new Date().toISOString();
-    try {
-      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto').gt('data_sorteio', now);
-      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto').gt('data_fim', now);
-      const bFormated = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
-      const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
-      setEventosAtivos([...bFormated, ...bolFormated]);
-    } catch (err) {
-      console.error("Event load error");
-    }
-  };
-
   const connectPrinter = async () => {
     if (typeof window === 'undefined' || !navigator.bluetooth) {
-      toast({ variant: "destructive", title: "NÃO SUPORTADO", description: "Use o Chrome em um dispositivo Bluetooth." });
+      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use o Chrome em um dispositivo Bluetooth." });
       return;
     }
 
     setBtConnecting(true);
     try {
-      // @ts-ignore
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator.bluetooth as any).requestDevice({
         filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] }],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
       });
@@ -117,55 +111,41 @@ export default function VendaPage() {
         toast({ title: "IMPRESSORA PRONTA!", description: device.name });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NO PAREAMENTO", description: "Verifique seu Bluetooth." });
+      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Certifique-se que a impressora está ligada." });
     } finally {
       setBtConnecting(false);
     }
   };
 
-  const sendToPrinter = async (receipt: any) => {
+  const printReceipt = async (receipt: any) => {
     if (!btCharacteristic) return;
-
     try {
       const encoder = new TextEncoder();
-      const line = "--------------------------------\n";
-      let text = "\x1B\x40"; // Reset
-      text += "\x1B\x61\x01"; // Center
-      text += "\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
-      text += "RECIBO OFICIAL\n";
-      text += line;
-      text += `\x1B\x61\x00`; // Left
-      text += `CLIENTE: ${receipt.cliente}\n`;
-      text += `DATA: ${new Date().toLocaleDateString()}\n`;
+      let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
+      text += "COMPROVANTE OFICIAL\n";
+      text += "--------------------------------\n";
+      text += `\x1B\x61\x00CLIENTE: ${receipt.cliente}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
-      text += line;
-      
+      text += `DATA: ${new Date().toLocaleDateString()}\n`;
+      text += "--------------------------------\n";
       receipt.tickets_data.forEach((t: any) => {
         text += `BILHETE: ${t.id}\n`;
         if (t.numeros) text += `NUMEROS: ${t.numeros.join(' ')}\n`;
-        text += line;
       });
+      text += "--------------------------------\n";
+      text += `\x1B\x61\x01TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
+      text += "\n\n\n\n";
 
-      text += `\x1B\x61\x01`; // Center
-      text += `BINGO: R$ ${receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}\n`;
-      text += `QUINA: R$ ${receipt.detalhe_premios?.quina?.toFixed(2) || '0.00'}\n`;
-      text += `QUADRA: R$ ${receipt.detalhe_premios?.quadra?.toFixed(2) || '0.00'}\n`;
-      text += line;
-      text += `TOTAL PAGO: R$ ${receipt.valor_total.toFixed(2)}\n`;
-      text += "\n\n\n\n"; 
-
-      const data = encoder.encode(text);
-      await btCharacteristic.writeValue(data);
-      toast({ title: "IMPRESSÃO CONCLUÍDA!" });
+      await btCharacteristic.writeValue(encoder.encode(text));
     } catch (e) {
-      console.error("Print error", e);
+      console.error("Print fail", e);
     }
   };
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cliente.trim() || formData.whatsapp.length < 10) {
-      toast({ variant: "destructive", title: "DADOS INVÁLIDOS" });
+    if (!formData.eventoId) {
+      toast({ variant: "destructive", title: "ESCOLHA UM JOGO" });
       return;
     }
 
@@ -182,7 +162,7 @@ export default function VendaPage() {
       evento_id: formData.eventoId,
       evento_nome: formData.eventoNome,
       tipo: formData.tipo,
-      cliente: formData.cliente,
+      cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       valor_total: formData.valorTotal,
       vendedor_id: user?.id,
@@ -197,16 +177,16 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA CONFIRMADA!" });
+      toast({ title: "VENDA REALIZADA COM SUCESSO!" });
       
-      if (btCharacteristic) sendToPrinter(receipt);
+      if (btCharacteristic) printReceipt(receipt);
 
-      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *TOTAL:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS:*%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}%0A%0A*Confira aqui:*%0Ahttps://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
+      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS:*%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}%0A%0A*Link de Conferência:*%0Ahttps://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO NA GRAVAÇÃO" });
+      toast({ variant: "destructive", title: "ERRO AO PROCESSAR VENDA" });
     } finally {
       setLoading(false);
     }
@@ -226,12 +206,12 @@ export default function VendaPage() {
                   <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica</p>
-                   <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "NÃO CONECTADO"}</p>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Bluetooth</p>
+                   <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p>
                 </div>
               </div>
               <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
-                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "Pronta" : "Parear")}
+                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
               </Button>
           </div>
 
@@ -240,16 +220,16 @@ export default function VendaPage() {
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Nome do Cliente</Label>
-                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value.toUpperCase()})} placeholder="NOME DO APOSTADOR" className="h-12 font-bold" required />
+                    <Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label>
+                    <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO APOSTADOR" className="h-12 font-bold" required />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
-                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required />
+                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="82 9..." className="h-12 font-bold" required />
                   </div>
                   
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Concurso</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
                     <select 
                       className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" 
                       value={formData.eventoId} 
@@ -263,14 +243,14 @@ export default function VendaPage() {
                       }} 
                       required
                     >
-                      <option value="">-- ESCOLHA O JOGO --</option>
+                      <option value="">-- SELECIONE --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                     </select>
                   </div>
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios Acumulados</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios em Tempo Real</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
@@ -278,12 +258,12 @@ export default function VendaPage() {
                              <p className="text-[10px] font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
                           </div>
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                             <Badge variant="outline" className="border-none p-0 mb-1 text-primary">5</Badge>
+                             <Zap className="w-4 h-4 mx-auto text-primary mb-1" />
                              <p className="text-[8px] font-black uppercase">Quina</p>
                              <p className="text-[10px] font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
                           </div>
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                             <Badge variant="outline" className="border-none p-0 mb-1 text-primary">4</Badge>
+                             <CheckCircle2 className="w-4 h-4 mx-auto text-green-600 mb-1" />
                              <p className="text-[8px] font-black uppercase">Quadra</p>
                              <p className="text-[10px] font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
                           </div>
@@ -292,12 +272,12 @@ export default function VendaPage() {
                   )}
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor da Aposta</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p>
                      <p className="text-4xl font-black text-white">R$ {formData.valorTotal.toFixed(2)}</p>
                   </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>
-                    {loading ? "GERANDO..." : "FINALIZAR E IMPRIMIR"}
+                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
+                    {loading ? "PROCESSANDO..." : "VENDER AGORA"}
                   </Button>
                 </form>
               </CardContent>
@@ -305,31 +285,26 @@ export default function VendaPage() {
 
             <div className="space-y-4">
               {vendaRealizada ? (
-                <div className="space-y-4">
+                <div className="animate-in zoom-in duration-300">
                   <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
                      <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
-                     <p className="text-[8px] font-bold uppercase opacity-60">Bilhete Auditado</p>
+                     <p className="text-[8px] font-bold uppercase opacity-60">Auditado Supabase Cloud</p>
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLI:</span> <span>{vendaRealizada.cliente}</span></p>
-                        <p className="flex justify-between"><span>CON:</span> <span className="text-right">{vendaRealizada.evento_nome}</span></p>
+                        <p className="flex justify-between"><span>CON:</span> <span className="text-right truncate ml-2">{vendaRealizada.evento_nome}</span></p>
                         <div className="pt-2 border-t mt-2">
                            {vendaRealizada.tickets_data.map((t: any) => (
                              <div key={t.id} className="mb-2">
                                <p className="text-[10px] font-black">BILHETE: {t.id}</p>
-                               {t.numeros && <p className="text-[9px] tracking-widest">{t.numeros.join(' ')}</p>}
+                               {t.numeros && <p className="text-[9px] tracking-widest leading-relaxed">{t.numeros.join(' ')}</p>}
                              </div>
                            ))}
                         </div>
                      </div>
-                     <div className="bg-primary/5 p-3 rounded-xl mb-6 text-[10px] font-bold space-y-1">
-                        <p className="flex justify-between"><span>BINGO:</span> <span>R$ {vendaRealizada.detalhe_premios?.bingo?.toFixed(2)}</span></p>
-                        <p className="flex justify-between"><span>QUINA:</span> <span>R$ {vendaRealizada.detalhe_premios?.quina?.toFixed(2)}</span></p>
-                        <p className="flex justify-between"><span>QUADRA:</span> <span>R$ {vendaRealizada.detalhe_premios?.quadra?.toFixed(2)}</span></p>
-                     </div>
-                     <p className="text-xl font-black text-primary">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
-                     <div className="mt-8 flex gap-2 no-print">
-                        <Button onClick={() => sendToPrinter(vendaRealizada)} className="flex-1 h-12 bg-primary font-black uppercase text-[10px] rounded-xl">
-                          <Printer className="w-4 h-4 mr-2" /> Re-Imprimir
+                     <p className="text-xl font-black text-primary mb-6">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
+                     <div className="flex gap-2 no-print">
+                        <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-12 bg-primary font-black uppercase text-[10px] rounded-xl">
+                          <Printer className="w-4 h-4 mr-2" /> Imprimir
                         </Button>
                         <Button onClick={() => setVendaRealizada(null)} variant="outline" className="flex-1 h-12 font-black uppercase text-[10px] rounded-xl border-2">
                           Novo Jogo
@@ -340,8 +315,8 @@ export default function VendaPage() {
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
-                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Venda</h3>
-                  <p className="text-[10px] font-black uppercase">O recibo aparecerá aqui</p>
+                  <h3 className="text-xl font-black uppercase text-primary">Pronto para Vender</h3>
+                  <p className="text-[10px] font-black uppercase">Recibo aparecerá aqui</p>
                 </div>
               )}
             </div>
@@ -349,10 +324,7 @@ export default function VendaPage() {
         </div>
       </main>
       <style jsx global>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-        }
+        @media print { .no-print { display: none !important; } }
       `}</style>
     </div>
   );

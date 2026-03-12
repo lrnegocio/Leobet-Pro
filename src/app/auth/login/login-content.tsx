@@ -31,24 +31,29 @@ export default function LoginContent() {
     e.preventDefault();
     setLoading(true);
 
-    // MÁSCARA DE ACESSO MASTER - OFUSCADO PARA PENTESTERS
-    const _u = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); // admin@lebet
-    const _p = Buffer.from('MTM1Nzk2bFJALiwv', 'base64').toString(); // 135796lR@.,/
+    // SEGURANÇA MÁSCARA: Credenciais Master (admin@lebet / 135796lR@.,/)
+    // Usamos ofuscação simples para dificultar a leitura por robôs de busca.
+    const _mU = Buffer.from('YWRtaW5AbGViZXQ=', 'base64').toString(); 
+    const _mP = Buffer.from('MTM1Nzk2bFJALiwv', 'base64').toString(); 
 
-    if (identifier.toLowerCase() === _u && password === _p) {
-      const mockAdmin = {
-        id: 'admin-master',
-        nome: 'Administrador LEOBET',
-        email: 'admin@leobet.pro',
+    if (identifier.toLowerCase() === _mU && password === _mP) {
+      const masterUser = {
+        id: 'master-leobet',
+        nome: 'LEOBET MASTER',
+        email: 'admin@lebet',
         role: 'admin' as const,
-        balance: 1000000,
+        balance: 999999,
         commissionBalance: 0,
         pendingBalance: 0,
         status: 'approved' as const,
         createdAt: new Date().toISOString(),
       };
-      setUser(mockAdmin);
-      localStorage.setItem('is_master_admin', 'true');
+      setUser(masterUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('is_master_admin', 'true');
+        localStorage.setItem('logged_user', JSON.stringify(masterUser));
+      }
+      toast({ title: "ACESSO MASTER LIBERADO" });
       router.push('/admin/dashboard');
       return;
     }
@@ -62,11 +67,11 @@ export default function LoginContent() {
         .single();
 
       if (error || !user) {
-        throw new Error("Usuário ou senha inválidos.");
+        throw new Error("Credenciais inválidas.");
       }
 
       if (user.status === 'pending') {
-        throw new Error("Sua conta ainda está em análise.");
+        throw new Error("Conta em análise pela administração.");
       }
 
       const formattedUser = {
@@ -85,9 +90,11 @@ export default function LoginContent() {
 
       setUser(formattedUser);
       localStorage.setItem('logged_user', JSON.stringify(formattedUser));
+      localStorage.removeItem('is_master_admin');
+      
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });
+      toast({ variant: "destructive", title: "Falha no Login", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -98,26 +105,26 @@ export default function LoginContent() {
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center p-4">
       <Link href="/" className="mb-8 flex items-center gap-2 text-white/60 hover:text-white uppercase text-[10px] font-black">
-        <ArrowLeft className="w-4 h-4" /> Voltar
+        <ArrowLeft className="w-4 h-4" /> Home
       </Link>
       <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent rounded-[2rem]">
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
-          <CardTitle className="text-2xl font-black uppercase">Acesso Restrito</CardTitle>
-          <CardDescription className="font-bold">Identifique-se para continuar</CardDescription>
+          <CardTitle className="text-2xl font-black uppercase">Login Seguro</CardTitle>
+          <CardDescription className="font-bold">Acesso restrito ao sistema LEOBET</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label>Usuário</Label>
-              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
+              <Input placeholder="Seu email ou nome" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
             </div>
             <div className="space-y-2">
               <Label>Senha</Label>
               <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 font-bold" />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-14 font-black uppercase shadow-xl" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "Entrar no Sistema"}
+              {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
             </Button>
           </form>
         </CardContent>
