@@ -183,7 +183,7 @@ export default function VendaPage() {
     }));
 
     const totalVenda = formData.unitario * quantity;
-    const isMaster = localStorage.getItem('is_master_admin') === 'true';
+    const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
 
     const receipt = {
       id: receiptId,
@@ -193,7 +193,7 @@ export default function VendaPage() {
       tipo: formData.tipo,
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
-      pix_resgate: formData.pixKey,
+      pix_resgate: formData.pixKey, 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       status: isMaster ? 'pago' : 'pendente', 
@@ -210,7 +210,7 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
       console.error(err);
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique conexão ou saldo." });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique as tabelas do Supabase." });
     } finally {
       setLoading(false);
     }
