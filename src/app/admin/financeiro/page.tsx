@@ -81,7 +81,6 @@ function FinanceiroContent() {
   }, [tickets]);
 
   const approveTicket = async (ticketId: string) => {
-    // Altera para status 'pago' (aposta validada para sorteio)
     const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "APOSTA VALIDADA!" });
@@ -90,7 +89,6 @@ function FinanceiroContent() {
   };
 
   const confirmPrizePayout = async (ticketId: string) => {
-    // Status para quando realmente paga o prêmio ao ganhador
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "PRÊMIO PAGO AO GANHADOR!" });
