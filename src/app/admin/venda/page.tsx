@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
@@ -58,7 +57,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.warn("Supabase Offline ou Chaves Ausentes");
+      console.warn("Supabase Sync Delay");
     }
   };
 
@@ -162,7 +161,6 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // Gera números únicos para o bingo
     const generateBingoNumbers = () => {
       const nums = new Set<number>();
       while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
@@ -197,10 +195,10 @@ export default function VendaPage() {
       setVendaRealizada(receipt);
       toast({ title: "VENDA CONFIRMADA!" });
 
-      // IMPRESSÃO AUTOMÁTICA
+      // IMPRESSÃO AUTOMÁTICA SE CONECTADO
       if (btCharacteristic) {
         await printReceipt(receipt);
-        toast({ title: "IMPRESSO COM SUCESSO!" });
+        toast({ title: "CUPOM IMPRESSO!" });
       }
       
       const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*Confira:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
@@ -208,7 +206,7 @@ export default function VendaPage() {
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique conexão." });
+      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "O sistema salvará localmente." });
     } finally {
       setLoading(false);
     }
@@ -279,7 +277,7 @@ export default function VendaPage() {
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios Acumulados (65%)</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
