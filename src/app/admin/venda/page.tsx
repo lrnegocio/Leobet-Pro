@@ -210,7 +210,7 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
       console.error(err);
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique se as tabelas existem no Supabase." });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique conexão ou saldo." });
     } finally {
       setLoading(false);
     }

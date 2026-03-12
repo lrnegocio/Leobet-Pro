@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react';
@@ -13,9 +12,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     setMounted(true);
-    const checkAuth = () => {
-      if (typeof window === 'undefined') return;
+  }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+
+    const checkAuth = () => {
       const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
       
@@ -58,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     checkAuth();
-  }, [user, router, setUser]);
+  }, [user, router, setUser, mounted]);
 
   if (!mounted || loading) {
     return (
