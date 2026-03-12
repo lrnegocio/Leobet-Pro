@@ -22,7 +22,6 @@ export default function AdminDashboard() {
     try {
       const { data: users } = await supabase.from('users').select('role, status');
       
-      // Busca apenas tickets que PRECISAM de aprovação (status pendente e não foram pagos automaticamente)
       const { data: tickets } = await supabase
         .from('tickets')
         .select('status, valor_total, cliente, evento_nome')
@@ -30,10 +29,12 @@ export default function AdminDashboard() {
 
       setPendingTickets(tickets || []);
 
+      const pendingUsers = users?.filter(u => u.status === 'pending').length || 0;
+
       setStats({
         totalClientes: users?.filter(u => u.role === 'cliente').length || 0,
         totalCambistas: users?.filter(u => u.role === 'cambista').length || 0,
-        pendencias: (tickets?.length || 0) + (users?.filter(u => u.status === 'pending').length || 0)
+        pendencias: (tickets?.length || 0) + pendingUsers
       });
     } catch (err) {
       console.error("Erro ao carregar estatísticas:", err);
@@ -49,7 +50,7 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-end">
             <div>
@@ -84,7 +85,7 @@ export default function AdminDashboard() {
                   {pendingTickets.length === 0 ? <div className="text-center py-10 opacity-30 font-black text-xs uppercase">Tudo em dia!</div> : pendingTickets.map((sale, i) => (
                     <div key={i} className="flex items-center justify-between p-4 border rounded-2xl bg-orange-50/30">
                       <div><p className="text-xs font-black uppercase">{sale.cliente}</p><p className="text-[9px] font-bold text-muted-foreground uppercase">{sale.evento_nome} • R$ {Number(sale.valor_total).toFixed(2)}</p></div>
-                      <Link href="/admin/financeiro"><Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Validar</Button></Link>
+                      <Link href="/admin/financeiro?tab=payouts"><Button size="sm" variant="outline" className="h-8 font-black text-[9px] uppercase">Validar</Button></Link>
                     </div>
                   ))}
                 </div>

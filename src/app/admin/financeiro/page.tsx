@@ -12,14 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle2, 
   RefreshCcw, 
-  History, 
   Search, 
   Database, 
   Phone, 
-  Zap, 
-  TrendingUp, 
   Trash2,
-  ShieldAlert
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -93,8 +90,8 @@ function FinanceiroContent() {
 
   const finance = useMemo(() => {
     let bruto = 0;
-    const filtered = tickets.filter(t => t.status === 'pago' || t.status === 'premio_pago');
-    filtered.forEach(t => bruto += Number(t.valor_total || 0));
+    const validTickets = tickets.filter(t => ['pago', 'ganhou', 'premio_pago'].includes(t.status));
+    validTickets.forEach(t => bruto += Number(t.valor_total || 0));
     
     const pool = Math.floor(bruto * 0.65 * 100) / 100;
     const admin = Math.floor(bruto * 0.35 * 100) / 100;
@@ -104,7 +101,7 @@ function FinanceiroContent() {
 
   const handleBulkDelete = async () => {
     if (!cleanStart || !cleanEnd) {
-      toast({ variant: "destructive", title: "DATAS OBRIGATÓRIAS", description: "Selecione o período para limpeza." });
+      toast({ variant: "destructive", title: "DATAS OBRIGATÓRIAS" });
       return;
     }
 
@@ -113,28 +110,31 @@ function FinanceiroContent() {
       const start = `${cleanStart}T00:00:00`;
       const end = `${cleanEnd}T23:59:59`;
 
-      if (cleanTickets) {
-        await supabase.from('tickets').delete().gte('created_at', start).lte('created_at', end);
-      }
-
-      if (cleanTransactions) {
-        await supabase.from('transactions').delete().gte('created_at', start).lte('created_at', end);
-      }
+      if (cleanTickets) await supabase.from('tickets').delete().gte('created_at', start).lte('created_at', end);
+      if (cleanTransactions) await supabase.from('transactions').delete().gte('created_at', start).lte('created_at', end);
 
       toast({ title: "LIMPEZA CONCLUÍDA!" });
       setShowCleanDialog(false);
       loadData();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO NA LIMPEZA", description: err.message });
+      toast({ variant: "destructive", title: "ERRO NA LIMPEZA" });
     } finally {
       setCleaning(false);
     }
   };
 
-  const approvePayout = async (ticketId: string) => {
+  const approveTicket = async (ticketId: string) => {
+    const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
+    if (!error) {
+      toast({ title: "APOSTA VALIDADA!" });
+      loadData();
+    }
+  };
+
+  const confirmPrizePayout = async (ticketId: string) => {
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', ticketId);
     if (!error) {
-      toast({ title: "PAGAMENTO CONFIRMADO!" });
+      toast({ title: "PRÊMIO PAGO COM SUCESSO!" });
       loadData();
     }
   };
@@ -221,10 +221,10 @@ function FinanceiroContent() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="bg-primary text-white border-none shadow-2xl rounded-[2rem] p-8">
-              <p className="text-[10px] font-black uppercase opacity-60">Arrecadação Bruta</p>
+              <p className="text-[10px] font-black uppercase opacity-60">Arrecadação Bruta (Vendas Pagas)</p>
               <p className="text-4xl font-black mt-2">R$ {finance.bruto.toFixed(2)}</p>
             </Card>
-            <Card className="bg-green-600 text-white border-none shadow-2xl rounded-[2rem] p-8">
+            <Card className="bg-green-600 text-white border-none shadow-xl rounded-[2rem] p-8">
               <p className="text-[10px] font-black uppercase opacity-60">Reserva Prêmios (65%)</p>
               <p className="text-4xl font-black mt-2">R$ {finance.pool.toFixed(2)}</p>
             </Card>
@@ -237,28 +237,38 @@ function FinanceiroContent() {
           <div className="bg-white p-2 rounded-2xl shadow-sm border flex gap-4 items-center">
              <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input placeholder="Pesquisar ganhador ou código..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 h-14 rounded-2xl text-lg border-none focus-visible:ring-0 font-bold" />
+                <Input placeholder="Pesquisar cliente ou código..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 h-14 rounded-2xl text-lg border-none focus-visible:ring-0 font-bold" />
              </div>
           </div>
 
           <Tabs defaultValue={defaultTab}>
             <TabsList className="bg-muted p-1 rounded-2xl w-full flex justify-start gap-2">
-              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12">Pendentes</TabsTrigger>
-              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12">Histórico</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12">Pendentes / Prêmios</TabsTrigger>
+              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12">Histórico Geral</TabsTrigger>
             </TabsList>
             <TabsContent value="payouts" className="mt-6 space-y-4">
-               {filteredTickets.filter(t => t.status === 'pago').length === 0 ? (
-                 <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem ganhadores pendentes</Card>
+               {filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou').length === 0 ? (
+                 <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Nada para validar no momento</Card>
                ) : (
-                 filteredTickets.filter(t => t.status === 'pago').map((t, i) => (
-                   <Card key={i} className="flex flex-col md:flex-row justify-between items-center p-6 border-l-8 border-l-green-500 rounded-3xl shadow-lg bg-white gap-6">
+                 filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou').map((t, i) => (
+                   <Card key={i} className={cn(
+                     "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-3xl shadow-lg bg-white gap-6",
+                     t.status === 'ganhou' ? 'border-l-green-500' : 'border-l-orange-500'
+                   )}>
                      <div className="space-y-2 flex-1 w-full">
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
+                       <Badge variant="outline" className="font-black text-[8px] uppercase">
+                          {t.status === 'pendente' ? 'AGUARDANDO PAGAMENTO APOSTA' : 'GANHADOR - PAGAR PRÊMIO'}
+                       </Badge>
                      </div>
                      <div className="flex gap-2 w-full md:w-auto">
                         <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="flex-1 h-16 font-black uppercase text-[10px] rounded-2xl"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                        <Button onClick={() => approvePayout(t.id)} className="flex-[2] bg-primary font-black uppercase text-xs h-16 rounded-2xl">Confirmar Pagamento</Button>
+                        {t.status === 'pendente' ? (
+                           <Button onClick={() => approveTicket(t.id)} className="flex-[2] bg-primary font-black uppercase text-xs h-16 rounded-2xl">Validar Pagamento</Button>
+                        ) : (
+                           <Button onClick={() => confirmPrizePayout(t.id)} className="flex-[2] bg-green-600 hover:bg-green-700 font-black uppercase text-xs h-16 rounded-2xl">Pagar Prêmio</Button>
+                        )}
                      </div>
                    </Card>
                  ))
@@ -278,7 +288,18 @@ function FinanceiroContent() {
                                 <td className="p-8 font-black text-primary">{t.cliente}</td>
                                 <td className="p-8">{t.evento_nome}</td>
                                 <td className="p-8">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
-                                <td className="p-8 text-right"><Badge className="font-black text-[8px] uppercase">{t.status}</Badge></td>
+                                <td className="p-8 text-right">
+                                   <Badge className={cn(
+                                     "font-black text-[8px] uppercase",
+                                     t.status === 'pago' ? 'bg-blue-600' : 
+                                     t.status === 'premio_pago' ? 'bg-green-600' : 
+                                     t.status === 'ganhou' ? 'bg-accent' : 'bg-muted'
+                                   )}>
+                                     {t.status === 'pago' ? 'Validada' : 
+                                      t.status === 'premio_pago' ? 'Prêmio Pago' : 
+                                      t.status === 'ganhou' ? 'Ganhador' : 'Pendente'}
+                                   </Badge>
+                                </td>
                              </tr>
                            ))}
                         </tbody>

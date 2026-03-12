@@ -11,12 +11,8 @@ import {
   Calendar, 
   Send, 
   FileText, 
-  CheckCircle2, 
   TrendingUp, 
-  Zap,
-  Trophy,
-  Grid3X3,
-  Search,
+  Search, 
   Printer
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -31,7 +27,6 @@ export default function RelatoriosPage() {
   const [endDate, setEndDate] = useState('');
   const [mounted, setMounted] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
 
   const loadData = async () => {
     const { data } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
@@ -66,52 +61,17 @@ export default function RelatoriosPage() {
   }, [tickets, startDate, endDate]);
 
   const totals = useMemo(() => {
-    const bruto = filteredTickets.reduce((acc, t) => acc + (t.status === 'pago' ? Number(t.valor_total || 0) : 0), 0);
+    const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
     const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
     return { bruto, pendente };
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
     const link = `https://leobet-probets.vercel.app/resultados?c=${ticket.id}`;
-    let statusText = ticket.status === 'pago' ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
+    let statusText = ['pago', 'ganhou', 'premio_pago'].includes(ticket.status) ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
     const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A*Conferir em tempo real:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
-
-  const printReceipt = useCallback(async (receipt: any) => {
-    if (!btCharacteristic) {
-      toast({ variant: "destructive", title: "IMPRESSORA NÃO CONECTADA", description: "Vá ao Terminal de Vendas para parear." });
-      return;
-    }
-    try {
-      const encoder = new TextEncoder();
-      let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
-      text += "CUPOM REIMPRESSO (2 VIA)\n";
-      text += "--------------------------------\n";
-      text += `CLIENTE: ${receipt.cliente}\n`;
-      text += `JOGO: ${receipt.evento_nome}\n`;
-      text += `DATA: ${new Date(receipt.created_at).toLocaleString()}\n`;
-      text += "--------------------------------\n";
-      receipt.tickets_data.forEach((t: any, i: number) => {
-        text += `BILHETE #${i+1}: ${t.id}\n`;
-        if (t.numeros) text += `NUMEROS: ${t.numeros.join(' ')}\n`;
-        text += "\n";
-      });
-      text += "--------------------------------\n";
-      text += `VALOR TOTAL: R$ ${Number(receipt.valor_total).toFixed(2)}\n`;
-      text += "\x1B\x61\x01www.leobet.pro\n";
-      text += "\n\n\n\n";
-
-      const data = encoder.encode(text);
-      const chunkSize = 20;
-      for (let i = 0; i < data.length; i += chunkSize) {
-        await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
-      }
-      toast({ title: "REIMPRESSO COM SUCESSO!" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERRO NA IMPRESSÃO" });
-    }
-  }, [btCharacteristic, toast]);
 
   if (!mounted) return null;
 
@@ -137,13 +97,13 @@ export default function RelatoriosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
              <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
                <CardContent className="p-6">
-                 <p className="text-[10px] font-black uppercase opacity-60">Aprovado</p>
+                 <p className="text-[10px] font-black uppercase opacity-60">Vendas Pagas</p>
                  <p className="text-3xl font-black">R$ {totals.bruto.toFixed(2)}</p>
                </CardContent>
              </Card>
              <Card className="bg-orange-600 text-white border-none shadow-xl rounded-2xl">
                <CardContent className="p-6">
-                 <p className="text-[10px] font-black uppercase opacity-60">Pendente</p>
+                 <p className="text-[10px] font-black uppercase opacity-60">Aguardando Pagamento</p>
                  <p className="text-3xl font-black">R$ {totals.pendente.toFixed(2)}</p>
                </CardContent>
              </Card>
@@ -169,7 +129,7 @@ export default function RelatoriosPage() {
 
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.map((t, i) => (
-                    <Card key={i} className={`p-4 hover:shadow-md border-l-8 ${t.status === 'pago' ? 'border-l-green-600' : 'border-l-orange-500'} rounded-2xl bg-white`}>
+                    <Card key={i} className={`p-4 hover:shadow-md border-l-8 ${['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'} rounded-2xl bg-white`}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1 w-full">
                              <div className="flex items-center gap-2">
@@ -183,7 +143,7 @@ export default function RelatoriosPage() {
                           <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-between md:justify-end">
                              <p className="text-lg font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
                              <div className="flex gap-1">
-                               <Button onClick={() => printReceipt(t)} size="icon" variant="outline" className="h-10 w-10 border-primary/20 hover:bg-primary/10 rounded-xl">
+                               <Button variant="outline" size="icon" className="h-10 w-10 border-primary/20 hover:bg-primary/10 rounded-xl" onClick={() => window.print()}>
                                  <Printer className="w-4 h-4 text-primary" />
                                </Button>
                                <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 h-10 gap-2 font-black uppercase text-[10px] rounded-xl">
@@ -194,12 +154,6 @@ export default function RelatoriosPage() {
                        </div>
                     </Card>
                 ))}
-                {filteredTickets.length === 0 && (
-                  <div className="py-20 text-center opacity-20 font-black uppercase text-xs flex flex-col items-center gap-4">
-                    <Search className="w-12 h-12" />
-                    Nenhuma venda encontrada para o período.
-                  </div>
-                )}
              </div>
           </div>
         </div>

@@ -69,7 +69,7 @@ export default function VendaPage() {
 
   const updatePrizes = async (eventId: string, type: string) => {
     try {
-      const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).eq('status', 'pago');
+      const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).in('status', ['pago', 'ganhou', 'premio_pago']);
       const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
       const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
 
@@ -121,7 +121,7 @@ export default function VendaPage() {
 
   const printReceipt = useCallback(async (receipt: any) => {
     if (!btCharacteristic) {
-      toast({ variant: "destructive", title: "IMPRESSORA NÃO CONECTADA" });
+      toast({ variant: "destructive", title: "CONECTE A IMPRESSORA" });
       return;
     }
     try {
@@ -190,6 +190,7 @@ export default function VendaPage() {
     }));
 
     const totalVenda = formData.unitario * quantity;
+    const isMaster = localStorage.getItem('is_master_admin') === 'true';
 
     const receipt = {
       id: receiptId,
@@ -200,7 +201,7 @@ export default function VendaPage() {
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
-      status: 'pago',
+      status: isMaster ? 'pago' : 'pendente', 
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
       created_at: new Date().toISOString()
@@ -211,7 +212,7 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA CONFIRMADA!" });
+      toast({ title: "VENDA REGISTRADA!" });
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
@@ -284,60 +285,56 @@ export default function VendaPage() {
                     </select>
                   </div>
 
-                  {selectedEvent && (
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Cartelas</Label>
-                        <div className="flex items-center gap-4">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-12 w-12 rounded-xl border-2"
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          >
-                            <Minus className="w-6 h-6" />
-                          </Button>
-                          <Input 
-                            type="number" 
-                            value={quantity} 
-                            onChange={e => setQuantity(Number(e.target.value))} 
-                            className="h-12 text-center font-black text-xl rounded-xl border-2"
-                          />
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-12 w-12 rounded-xl border-2"
-                            onClick={() => setQuantity(quantity + 1)}
-                          >
-                            <Plus className="w-6 h-6" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                         <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
-                         <div className="grid grid-cols-3 gap-2">
-                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                               <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
-                               <p className="text-[8px] font-black uppercase">Bingo</p>
-                               <p className="text-[10px] font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
-                            </div>
-                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                               <Zap className="w-4 h-4 mx-auto text-primary mb-1" />
-                               <p className="text-[8px] font-black uppercase">Quina</p>
-                               <p className="text-[10px] font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
-                            </div>
-                            <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
-                               <CheckCircle2 className="w-4 h-4 mx-auto text-green-600 mb-1" />
-                               <p className="text-[8px] font-black uppercase">Quadra</p>
-                               <p className="text-[10px] font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
-                            </div>
-                         </div>
-                      </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Cartelas</Label>
+                    <div className="flex items-center gap-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-12 w-12 rounded-xl border-2"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      >
+                        <Minus className="w-6 h-6" />
+                      </Button>
+                      <Input 
+                        type="number" 
+                        value={quantity} 
+                        onChange={e => setQuantity(Number(e.target.value))} 
+                        className="h-12 text-center font-black text-xl rounded-xl border-2"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-12 w-12 rounded-xl border-2"
+                        onClick={() => setQuantity(quantity + 1)}
+                      >
+                        <Plus className="w-6 h-6" />
+                      </Button>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
+                     <p className="text-[10px] font-black uppercase text-center opacity-60">Reserva de Prêmios (65%)</p>
+                     <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                           <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
+                           <p className="text-[8px] font-black uppercase">Bingo</p>
+                           <p className="text-[10px] font-black text-primary">R$ {prizes.bingo.toFixed(2)}</p>
+                        </div>
+                        <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                           <Zap className="w-4 h-4 mx-auto text-primary mb-1" />
+                           <p className="text-[8px] font-black uppercase">Quina</p>
+                           <p className="text-[10px] font-black text-primary">R$ {prizes.quina.toFixed(2)}</p>
+                        </div>
+                        <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
+                           <CheckCircle2 className="w-4 h-4 mx-auto text-green-600 mb-1" />
+                           <p className="text-[8px] font-black uppercase">Quadra</p>
+                           <p className="text-[10px] font-black text-primary">R$ {prizes.quadra.toFixed(2)}</p>
+                        </div>
+                     </div>
+                  </div>
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
                      <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor Total</p>

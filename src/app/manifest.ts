@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#1E3A8A',
     icons: [
       {
-        src: 'https://leobet-probets.vercel.app/leobet-icon.png',
+        src: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=512&h=512&auto=format&fit=crop',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any maskable',
