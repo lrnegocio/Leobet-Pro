@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Blindagem absoluta para evitar erros de build e execução sem chaves
-// O Next.js exige que essas variáveis existam, mesmo que vazias, durante o build.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
 
+// O cliente é criado de forma resiliente
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
