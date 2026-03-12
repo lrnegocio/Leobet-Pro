@@ -32,7 +32,6 @@ export default function LoginContent() {
     if (!mounted) return;
     setLoading(true);
 
-    // SEGURANÇA MÁXIMA: CREDENCIAIS OFUSCADAS EM BASE64
     const _mU = atob('YWRtaW5AbGViZXQ='); // admin@lebet
     const _mP = atob('MTM1Nzk2bFJALiwv'); // 135796lR@.,/
 

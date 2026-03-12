@@ -1,0 +1,29 @@
+import { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'LEOBET PRO',
+    short_name: 'LEOBET',
+    description: 'Plataforma Profissional de Apostas e Bingos Auditados',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#1E3A8A',
+    theme_color: '#1E3A8A',
+    icons: [
+      {
+        src: 'https://picsum.photos/seed/leo/192/192',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: 'https://picsum.photos/seed/leo/512/512',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
+    orientation: 'portrait',
+    scope: '/',
+  }
+}

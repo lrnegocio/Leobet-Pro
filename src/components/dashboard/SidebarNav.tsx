@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
   Trophy, 
-  Grid3X3, 
   LogOut,
   Wallet,
   Search,
@@ -17,7 +16,8 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Grid3X3
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
