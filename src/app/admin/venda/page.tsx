@@ -60,7 +60,7 @@ export default function VendaPage() {
       const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
       setEventosAtivos([...bFormated, ...bolFormated]);
     } catch (err) {
-      console.warn("Chaves Supabase aguardadas no Vercel...");
+      console.warn("Aguardando conexão segura...");
     }
   };
 
@@ -85,7 +85,7 @@ export default function VendaPage() {
 
   const connectPrinter = async () => {
     if (typeof window === 'undefined' || !navigator.bluetooth) {
-      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome no Android/PC e HTTPS." });
+      toast({ variant: "destructive", title: "BLUETOOTH INDISPONÍVEL", description: "Use Chrome/Android via HTTPS." });
       return;
     }
 
@@ -107,10 +107,10 @@ export default function VendaPage() {
       if (writeChar) {
         setBtDevice(device);
         setBtCharacteristic(writeChar);
-        toast({ title: "IMPRESSORA PAREADA!", description: device.name });
+        toast({ title: "IMPRESSORA PRONTA!", description: device.name });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Verifique o pareamento bluetooth." });
+      toast({ variant: "destructive", title: "FALHA DE PAREAMENTO", description: "Verifique se a impressora está ligada." });
     } finally {
       setBtConnecting(false);
     }
@@ -121,11 +121,11 @@ export default function VendaPage() {
     try {
       const encoder = new TextEncoder();
       let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\n";
-      text += "COMPROVANTE OFICIAL\n";
+      text += "CUPOM OFICIAL AUDITADO\n";
       text += "--------------------------------\n";
       text += `\x1B\x61\x00CLIENTE: ${receipt.cliente}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
-      text += `DATA: ${new Date().toLocaleDateString()}\n`;
+      text += `DATA: ${new Date().toLocaleString()}\n`;
       text += "--------------------------------\n";
       receipt.tickets_data.forEach((t: any) => {
         text += `BILHETE: ${t.id}\n`;
@@ -140,7 +140,8 @@ export default function VendaPage() {
         text += `PREMIO: R$ ${receipt.detalhe_premios.bolao.toFixed(2)}\n`;
       }
       text += "--------------------------------\n";
-      text += `\x1B\x61\x01TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
+      text += `\x1B\x61\x01VALOR TOTAL: R$ ${receipt.valor_total.toFixed(2)}\n`;
+      text += "\x1B\x61\x01www.leobet.pro\n";
       text += "\n\n\n\n";
 
       const data = encoder.encode(text);
@@ -149,7 +150,7 @@ export default function VendaPage() {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
     } catch (e) {
-      console.error("Erro de impressão Bluetooth");
+      console.error("Erro Bluetooth");
     }
   };
 
@@ -189,7 +190,7 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ title: "VENDA REALIZADA!", description: "Bilhete registrado com sucesso." });
+      toast({ title: "VENDA CONFIRMADA!", description: "Bilhete registrado no banco." });
       
       if (btCharacteristic) {
         printReceipt(receipt);
@@ -199,12 +200,12 @@ export default function VendaPage() {
         ? `%0A🏆 Bingo: R$ ${prizes.bingo.toFixed(2)}%0A🥈 Quina: R$ ${prizes.quina.toFixed(2)}%0A🥉 Quadra: R$ ${prizes.quadra.toFixed(2)}`
         : `%0A🏆 Acumulado: R$ ${prizes.bolao.toFixed(2)}`;
 
-      const msg = `*LEOBET PRO - RECIBO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS ESTIMADOS:*${premioTxt}%0A%0A*Conferir:* https://leobet-probets.vercel.app/resultados?c=${receipt.id}`;
+      const msg = `*LEOBET PRO*%0A%0A👤 *CLIENTE:* ${receipt.cliente}%0A🎟️ *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A*PRÊMIOS:*${premioTxt}%0A%0A*Confira:* https://leobet.pro/resultados?c=${receipt.id}`;
       window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${msg}`, '_blank');
       
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA NA CONEXÃO", description: "Verifique chaves do Supabase no Vercel." });
+      toast({ variant: "destructive", title: "FALHA NO BANCO", description: "Verifique conexão ou chaves." });
     } finally {
       setLoading(false);
     }
@@ -224,12 +225,12 @@ export default function VendaPage() {
                   <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Térmica</p>
+                   <p className="text-[10px] font-black uppercase text-muted-foreground">Impressora Bluetooth</p>
                    <p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p>
                 </div>
               </div>
               <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl shadow-lg">
-                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "RECONECTAR" : "PAREAR")}
+                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
               </Button>
           </div>
 
@@ -273,7 +274,7 @@ export default function VendaPage() {
 
                   {selectedEvent && (
                     <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios em Tempo Real (65%)</p>
+                       <p className="text-[10px] font-black uppercase text-center opacity-60">Prêmios Acumulados (65%)</p>
                        <div className="grid grid-cols-3 gap-2">
                           <div className="text-center bg-white p-2 rounded-xl border shadow-sm">
                              <Trophy className="w-4 h-4 mx-auto text-accent mb-1" />
@@ -300,7 +301,7 @@ export default function VendaPage() {
                   </div>
 
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
-                    {loading ? "GERANDO..." : "VENDER AGORA"}
+                    {loading ? "PROCESSANDO..." : "CONFIRMAR VENDA"}
                   </Button>
                 </form>
               </CardContent>
@@ -309,7 +310,7 @@ export default function VendaPage() {
             <div className="space-y-4">
               {vendaRealizada ? (
                 <div className="animate-in zoom-in duration-300">
-                  <div id="print-area" className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
+                  <div className="bg-[#FFFFF4] p-8 shadow-2xl border border-black/10 font-mono rounded-[2rem] text-center relative">
                      <p className="text-2xl font-black text-primary tracking-tighter">LEOBET PRO</p>
                      <p className="text-[8px] font-bold uppercase opacity-60">Auditado Supabase Cloud</p>
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
@@ -328,10 +329,10 @@ export default function VendaPage() {
                      
                      <div className="flex flex-col gap-2 no-print">
                         <Button onClick={() => printReceipt(vendaRealizada)} className="w-full h-14 bg-primary font-black uppercase text-xs rounded-xl shadow-lg">
-                          <Printer className="w-5 h-5 mr-2" /> Imprimir Recibo
+                          <Printer className="w-5 h-5 mr-2" /> Reimprimir
                         </Button>
                         <Button onClick={() => setVendaRealizada(null)} variant="outline" className="w-full h-12 font-black uppercase text-[10px] rounded-xl border-2">
-                          Nova Venda
+                          Próxima Venda
                         </Button>
                      </div>
                   </div>
@@ -339,22 +340,14 @@ export default function VendaPage() {
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
-                  <h3 className="text-xl font-black uppercase text-primary">Terminal de Vendas</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Aguardando Apostador...</p>
+                  <h3 className="text-xl font-black uppercase text-primary">Terminal Ativo</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Aguardando Operação...</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       </main>
-      <style jsx global>{`
-        @media print {
-          body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { position: absolute; left: 0; top: 0; width: 100%; border: none; shadow: none; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 }

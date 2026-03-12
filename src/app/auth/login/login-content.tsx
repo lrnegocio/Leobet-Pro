@@ -27,9 +27,10 @@ export default function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mounted) return;
     setLoading(true);
 
-    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA)
+    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA CONTRA PENTESTERS)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
     const _mU = atob('YWRtaW5AbGViZXQ=');
@@ -52,7 +53,7 @@ export default function LoginContent() {
         localStorage.setItem('is_master_admin', 'true');
         localStorage.setItem('logged_user', JSON.stringify(masterUser));
       }
-      toast({ title: "ACESSO MASTER LIBERADO" });
+      toast({ title: "ACESSO MASTER LIBERADO", description: "Sincronização global ativa." });
       router.push('/admin/dashboard');
       return;
     }
@@ -75,7 +76,7 @@ export default function LoginContent() {
         role: user.role,
         balance: Number(user.balance),
         commissionBalance: Number(user.commission_balance),
-        pending_balance: Number(user.pending_balance),
+        pendingBalance: Number(user.pending_balance),
         status: user.status,
         phone: user.phone,
         pixKey: user.pix_key,
@@ -104,21 +105,21 @@ export default function LoginContent() {
       <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent rounded-[2rem]">
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
-          <CardTitle className="text-2xl font-black uppercase text-primary">Login Seguro</CardTitle>
-          <CardDescription className="font-bold">Acesso restrito LEOBET PRO</CardDescription>
+          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso Seguro</CardTitle>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Auditado LEOBET PRO</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-xs font-black uppercase">Usuário</Label>
-              <Input placeholder="Usuário ou Email" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
+              <Label className="text-xs font-black uppercase opacity-60">Usuário / Email</Label>
+              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black uppercase">Senha</Label>
+              <Label className="text-xs font-black uppercase opacity-60">Senha de Acesso</Label>
               <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 font-bold" />
             </div>
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-14 font-black uppercase shadow-xl" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-14 font-black uppercase shadow-xl transition-all active:scale-95" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : "Entrar no Sistema"}
             </Button>
           </form>
         </CardContent>

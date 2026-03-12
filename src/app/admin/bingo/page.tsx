@@ -68,7 +68,7 @@ export default function BingoPage() {
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center px-4 md:px-0">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3">
                 Gestão de Bingos <Database className="w-6 h-6 text-green-600 hidden md:block" />
@@ -82,7 +82,7 @@ export default function BingoPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4 px-4 md:px-0">
             {loading ? (
               <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco...</div>
             ) : bingos.map((bingo) => {
