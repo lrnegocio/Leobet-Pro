@@ -16,7 +16,8 @@ import {
   Database, 
   Phone, 
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -124,6 +125,7 @@ function FinanceiroContent() {
   };
 
   const approveTicket = async (ticketId: string) => {
+    // Apenas valida o pagamento para entrar no sorteio
     const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "APOSTA VALIDADA!" });
@@ -132,6 +134,7 @@ function FinanceiroContent() {
   };
 
   const confirmPrizePayout = async (ticketId: string) => {
+    // Pagamento real do prêmio após ganhar
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "PRÊMIO PAGO COM SUCESSO!" });

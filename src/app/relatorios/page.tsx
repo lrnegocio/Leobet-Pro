@@ -67,9 +67,21 @@ export default function RelatoriosPage() {
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
-    const link = `https://leobet-probets.vercel.app/resultados?c=${ticket.id}`;
+    const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
+    const systemUrl = savedSettings.systemUrl || 'https://leobet-probets.vercel.app/';
+    const youtubeUrl = savedSettings.youtubeUrl || '';
+    
+    const link = `${systemUrl}/resultados?c=${ticket.id}`;
     let statusText = ['pago', 'ganhou', 'premio_pago'].includes(ticket.status) ? '✅ VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
-    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A*Conferir em tempo real:*%0A${link}`;
+    
+    let prizeMsg = "";
+    if (ticket.tipo === 'bingo' && ticket.detalhe_premios) {
+      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${ticket.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${ticket.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${ticket.detalhe_premios.quadra.toFixed(2)}`;
+    } else if (ticket.detalhe_premios) {
+      prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao.toFixed(2)}`;
+    }
+
+    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir em tempo real:*%0A${link}%0A%0A📊 *CÓDIGO:* ${ticket.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 

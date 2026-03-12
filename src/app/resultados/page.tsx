@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Zap, Youtube, Database, Globe, Smartphone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -26,6 +26,7 @@ function ResultadosContent() {
   const [claiming, setClaiming] = useState<string | null>(null);
   const [pixKey, setPixKey] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
   const [eventoData, setEventoData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -36,6 +37,7 @@ function ResultadosContent() {
       try {
         const parsed = JSON.parse(savedSettings);
         setYoutubeUrl(parsed.youtubeUrl || '');
+        setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
       } catch (e) {}
     }
   }, []);
@@ -48,10 +50,11 @@ function ResultadosContent() {
     setSearched(true);
     
     try {
+      // Busca pelo ID do recibo ou pelo ID individual de um ticket
       const { data: found } = await supabase
         .from('tickets')
         .select('*')
-        .or(`id.eq.${codeToSearch},tickets_data.cs.[{"id":"${codeToSearch}"}]`)
+        .or(`id.eq.${codeToSearch},barcode.eq.${codeToSearch},tickets_data.cs.[{"id":"${codeToSearch}"}]`)
         .maybeSingle();
 
       if (found) {
@@ -59,6 +62,25 @@ function ResultadosContent() {
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
+        
+        // Recalcula prêmios em tempo real para auditoria
+        const { data: allTickets } = await supabase
+          .from('tickets')
+          .select('valor_total')
+          .eq('evento_id', found.evento_id)
+          .in('status', ['pago', 'ganhou', 'premio_pago']);
+        
+        const totalPaid = (allTickets || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
+        const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
+        
+        if (found.tipo === 'bingo') {
+          const bingoVal = Math.floor(pool * 0.50 * 100) / 100;
+          const quinaVal = Math.floor(pool * 0.30 * 100) / 100;
+          const quadraVal = Number((pool - bingoVal - quinaVal).toFixed(2));
+          found.detalhe_premios = { bingo: bingoVal, quina: quinaVal, quadra: quadraVal };
+        } else {
+          found.detalhe_premios = { bolao: pool };
+        }
       } else {
         setReceipt(null);
       }
@@ -82,7 +104,7 @@ function ResultadosContent() {
 
   const handleClaim = async (ticketId: string) => {
     if (!pixKey || pixKey.trim().length < 5) {
-      toast({ variant: "destructive", title: "CHAVE PIX OBRIGATÓRIA" });
+      toast({ variant: "destructive", title: "PIX OBRIGATÓRIO" });
       return;
     }
 
@@ -110,11 +132,8 @@ function ResultadosContent() {
 
   const handleGoBack = () => {
     if (user && user.id && user.id !== 'admin-master') {
-      if (user.role === 'admin' || user.role === 'cambista' || user.role === 'gerente') {
-        router.push('/admin/venda');
-      } else {
-        router.push('/cliente/dashboard');
-      }
+      const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
+      router.push(dashboardPath);
     } else if (localStorage.getItem('logged_user') || localStorage.getItem('is_master_admin')) {
         router.push('/admin/dashboard');
     } else {
@@ -129,19 +148,21 @@ function ResultadosContent() {
       <div className="max-w-4xl w-full space-y-6">
         <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border">
           <Button onClick={handleGoBack} variant="outline" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase h-11 px-5 rounded-xl border-2">
-            <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
+            <ArrowLeft className="w-4 h-4" /> Voltar
           </Button>
-          {youtubeUrl && (
-            <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg transition-all active:scale-95">
-              <Youtube className="w-5 h-5" /> Sorteio ao Vivo
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {youtubeUrl && (
+              <Button onClick={() => window.open(youtubeUrl, '_blank')} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] h-11 gap-2 px-5 rounded-xl shadow-lg">
+                <Youtube className="w-5 h-5" /> Live
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="text-center space-y-2">
-          <h1 className="text-4xl md:text-6xl font-black font-headline uppercase text-primary tracking-tighter leading-none">Central de Auditoria</h1>
+          <h1 className="text-4xl md:text-6xl font-black font-headline uppercase text-primary tracking-tighter leading-none">Auditoria Online</h1>
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em] opacity-60 flex items-center justify-center gap-2">
-            <Database className="w-3 h-3 text-green-600" /> leobet-probets.vercel.app
+            <Database className="w-3 h-3 text-green-600" /> Sincronizado via Supabase
           </p>
         </div>
 
@@ -150,13 +171,13 @@ function ResultadosContent() {
             <div className="space-y-4">
                <div className="flex flex-col md:flex-row gap-2">
                 <input 
-                  placeholder="CÓDIGO DO BILHETE" 
-                  className="w-full h-16 md:h-20 font-black text-center text-3xl md:text-4xl tracking-[0.3em] border-2 focus:border-primary rounded-3xl uppercase outline-none" 
+                  placeholder="CÓDIGO OU BARCODE" 
+                  className="w-full h-16 md:h-20 font-black text-center text-2xl md:text-3xl border-2 focus:border-primary rounded-3xl uppercase outline-none" 
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
-                <Button onClick={() => handleSearch()} className="h-16 md:h-20 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-3xl shadow-xl transition-all active:scale-95" disabled={loading}>
+                <Button onClick={() => handleSearch()} className="h-16 md:h-20 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-3xl shadow-xl" disabled={loading}>
                   {loading ? <Clock className="animate-spin w-8 h-8" /> : <Search className="w-8 h-8" />}
                 </Button>
               </div>
@@ -165,7 +186,7 @@ function ResultadosContent() {
             {loading ? (
               <div className="py-20 flex flex-col items-center gap-4">
                 <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Auditando Banco...</p>
+                <p className="font-black uppercase text-[10px] tracking-widest text-muted-foreground">Processando Auditoria...</p>
               </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
@@ -175,36 +196,39 @@ function ResultadosContent() {
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Apostador</p>
                         <p className="font-black text-primary text-3xl md:text-4xl tracking-tight leading-none truncate">{receipt.cliente}</p>
                         <div className="mt-4">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Concurso Atual</p>
                           <p className="font-black uppercase text-lg md:text-xl text-primary leading-tight">{receipt.evento_nome}</p>
                         </div>
                       </div>
                       <div className="bg-white px-5 py-5 rounded-[2rem] shadow-xl border border-primary/5 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Zap className="w-4 h-4 text-accent fill-accent" /> Prêmios em Jogo</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Prêmios em Tempo Real</p>
                         {receipt.tipo === 'bingo' ? (
                           <div className="space-y-2">
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">BINGO:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}</span></div>
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUINA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quina?.toFixed(2) || '0.00'}</span></div>
-                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60">QUADRA:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quadra?.toFixed(2) || '0.00'}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60 uppercase">Bingo:</span> <span className="font-black text-primary text-lg">R$ {receipt.detalhe_premios?.bingo?.toFixed(2) || '0.00'}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60 uppercase">Quina:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quina?.toFixed(2) || '0.00'}</span></div>
+                             <div className="flex justify-between items-center bg-muted/30 p-3 rounded-xl"><span className="text-[10px] font-black opacity-60 uppercase">Quadra:</span> <span className="font-black text-primary text-md">R$ {receipt.detalhe_premios?.quadra?.toFixed(2) || '0.00'}</span></div>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-3xl border border-green-100">
-                             <span className="text-[10px] font-black text-green-700 uppercase mb-1">ACUMULADO</span>
+                             <span className="text-[10px] font-black text-green-700 uppercase mb-1">PRÊMIO ACUMULADO</span>
                              <span className="text-3xl font-black text-green-600">R$ {receipt.detalhe_premios?.bolao?.toFixed(2) || '0.00'}</span>
                           </div>
                         )}
                       </div>
                    </div>
                    <div className="border-t border-primary/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                      <Badge className={cn(
-                        "text-white border-none font-black uppercase h-10 px-6 rounded-2xl text-[10px] shadow-lg",
-                        receipt.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'
-                      )}>
-                        {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
-                      </Badge>
-                      <div className="text-right">
-                        <p className="text-[9px] font-black uppercase text-muted-foreground opacity-40">ID DIGITAL</p>
-                        <p className="text-xs font-black uppercase text-primary/40">{receipt.id}</p>
+                      <div className="flex gap-2 items-center">
+                        <Badge className={cn(
+                          "text-white border-none font-black uppercase h-10 px-6 rounded-2xl text-[10px] shadow-lg",
+                          receipt.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'
+                        )}>
+                          {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO'}
+                        </Badge>
+                        <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">{receipt.barcode}</Badge>
+                      </div>
+                      <div className="text-right flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary/20" />
+                        <p className="text-[8px] font-black uppercase text-primary/40 truncate w-40">{systemUrl}</p>
                       </div>
                    </div>
                 </div>
@@ -227,7 +251,7 @@ function ResultadosContent() {
                                     "font-black uppercase text-[9px] h-6 px-4",
                                     isWinner ? 'bg-green-600 animate-bounce' : ''
                                   )}>
-                                    {isWinner ? "🔥 GANHOU!" : isPaid ? "✓ PAGO" : isPending ? "⌚ ANÁLISE" : "EM JOGO"}
+                                    {isWinner ? "🔥 GANHADOR!" : isPaid ? "✓ ATIVO" : isPending ? "⌚ ANALISE" : "AGUARDANDO"}
                                   </Badge>
                                 </div>
                                 {t.numeros ? (
@@ -254,10 +278,10 @@ function ResultadosContent() {
                                   </div>
                                 )}
                              </div>
-                             {(isWinner || isPending || isPaid) && (
+                             {(isWinner || isPending) && (
                                <div className={cn(
                                  "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
-                                 isWinner ? 'bg-green-600' : isPaid ? 'bg-blue-600' : 'bg-orange-600',
+                                 isWinner ? 'bg-green-600' : 'bg-orange-600',
                                  "text-white"
                                )}>
                                   {isWinner ? (
@@ -274,21 +298,15 @@ function ResultadosContent() {
                                           className="w-full bg-white/10 text-white placeholder:text-white/40 font-black text-center h-12 border-none rounded-xl outline-none" 
                                         />
                                         <Button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
-                                          Resgatar
+                                          SOLICITAR RESGATE
                                         </Button>
                                       </div>
                                     </>
-                                  ) : isPaid ? (
-                                    <div className="space-y-2">
-                                       <div className="bg-white/20 p-3 rounded-full w-fit mx-auto"><Database className="w-6 h-6" /></div>
-                                       <p className="font-black uppercase text-xl leading-none">PAGO!</p>
-                                       <p className="text-[9px] font-bold opacity-60">Confira seu banco.</p>
-                                    </div>
                                   ) : (
                                     <div className="space-y-3">
                                        <Clock className="w-8 h-8 mx-auto animate-pulse" />
-                                       <p className="font-black uppercase text-md leading-tight">RESGATE ENVIADO</p>
-                                       <p className="text-[9px] font-bold opacity-60 uppercase">Aguardando Aprovação.</p>
+                                       <p className="font-black uppercase text-md leading-tight">SOLICITAÇÃO ENVIADA</p>
+                                       <p className="text-[9px] font-bold opacity-60 uppercase">Aguarde a auditoria pagar seu PIX.</p>
                                     </div>
                                   )}
                                </div>
@@ -298,12 +316,21 @@ function ResultadosContent() {
                     );
                   })}
                 </div>
+
+                <div className="pt-8 flex flex-col items-center gap-4 opacity-30">
+                   <div className="bg-white p-4 rounded-3xl shadow-sm border">
+                      <Smartphone className="w-8 h-8 text-primary" />
+                   </div>
+                   <p className="text-[9px] font-black uppercase text-center max-w-xs leading-relaxed">
+                     ESTE COMPROVANTE É SEGURO E AUDITADO DIGITALMENTE VIA SUPABASE CLOUD. GUARDE SEU CÓDIGO {receipt.barcode}.
+                   </p>
+                </div>
               </div>
             ) : searched && (
               <div className="text-center py-16 bg-red-50 rounded-[3rem] border-2 border-dashed border-red-100">
                 <XCircle className="w-20 h-20 mx-auto mb-4 text-red-200" />
-                <h3 className="font-black uppercase text-2xl text-red-600 leading-none">Bilhete Inválido</h3>
-                <p className="text-red-400 font-bold uppercase text-[9px] tracking-widest mt-3">Confira o código no seu recibo</p>
+                <h3 className="font-black uppercase text-2xl text-red-600 leading-none">Aposta Não Localizada</h3>
+                <p className="text-red-400 font-bold uppercase text-[9px] tracking-widest mt-3">Verifique o código ou barcode no seu bilhete</p>
               </div>
             )}
           </CardContent>
@@ -315,7 +342,7 @@ function ResultadosContent() {
 
 export default function ResultadosPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">Auditando...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase text-[10px] tracking-[0.4em] text-primary animate-pulse">Auditando Sistema...</div>}>
       <ResultadosContent />
     </Suspense>
   );
