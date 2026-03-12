@@ -58,12 +58,10 @@ export default function VendaPage() {
     setMounted(true);
     loadEventos();
     const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    if (savedSettings.youtubeUrl || savedSettings.systemUrl) {
-      setSettings({
-        youtubeUrl: savedSettings.youtubeUrl || '',
-        systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app/'
-      });
-    }
+    setSettings({
+      youtubeUrl: savedSettings.youtubeUrl || '',
+      systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app/'
+    });
   }, []);
 
   const loadEventos = async () => {
@@ -251,7 +249,7 @@ export default function VendaPage() {
       toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique a conexão ou saldo." });
     } finally {
       setLoading(false);
     }

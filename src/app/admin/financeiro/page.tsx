@@ -81,7 +81,6 @@ function FinanceiroContent() {
   }, [tickets]);
 
   const approveTicket = async (ticketId: string) => {
-    // Validar aposta altera o status para 'pago', não para 'premio_pago'
     const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
     if (!error) {
       toast({ title: "APOSTA VALIDADA!" });
