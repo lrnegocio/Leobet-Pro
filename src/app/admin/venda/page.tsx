@@ -18,11 +18,10 @@ import {
   Minus,
   Database,
   Key,
-  QrCode,
-  Send,
   MessageCircle,
   AlertCircle,
-  ShieldAlert
+  Trophy,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -53,6 +52,9 @@ export default function VendaPage() {
     tipo: 'bingo' as 'bingo' | 'bolao', 
     unitario: 0 
   });
+
+  const [partidasBolao, setPartidasBolao] = useState<any[]>([]);
+  const [palpites, setPalpites] = useState<string[]>(Array(10).fill(''));
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
   useEffect(() => {
@@ -99,6 +101,33 @@ export default function VendaPage() {
     } catch (err) {
       console.error("Erro ao calcular prêmios");
     }
+  };
+
+  const handleSelectEvento = (eventId: string) => {
+    const ev = eventosAtivos.find(e => e.id === eventId);
+    if (ev) {
+      setFormData({
+        ...formData,
+        eventoId: ev.id,
+        eventoNome: ev.nome,
+        unitario: ev.preco,
+        tipo: ev.tipo
+      });
+      updatePrizes(ev.id, ev.tipo);
+      
+      if (ev.tipo === 'bolao') {
+        setPartidasBolao(ev.partidas || []);
+        setPalpites(Array(ev.partidas?.length || 10).fill(''));
+      } else {
+        setPartidasBolao([]);
+      }
+    }
+  };
+
+  const handleSetPalpite = (idx: number, choice: string) => {
+    const newPalpites = [...palpites];
+    newPalpites[idx] = choice;
+    setPalpites(newPalpites);
   };
 
   const connectPrinter = async () => {
@@ -150,6 +179,7 @@ export default function VendaPage() {
       receipt.tickets_data.forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.numeros) text += `DEZ: ${t.numeros.join(' ')}\n`;
+        if (t.palpite) text += `PALPITE: ${t.palpite}\n`;
         text += "\n";
       });
       text += "--------------------------------\n";
@@ -188,6 +218,12 @@ export default function VendaPage() {
       toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
       return;
     }
+
+    if (formData.tipo === 'bolao' && palpites.some(p => p === '')) {
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES", description: "Todos os 10 jogos do bolão devem ser marcados." });
+      return;
+    }
+
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     const barcode = Math.floor(10000000000 + Math.random() * 90000000000).toString(); 
@@ -201,13 +237,12 @@ export default function VendaPage() {
     const ticketsGenerated = Array.from({ length: quantity }).map(() => ({
       id: Math.random().toString().substring(2, 10),
       numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
+      palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
       status: 'ativo'
     }));
 
     const totalVenda = formData.unitario * quantity;
     const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
-
-    // MELHORIA: Se não tiver saldo, permite a venda mas marca como pendente para aprovação posterior
     const hasBalance = (user?.balance || 0) >= totalVenda;
     const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
 
@@ -238,6 +273,10 @@ export default function VendaPage() {
         description: finalStatus === 'pago' ? "Bilhete validado com sucesso." : "Bilhete aguardando pagamento/aprovação." 
       });
       updatePrizes(formData.eventoId, formData.tipo);
+      
+      // Limpa formulário
+      setFormData({ ...formData, cliente: '', whatsapp: '', pixKey: '' });
+      setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
       console.error(err);
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique as tabelas do Supabase." });
@@ -252,7 +291,7 @@ export default function VendaPage() {
     <div className="flex h-screen bg-muted/30 font-body overflow-hidden">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-6">
           <Card className="bg-white p-4 rounded-3xl shadow-sm border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={cn("p-3 rounded-2xl", btCharacteristic ? "bg-green-100" : "bg-muted")}>
@@ -269,50 +308,97 @@ export default function VendaPage() {
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden border-t-8 border-primary">
               <CardHeader className="p-8 pb-0">
                 <CardTitle className="text-xl font-black uppercase flex items-center gap-2 text-primary">
-                  <ShoppingCart className="w-6 h-6" /> Novo Bilhete
+                  <ShoppingCart className="w-6 h-6" /> Registro de Aposta
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-black uppercase opacity-60">Nome</Label>
+                      <Label className="text-[10px] font-black uppercase opacity-60">Nome do Cliente</Label>
                       <Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="JOÃO SILVA" className="h-12 font-bold uppercase" required />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label>
-                      <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="8299999999" className="h-12 font-bold" required />
+                      <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required />
                     </div>
                   </div>
+                  
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60 flex items-center gap-2">
-                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Resgate)
+                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Resgate Imutável)
                     </Label>
                     <Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CPF, EMAIL OU CELULAR" className="h-12 font-black border-accent/30" required />
+                    <p className="text-[8px] font-bold text-orange-600 uppercase">Esta chave será gravada no bilhete para segurança total do prêmio.</p>
                   </div>
+
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Concurso</Label>
-                    <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => {
-                        const ev = eventosAtivos.find(ev => ev.id === e.target.value);
-                        if (ev) { setFormData({...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo}); updatePrizes(ev.id, ev.tipo); }
-                      }} required>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Escolher Concurso</Label>
+                    <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                       <option value="">-- SELECIONE O JOGO --</option>
                       {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                     </select>
                   </div>
+
+                  {formData.tipo === 'bolao' && partidasBolao.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                       <h3 className="text-xs font-black uppercase text-primary flex items-center gap-2">
+                         <Trophy className="w-4 h-4 text-accent" /> Grade de Palpites do Cliente
+                       </h3>
+                       <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                          {partidasBolao.map((p, idx) => (
+                            <div key={idx} className="bg-muted/30 p-3 rounded-2xl border space-y-2">
+                               <p className="text-[9px] font-black uppercase opacity-40 text-center">JOGO #{idx+1}</p>
+                               <div className="grid grid-cols-3 gap-1">
+                                  <Button 
+                                    type="button" 
+                                    variant={palpites[idx] === p.time1 ? 'default' : 'outline'}
+                                    className={cn("h-10 text-[9px] font-black uppercase rounded-lg px-1 truncate", palpites[idx] === p.time1 ? 'bg-primary' : '')}
+                                    onClick={() => handleSetPalpite(idx, p.time1)}
+                                  >
+                                    {p.time1}
+                                  </Button>
+                                  <Button 
+                                    type="button" 
+                                    variant={palpites[idx] === 'X' ? 'default' : 'outline'}
+                                    className={cn("h-10 text-[10px] font-black uppercase rounded-lg", palpites[idx] === 'X' ? 'bg-accent' : '')}
+                                    onClick={() => handleSetPalpite(idx, 'X')}
+                                  >
+                                    X
+                                  </Button>
+                                  <Button 
+                                    type="button" 
+                                    variant={palpites[idx] === p.time2 ? 'default' : 'outline'}
+                                    className={cn("h-10 text-[9px] font-black uppercase rounded-lg px-1 truncate", palpites[idx] === p.time2 ? 'bg-primary' : '')}
+                                    onClick={() => handleSetPalpite(idx, p.time2)}
+                                  >
+                                    {p.time2}
+                                  </Button>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Quantidade</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
                     <div className="flex items-center gap-4">
                       <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus className="w-6 h-6" /></Button>
                       <Input type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} className="h-12 text-center font-black text-xl rounded-xl" />
                       <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus className="w-6 h-6" /></Button>
                     </div>
                   </div>
+
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Total da Venda</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor Total a Receber</p>
                      <p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p>
                   </div>
-                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>{loading ? "Registrando..." : "Registrar Aposta"}</Button>
+                  
+                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
+                    {loading ? <RefreshCcw className="animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                    {loading ? "PROCESSANDO..." : "CONCLUIR E GERAR BILHETE"}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -328,26 +414,48 @@ export default function VendaPage() {
                        </div>
                      )}
                      <p className="text-2xl font-black text-primary">LEOBET PRO</p>
-                     <p className="text-[8px] font-bold uppercase opacity-60">Cupom de Auditoria</p>
+                     <p className="text-[8px] font-bold uppercase opacity-60">Cupom de Auditoria Digital</p>
+                     
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                         <p className="flex justify-between"><span>PIX SEGURO:</span> <span className="truncate ml-2">{vendaRealizada.pix_resgate}</span></p>
                         <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
-                        <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} CARTELAS</span></p>
+                        <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} UNIDADES</span></p>
+                        
                         <div className="pt-2 border-t mt-2">
                            {vendaRealizada.tickets_data.map((t: any, idx: number) => (
-                             <div key={t.id} className="mb-4">
+                             <div key={t.id} className="mb-4 bg-black/5 p-2 rounded-lg">
                                <p className="text-[10px] font-black">BILHETE #{idx+1}: {t.id}</p>
-                               {t.numeros && <p className="text-[9px] tracking-widest bg-black/5 p-1 rounded">{t.numeros.join(' ')}</p>}
+                               {t.numeros && <p className="text-[11px] tracking-widest font-black mt-1">{t.numeros.join(' ')}</p>}
+                               {t.palpite && <p className="text-[9px] font-bold mt-1 text-primary">PALPITE: {t.palpite}</p>}
                              </div>
                            ))}
                         </div>
                      </div>
+
+                     <div className="space-y-1 mb-6">
+                        <p className="text-[9px] font-black uppercase opacity-40">Prêmios Acumulados (65%)</p>
+                        {vendaRealizada.tipo === 'bingo' ? (
+                          <div className="text-[10px] font-black text-primary uppercase">
+                            B: R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)} | Q: R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] font-black text-green-600 uppercase">
+                            ACUMULADO: R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}
+                          </div>
+                        )}
+                     </div>
+
                      <p className="text-xl font-black text-primary">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
+                     
                      <div className="flex flex-col gap-2 no-print mt-6">
                         <div className="flex gap-2">
-                           <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 shadow-lg"><Printer className="w-5 h-5" /> Imprimir</Button>
-                           <Button onClick={() => handleShareWhatsApp(vendaRealizada)} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white shadow-lg"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
+                           <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 shadow-lg">
+                             <Printer className="w-5 h-5" /> Imprimir
+                           </Button>
+                           <Button onClick={() => handleShareWhatsApp(vendaRealizada)} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white shadow-lg">
+                             <MessageCircle className="w-5 h-5" /> WhatsApp
+                           </Button>
                         </div>
                         <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] opacity-40">Próxima Venda</Button>
                      </div>
@@ -357,7 +465,9 @@ export default function VendaPage() {
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
                   <h3 className="text-xl font-black uppercase text-primary">Terminal de Auditoria</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><Database className="w-3 h-3 text-green-600" /> Aguardando...</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Database className="w-3 h-3 text-green-600" /> Aguardando operação...
+                  </p>
                 </div>
               )}
             </div>
