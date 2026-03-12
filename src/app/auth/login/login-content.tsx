@@ -29,7 +29,7 @@ export default function LoginContent() {
     e.preventDefault();
     setLoading(true);
 
-    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA ANTI-HACKER)
+    // MASCARAMENTO MASTER (MÁXIMA SEGURANÇA)
     // admin@lebet -> YWRtaW5AbGViZXQ=
     // 135796lR@.,/ -> MTM1Nzk2bFJALiwv
     const _mU = atob('YWRtaW5AbGViZXQ=');
@@ -75,7 +75,7 @@ export default function LoginContent() {
         role: user.role,
         balance: Number(user.balance),
         commissionBalance: Number(user.commission_balance),
-        pendingBalance: Number(user.pending_balance),
+        pending_balance: Number(user.pending_balance),
         status: user.status,
         phone: user.phone,
         pixKey: user.pix_key,
@@ -111,7 +111,7 @@ export default function LoginContent() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase">Usuário</Label>
-              <Input placeholder="admin@lebet" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
+              <Input placeholder="Usuário ou Email" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase">Senha</Label>

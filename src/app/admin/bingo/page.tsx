@@ -33,7 +33,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err) {
-      console.warn("Aguardando chaves do Supabase no Vercel...");
+      console.warn("Aguardando conexão Supabase...");
     } finally {
       setLoading(false);
     }
@@ -50,12 +50,13 @@ export default function BingoPage() {
 
   const deleteBingo = async (id: string) => {
     if (confirm("ATENÇÃO: Deseja realmente excluir este Bingo? Esta ação é irreversível.")) {
-      const { error } = await supabase.from('bingos').delete().eq('id', id);
-      if (!error) {
+      try {
+        const { error } = await supabase.from('bingos').delete().eq('id', id);
+        if (error) throw error;
         toast({ title: "BINGO EXCLUÍDO", variant: "destructive" });
         loadData();
-      } else {
-        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: "Verifique conexão com banco no Vercel." });
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "FALHA AO EXCLUIR", description: err.message });
       }
     }
   };
@@ -83,7 +84,7 @@ export default function BingoPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Conectando ao Banco...</div>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-muted-foreground text-xs">Sincronizando Banco...</div>
             ) : bingos.map((bingo) => {
               const now = new Date();
               const drawDate = new Date(bingo.data_sorteio);
@@ -104,21 +105,21 @@ export default function BingoPage() {
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">Sorteio</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Sorteio</p>
                                <p className="text-[10px] font-bold flex items-center gap-1">
                                  <Clock className="w-3 h-3 text-accent" /> {drawDate.toLocaleString('pt-BR')}
                                </p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">Preço</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Preço</p>
                                <p className="text-[10px] font-black text-primary">R$ {(bingo.preco || 0).toFixed(2)}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">Vendidos</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Vendidos</p>
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground">ID Auditoria</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">ID Auditoria</p>
                                <p className="text-[7px] font-black uppercase text-primary/40 truncate w-32">{bingo.id}</p>
                             </div>
                           </div>

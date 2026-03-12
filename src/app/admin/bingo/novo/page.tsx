@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -33,11 +32,6 @@ export default function NovoBingoPage() {
     setSaving(true);
     
     try {
-      // Verificação básica de conexão antes de tentar inserir
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder')) {
-         throw new Error("Chaves do Supabase não configuradas no Vercel.");
-      }
-
       const { error } = await supabase
         .from('bingos')
         .insert([{
@@ -59,7 +53,7 @@ export default function NovoBingoPage() {
       toast({ 
         variant: "destructive", 
         title: "FALHA NO BANCO", 
-        description: err.message || "Verifique conexão ou chaves no Vercel." 
+        description: "Verifique conexão ou chaves no Vercel." 
       });
     } finally {
       setSaving(false);
@@ -79,20 +73,20 @@ export default function NovoBingoPage() {
 
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-3xl font-black font-headline uppercase tracking-tight">Novo Bingo</h1>
+              <h1 className="text-3xl font-black font-headline uppercase tracking-tight text-primary">Novo Bingo</h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Auditoria Digital Supabase</p>
             </div>
             <RefreshCcw className="w-8 h-8 text-green-600 animate-spin-slow hidden md:block" />
           </div>
 
-          <Card className="border-t-4 border-t-accent shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg font-black uppercase">Configurações do Concurso</CardTitle>
+          <Card className="border-t-4 border-t-accent shadow-xl rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-muted/50 border-b">
+              <CardTitle className="text-xs font-black uppercase text-primary">Configurações do Concurso</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-8">
               <form onSubmit={handleSave} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-muted-foreground">Nome do Concurso</label>
+                  <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Nome do Concurso</label>
                   <Input
                     type="text"
                     value={title}
@@ -105,7 +99,7 @@ export default function NovoBingoPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-muted-foreground">Preço (R$)</label>
+                    <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Preço (R$)</label>
                     <Input
                       type="number"
                       step="0.01"
@@ -116,7 +110,7 @@ export default function NovoBingoPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-muted-foreground">Limite Cartelas (0=Ilimitado)</label>
+                    <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Limite Cartelas (0=Ilimitado)</label>
                     <Input
                       type="number"
                       value={quantity}
@@ -128,7 +122,7 @@ export default function NovoBingoPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-muted-foreground">Data e Hora do Sorteio</label>
+                  <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Data e Hora do Sorteio</label>
                   <Input
                     type="datetime-local"
                     value={drawDate}
@@ -142,11 +136,11 @@ export default function NovoBingoPage() {
                 </div>
 
                 <div className="flex gap-4 pt-4 border-t">
-                  <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 h-14 font-black uppercase" disabled={saving}>
+                  <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 h-14 font-black uppercase rounded-2xl shadow-xl" disabled={saving}>
                     {saving ? 'SALVANDO...' : 'PUBLICAR NO SISTEMA'}
                   </Button>
                   <Link href="/admin/bingo" className="flex-1">
-                    <Button type="button" variant="outline" className="w-full h-14 font-black uppercase">Cancelar</Button>
+                    <Button type="button" variant="outline" className="w-full h-14 font-black uppercase rounded-2xl border-2">Cancelar</Button>
                   </Link>
                 </div>
               </form>
