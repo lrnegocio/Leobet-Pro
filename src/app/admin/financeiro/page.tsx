@@ -21,11 +21,24 @@ import {
   TrendingUp,
   CreditCard,
   XCircle,
-  ShieldAlert
+  ShieldAlert,
+  Users,
+  UserPlus,
+  ShieldCheck,
+  UserCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
 
 function FinanceiroContent() {
   const { toast } = useToast();
@@ -33,13 +46,26 @@ function FinanceiroContent() {
   const defaultTab = searchParams.get('tab') || 'payouts';
 
   const [tickets, setTickets] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  // Estados para novo usuário
+  const [newUser, setNewUser] = useState({
+    nome: '',
+    email: '',
+    password: '',
+    role: 'cliente',
+    cpf: '',
+    phone: '',
+    pix_key: ''
+  });
 
   useEffect(() => {
     const d = new Date();
@@ -53,14 +79,22 @@ function FinanceiroContent() {
     if (!startDate || !endDate) return;
     setSyncing(true);
     try {
-      const { data, error } = await supabase
+      const { data: tData } = await supabase
         .from('tickets')
         .select('*')
         .gte('created_at', `${startDate}T00:00:00`)
         .lte('created_at', `${endDate}T23:59:59`)
         .order('created_at', { ascending: false });
 
-      if (!error) setTickets(data || []);
+      if (tData) setTickets(tData);
+
+      const { data: uData } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (uData) setUsers(uData);
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -75,68 +109,65 @@ function FinanceiroContent() {
     }
   }, [startDate, endDate, mounted]);
 
+  const approveUser = async (userId: string) => {
+    const { error } = await supabase.from('users').update({ status: 'approved' }).eq('id', userId);
+    if (!error) {
+      toast({ title: "USUÁRIO APROVADO!" });
+      loadData();
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (confirm("Deseja remover este usuário?")) {
+      const { error } = await supabase.from('users').delete().eq('id', userId);
+      if (!error) {
+        toast({ title: "USUÁRIO REMOVIDO", variant: "destructive" });
+        loadData();
+      }
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUser.nome || !newUser.email || !newUser.password) {
+      toast({ variant: "destructive", title: "PREENCHA OS CAMPOS BÁSICOS" });
+      return;
+    }
+
+    const id = Math.random().toString(36).substring(7).toUpperCase();
+    const { error } = await supabase.from('users').insert([{
+      ...newUser,
+      id,
+      status: 'approved',
+      balance: 0,
+      commission_balance: 0,
+      pending_balance: 0
+    }]);
+
+    if (!error) {
+      toast({ title: "USUÁRIO CADASTRADO!" });
+      setNewUser({ nome: '', email: '', password: '', role: 'cliente', cpf: '', phone: '', pix_key: '' });
+      loadData();
+    } else {
+      toast({ variant: "destructive", title: "ERRO AO CADASTRAR", description: error.message });
+    }
+  };
+
   const finance = useMemo(() => {
     let bruto = 0;
     const validTickets = tickets.filter(t => ['pago', 'ganhou', 'premio_pago'].includes(t.status));
     validTickets.forEach(t => bruto += Number(t.valor_total || 0));
-    
     const pool = Math.floor(bruto * 0.65 * 100) / 100;
     const admin = Math.floor(bruto * 0.35 * 100) / 100;
-
     return { bruto, pool, admin };
   }, [tickets]);
 
-  const approveTicket = async (ticketId: string) => {
-    const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticketId);
-    if (!error) {
-      toast({ title: "APOSTA VALIDADA!" });
-      loadData();
-    }
-  };
-
-  const rejectTicket = async (ticketId: string) => {
-    if (confirm("🚨 REJEITAR APOSTA? Esta ação cancela o bilhete permanentemente e ele não participará do sorteio.")) {
-      const { error } = await supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', ticketId);
-      if (!error) {
-        toast({ title: "APOSTA REJEITADA COM SUCESSO!", variant: "destructive" });
-        loadData();
-      }
-    }
-  };
-
-  const confirmPrizePayout = async (ticketId: string) => {
-    const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', ticketId);
-    if (!error) {
-      toast({ title: "PRÊMIO PAGO COM SUCESSO!" });
-      loadData();
-    }
-  };
-
-  const clearDatabase = async () => {
-    if (confirm("🚨 ATENÇÃO: Deseja apagar TODOS os registros de bilhetes? Isso resetará toda a arrecadação do sistema. Esta ação não pode ser desfeita.")) {
-      try {
-        setSyncing(true);
-        const { error } = await supabase.from('tickets').delete().neq('id', '0');
-        if (error) throw error;
-        
-        toast({ title: "BANCO DE DADOS LIMPO!", variant: "destructive" });
-        loadData();
-      } catch (err: any) {
-        toast({ variant: "destructive", title: "ERRO AO LIMPAR", description: "Verifique as permissões de Delete no Supabase." });
-      } finally {
-        setSyncing(false);
-      }
-    }
-  };
-
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => {
-      const cliente = (t.cliente || "").toLowerCase();
-      const id = (t.id || "").toLowerCase();
-      const search = searchTerm.toLowerCase();
-      return cliente.includes(search) || id.includes(search);
-    });
+    return tickets.filter(t => (t.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) || (t.id || "").toLowerCase().includes(searchTerm.toLowerCase()));
   }, [tickets, searchTerm]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => (u.nome || "").toLowerCase().includes(userSearchTerm.toLowerCase()) || (u.email || "").toLowerCase().includes(userSearchTerm.toLowerCase()));
+  }, [users, userSearchTerm]);
 
   if (!mounted) return null;
 
@@ -147,7 +178,7 @@ function FinanceiroContent() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
-              <h1 className="text-4xl font-black uppercase text-primary leading-none tracking-tighter">Auditoria de Caixa</h1>
+              <h1 className="text-4xl font-black uppercase text-primary leading-none tracking-tighter">Auditoria Global</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase mt-2 flex items-center gap-2">
                 <Database className="w-3 h-3 text-green-600" /> Sincronização em Tempo Real
               </p>
@@ -159,11 +190,8 @@ function FinanceiroContent() {
                  <span className="text-muted-foreground text-[10px] font-black uppercase hidden md:inline">até</span>
                  <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
                </div>
-               <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2 hover:bg-primary hover:text-white transition-all">
+               <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2">
                  <RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} />
-               </Button>
-               <Button onClick={clearDatabase} variant="destructive" className="h-14 gap-2 font-black uppercase text-[10px] px-6 rounded-2xl shadow-xl">
-                 <Eraser className="w-5 h-5" /> Limpar Banco
                </Button>
             </div>
           </div>
@@ -184,11 +212,74 @@ function FinanceiroContent() {
           </div>
 
           <Tabs defaultValue={defaultTab}>
-            <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14">
-              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white">Aprovações e Prêmios</TabsTrigger>
-              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white">Histórico Detalhado</TabsTrigger>
+            <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto no-scrollbar">
+              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Aprovações Tickets</TabsTrigger>
+              <TabsTrigger value="users" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Gestão de Usuários</TabsTrigger>
+              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Histórico de Bilhetes</TabsTrigger>
             </TabsList>
             
+            {/* ABA DE USUÁRIOS */}
+            <TabsContent value="users" className="mt-6 space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <Input 
+                  placeholder="Pesquisar usuários..." 
+                  value={userSearchTerm} 
+                  onChange={e => setUserSearchTerm(e.target.value)}
+                  className="h-12 rounded-xl font-bold border-2"
+                />
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="h-12 bg-accent font-black uppercase gap-2 rounded-xl shadow-lg shrink-0">
+                      <UserPlus className="w-5 h-5" /> Cadastrar Usuário
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl rounded-3xl">
+                    <DialogHeader><DialogTitle className="font-black uppercase text-primary">Novo Cadastro Manual</DialogTitle></DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Nome</Label><Input value={newUser.nome} onChange={e => setNewUser({...newUser, nome: e.target.value})} /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Usuário/Email</Label><Input value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value.toLowerCase()})} /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Senha</Label><Input value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /></div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase">Cargo</Label>
+                        <select className="w-full h-10 border rounded-md px-2" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                          <option value="cliente">Cliente</option>
+                          <option value="cambista">Cambista</option>
+                          <option value="gerente">Gerente</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">CPF</Label><Input value={newUser.cpf} onChange={e => setNewUser({...newUser, cpf: e.target.value})} /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">WhatsApp</Label><Input value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} /></div>
+                    </div>
+                    <DialogFooter><Button onClick={handleCreateUser} className="w-full h-14 bg-primary font-black uppercase rounded-2xl">Finalizar Cadastro</Button></DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {filteredUsers.map((user, i) => (
+                  <Card key={i} className="flex flex-col md:flex-row justify-between items-center p-6 rounded-[2rem] shadow-sm bg-white gap-6">
+                    <div className="flex items-center gap-4 flex-1 w-full">
+                      <div className="bg-primary/10 p-4 rounded-2xl"><UserCircle className="w-8 h-8 text-primary" /></div>
+                      <div>
+                        <p className="font-black uppercase text-lg text-primary leading-tight">{user.nome}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{user.email} • {user.role.toUpperCase()}</p>
+                        <Badge variant={user.status === 'approved' ? 'default' : 'destructive'} className="mt-2 font-black text-[8px] uppercase">
+                          {user.status === 'approved' ? '✓ Ativo' : '⚠ Pendente'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 w-full md:w-auto">
+                      {user.status === 'pending' && (
+                        <Button onClick={() => approveUser(user.id)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-[10px] h-12 px-6 rounded-xl flex-1">Aprovar Cadastro</Button>
+                      )}
+                      <Button onClick={() => deleteUser(user.id)} variant="ghost" className="h-12 w-12 text-destructive border border-destructive/10 rounded-xl bg-destructive/5"><Trash2 className="w-5 h-5" /></Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou').length === 0 ? (
                  <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências no momento</Card>
@@ -202,25 +293,17 @@ function FinanceiroContent() {
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
                        <div className="bg-muted/50 p-3 rounded-xl inline-block w-full md:w-auto">
-                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Gravada para Recebimento:</p>
+                          <p className="text-[8px] font-black uppercase opacity-60">PIX para Recebimento:</p>
                           <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
                        </div>
-                       <Badge variant="outline" className="font-black text-[8px] uppercase block w-fit mt-2 border-2">
-                          {t.status === 'pendente' ? 'Aguardando Pagamento / Auditoria' : 'Premiado - Pagar Agora'}
-                       </Badge>
                      </div>
                      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                         <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                        
                         {t.status === 'pendente' && (
-                          <div className="flex gap-2">
-                            <Button onClick={() => approveTicket(t.id)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Validar Aposta</Button>
-                            <Button onClick={() => rejectTicket(t.id)} variant="ghost" className="bg-destructive/10 text-destructive hover:bg-destructive/20 font-black uppercase text-[10px] h-14 px-6 rounded-xl border border-destructive/20 flex-1">Rejeitar</Button>
-                          </div>
+                          <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Validar Aposta</Button>
                         )}
-
                         {t.status === 'ganhou' && (
-                           <Button onClick={() => confirmPrizePayout(t.id)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Confirmar Pagamento Prêmio</Button>
+                           <Button onClick={() => supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id).then(loadData)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Pagar Prêmio</Button>
                         )}
                      </div>
                    </Card>
@@ -231,7 +314,7 @@ function FinanceiroContent() {
             <TabsContent value="history" className="mt-6">
                <div className="mb-4">
                   <Input 
-                    placeholder="Pesquisar por cliente ou bilhete..." 
+                    placeholder="Pesquisar histórico..." 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
                     className="h-14 rounded-2xl font-bold border-2 px-6"
@@ -241,12 +324,12 @@ function FinanceiroContent() {
                   <div className="overflow-x-auto">
                      <table className="w-full text-left">
                         <thead className="bg-primary text-white text-[10px] font-black uppercase">
-                           <tr><th className="p-8">Data/Hora</th><th className="p-8">Apostador</th><th className="p-8">Evento</th><th className="p-8">Arrecadado</th><th className="p-8 text-right">Status Final</th></tr>
+                           <tr><th className="p-8">Data</th><th className="p-8">Apostador</th><th className="p-8">Evento</th><th className="p-8">Valor</th><th className="p-8 text-right">Status</th></tr>
                         </thead>
                         <tbody className="divide-y text-[10px] font-bold uppercase">
                            {filteredTickets.map((t, i) => (
                              <tr key={i} className="hover:bg-muted/30 transition-colors">
-                                <td className="p-8">{t.created_at ? new Date(t.created_at).toLocaleString('pt-BR') : '---'}</td>
+                                <td className="p-8">{new Date(t.created_at).toLocaleString('pt-BR')}</td>
                                 <td className="p-8 font-black text-primary">{t.cliente}</td>
                                 <td className="p-8">{t.evento_nome}</td>
                                 <td className="p-8">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
@@ -254,14 +337,9 @@ function FinanceiroContent() {
                                    <Badge className={cn(
                                      "font-black text-[8px] uppercase h-7 px-4",
                                      t.status === 'pago' ? 'bg-blue-600' : 
-                                     t.status === 'premio_pago' ? 'bg-green-600' : 
-                                     t.status === 'ganhou' ? 'bg-accent' : 
-                                     t.status === 'rejeitado' ? 'bg-destructive' : 'bg-muted text-muted-foreground'
+                                     t.status === 'premio_pago' ? 'bg-green-600' : 'bg-muted text-muted-foreground'
                                    )}>
-                                     {t.status === 'pago' ? 'Aprovada' : 
-                                      t.status === 'premio_pago' ? 'Prêmio Pago' : 
-                                      t.status === 'ganhou' ? 'Premiado' : 
-                                      t.status === 'rejeitado' ? 'Cancelada' : 'Pendente'}
+                                     {t.status === 'pago' ? 'Aprovada' : t.status === 'premio_pago' ? 'Prêmio Pago' : t.status}
                                    </Badge>
                                 </td>
                              </tr>

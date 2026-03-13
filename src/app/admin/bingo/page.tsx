@@ -6,7 +6,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Lock, PlayCircle, Trash2, Clock, CheckCircle2, Database, History, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Lock, PlayCircle, Trash2, Clock, CheckCircle2, Database, History, RefreshCcw, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -45,8 +45,6 @@ export default function BingoPage() {
   useEffect(() => {
     setMounted(true);
     loadData();
-    const interval = setInterval(loadData, 15000);
-    return () => clearInterval(interval);
   }, []);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -143,7 +141,7 @@ export default function BingoPage() {
                                <p className="text-[10px] font-black text-primary">R$ {(Number(bingo.preco) || 0).toFixed(2)}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Cartelas Vendidas</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Vendas</p>
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
@@ -156,15 +154,22 @@ export default function BingoPage() {
                        <div className="bg-muted/50 p-6 flex items-center gap-3 border-l shrink-0">
                           <div className="flex flex-col gap-2 min-w-[140px] w-full md:w-auto">
                              {!isFinished && (
-                               <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="font-black text-[10px] uppercase gap-2 h-10 border-primary/20 bg-white shadow-sm"
-                                  onClick={() => toggleStatus(bingo.id, bingo.status)}
-                               >
-                                  {isSalesClosed ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Lock className="w-3 h-3 text-orange-600" />}
-                                  {isSalesClosed ? "Reabrir Vendas" : "Encerrar Vendas"}
-                               </Button>
+                               <div className="flex gap-2">
+                                 <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="flex-1 font-black text-[10px] uppercase gap-2 h-10 border-primary/20 bg-white shadow-sm"
+                                    onClick={() => toggleStatus(bingo.id, bingo.status)}
+                                 >
+                                    {isSalesClosed ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Lock className="w-3 h-3 text-orange-600" />}
+                                    {isSalesClosed ? "Reabrir" : "Fechar"}
+                                 </Button>
+                                 <Link href={`/admin/bingo/editar/${bingo.id}`} className="flex-1">
+                                   <Button variant="outline" size="sm" className="w-full font-black text-[10px] uppercase gap-2 h-10 border-primary/20 bg-white">
+                                     <Edit2 className="w-3 h-3" /> Editar
+                                   </Button>
+                                 </Link>
+                               </div>
                              )}
                              
                              <Link href={isFinished ? `/admin/financeiro` : `/admin/bingo/sorteio/${bingo.id}`} className="w-full">
