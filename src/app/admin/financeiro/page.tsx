@@ -4,28 +4,21 @@
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { 
-  CheckCircle2, 
   RefreshCcw, 
-  Search, 
   Database, 
   Phone, 
   Trash2,
   AlertTriangle,
-  Eraser,
-  TrendingUp,
-  CreditCard,
-  XCircle,
-  ShieldAlert,
-  Users,
   UserPlus,
-  ShieldCheck,
-  UserCircle
+  UserCircle,
+  XCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -56,7 +49,6 @@ function FinanceiroContent() {
   const [endDate, setEndDate] = useState('');
   const [mounted, setMounted] = useState(false);
 
-  // Estados para novo usuário
   const [newUser, setNewUser] = useState({
     nome: '',
     email: '',
@@ -123,6 +115,22 @@ function FinanceiroContent() {
       if (!error) {
         toast({ title: "USUÁRIO REMOVIDO", variant: "destructive" });
         loadData();
+      }
+    }
+  };
+
+  const clearDatabase = async () => {
+    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações? Esta ação não pode ser desfeita.")) {
+      setSyncing(true);
+      try {
+        await supabase.from('tickets').delete().neq('id', '0');
+        await supabase.from('transactions').delete().neq('id', '0');
+        toast({ title: "SISTEMA LIMPO!" });
+        loadData();
+      } catch (e) {
+        toast({ variant: "destructive", title: "ERRO AO LIMPAR" });
+      } finally {
+        setSyncing(false);
       }
     }
   };
@@ -215,10 +223,9 @@ function FinanceiroContent() {
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto no-scrollbar">
               <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Aprovações Tickets</TabsTrigger>
               <TabsTrigger value="users" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Gestão de Usuários</TabsTrigger>
-              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Histórico de Bilhetes</TabsTrigger>
+              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Histórico Geral</TabsTrigger>
             </TabsList>
             
-            {/* ABA DE USUÁRIOS */}
             <TabsContent value="users" className="mt-6 space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <Input 
@@ -293,17 +300,20 @@ function FinanceiroContent() {
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
                        <div className="bg-muted/50 p-3 rounded-xl inline-block w-full md:w-auto">
-                          <p className="text-[8px] font-black uppercase opacity-60">PIX para Recebimento:</p>
+                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX de Resgate:</p>
                           <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
                        </div>
                      </div>
                      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                         <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
                         {t.status === 'pendente' && (
-                          <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Validar Aposta</Button>
+                          <div className="flex gap-2 flex-1">
+                            <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar</Button>
+                            <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
+                          </div>
                         )}
                         {t.status === 'ganhou' && (
-                           <Button onClick={() => supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id).then(loadData)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Pagar Prêmio</Button>
+                           <Button onClick={() => supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id).then(loadData)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
                         )}
                      </div>
                    </Card>
@@ -311,14 +321,17 @@ function FinanceiroContent() {
                )}
             </TabsContent>
 
-            <TabsContent value="history" className="mt-6">
-               <div className="mb-4">
+            <TabsContent value="history" className="mt-6 space-y-6">
+               <div className="flex flex-col md:flex-row justify-between gap-4">
                   <Input 
                     placeholder="Pesquisar histórico..." 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="h-14 rounded-2xl font-bold border-2 px-6"
+                    className="h-14 rounded-2xl font-bold border-2 px-6 flex-1"
                   />
+                  <Button onClick={clearDatabase} variant="destructive" className="h-14 px-8 font-black uppercase text-xs rounded-2xl gap-2 shadow-lg">
+                    <Trash2 className="w-5 h-5" /> Limpar Banco de Dados
+                  </Button>
                </div>
                <Card className="rounded-[2.5rem] overflow-hidden bg-white shadow-xl border-none">
                   <div className="overflow-x-auto">
@@ -337,7 +350,9 @@ function FinanceiroContent() {
                                    <Badge className={cn(
                                      "font-black text-[8px] uppercase h-7 px-4",
                                      t.status === 'pago' ? 'bg-blue-600' : 
-                                     t.status === 'premio_pago' ? 'bg-green-600' : 'bg-muted text-muted-foreground'
+                                     t.status === 'premio_pago' ? 'bg-green-600' : 
+                                     t.status === 'ganhou' ? 'bg-orange-600' : 
+                                     t.status === 'rejeitado' ? 'bg-destructive' : 'bg-muted text-muted-foreground'
                                    )}>
                                      {t.status === 'pago' ? 'Aprovada' : t.status === 'premio_pago' ? 'Prêmio Pago' : t.status}
                                    </Badge>

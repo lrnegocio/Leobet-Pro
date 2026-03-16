@@ -5,12 +5,13 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, Globe, Key, QrCode, ShieldAlert } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { useAuthStore } from '@/store/use-auth-store';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
@@ -24,9 +25,9 @@ function ResultadosContent() {
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
   const [eventoData, setEventoData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [pixConfirm, setPixConfirm] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -35,7 +36,6 @@ function ResultadosContent() {
       try {
         const parsed = JSON.parse(savedSettings);
         setYoutubeUrl(parsed.youtubeUrl || '');
-        setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
       } catch (e) {}
     }
   }, []);
@@ -56,28 +56,10 @@ function ResultadosContent() {
 
       if (found) {
         setReceipt(found);
+        setPixConfirm(found.pix_resgate || '');
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
-        
-        // RECALCULA PRÊMIOS EM TEMPO REAL (65% da Arrecadação)
-        const { data: allTickets } = await supabase
-          .from('tickets')
-          .select('valor_total')
-          .eq('evento_id', found.evento_id)
-          .in('status', ['pago', 'ganhou', 'premio_pago']);
-        
-        const totalPaid = (allTickets || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
-        const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
-        
-        if (found.tipo === 'bingo') {
-          const bingoVal = Math.floor(pool * 0.50 * 100) / 100;
-          const quinaVal = Math.floor(pool * 0.30 * 100) / 100;
-          const quadraVal = Number((pool - bingoVal - quinaVal).toFixed(2));
-          found.detalhe_premios = { bingo: bingoVal, quina: quinaVal, quadra: quadraVal };
-        } else {
-          found.detalhe_premios = { bolao: pool };
-        }
       } else {
         setReceipt(null);
       }
@@ -100,6 +82,11 @@ function ResultadosContent() {
   }, [searchParams, mounted]);
 
   const handleClaim = async (ticketId: string) => {
+    if (!pixConfirm) {
+      toast({ variant: "destructive", title: "INFORME A CHAVE PIX", description: "Precisamos da sua chave para enviar o prêmio." });
+      return;
+    }
+
     setClaiming(ticketId);
     try {
       const updatedTickets = receipt.tickets_data.map((t: any) => 
@@ -108,12 +95,15 @@ function ResultadosContent() {
 
       const { error } = await supabase
         .from('tickets')
-        .update({ tickets_data: updatedTickets })
+        .update({ 
+          tickets_data: updatedTickets,
+          pix_resgate: pixConfirm 
+        })
         .eq('id', receipt.id);
 
       if (error) throw error;
       
-      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX gravada." });
+      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX confirmada." });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO", description: err.message });
@@ -229,7 +219,7 @@ function ResultadosContent() {
                     <ShieldAlert className="w-16 h-16 mx-auto text-red-200" />
                     <h3 className="text-xl font-black text-red-600 uppercase">BILHETE CANCELADO</h3>
                     <p className="text-xs font-bold text-red-400 uppercase leading-relaxed">
-                      Esta aposta foi rejeitada pela auditoria administrativa por falta de pagamento ou descumprimento das regras.
+                      Esta aposta foi rejeitada pela auditoria administrativa.
                     </p>
                   </div>
                 ) : (
@@ -237,7 +227,8 @@ function ResultadosContent() {
                     {receipt.tickets_data?.map((t: any, idx: number) => {
                       const isWinner = t.status === 'ganhou';
                       const isPending = t.status === 'pendente-resgate';
-                      const isBetPaid = receipt.status === 'pago';
+                      const isBetPaid = receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago';
+                      
                       return (
                         <Card key={idx} className={cn(
                           "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
@@ -251,7 +242,7 @@ function ResultadosContent() {
                                       "font-black uppercase text-[9px] h-6 px-4",
                                       isWinner ? 'bg-green-600 animate-bounce' : ''
                                     )}>
-                                      {isWinner ? "🔥 GANHADOR!" : isBetPaid ? "✓ ATIVO" : isPending ? "⌚ ANÁLISE" : "AGUARDANDO"}
+                                      {isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetPaid ? "✓ ATIVO" : "AGUARDANDO"}
                                     </Badge>
                                   </div>
                                   {t.numeros ? (
@@ -287,23 +278,32 @@ function ResultadosContent() {
                                     {isWinner ? (
                                       <>
                                         <div>
-                                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Prêmio Estimado:</p>
+                                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
                                           <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
                                         </div>
-                                        <div className="bg-white/10 p-4 rounded-xl space-y-1">
-                                           <p className="text-[8px] font-black uppercase opacity-60">PIX de Resgate (Gravado):</p>
-                                           <p className="font-black text-sm truncate">{receipt.pix_resgate}</p>
+                                        <div className="space-y-2">
+                                           <label className="text-[8px] font-black uppercase opacity-60">Confirme sua Chave PIX:</label>
+                                           <Input 
+                                              value={pixConfirm} 
+                                              onChange={(e) => setPixConfirm(e.target.value)}
+                                              placeholder="CPF, E-mail ou Celular"
+                                              className="h-10 bg-white text-primary font-black text-center rounded-xl"
+                                           />
                                         </div>
-                                        <button onClick={() => handleClaim(t.id)} className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg" disabled={claiming === t.id}>
-                                          SOLICITAR RESGATE
+                                        <button 
+                                          onClick={() => handleClaim(t.id)} 
+                                          className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg transition-all active:scale-95" 
+                                          disabled={claiming === t.id}
+                                        >
+                                          {claiming === t.id ? "PROCESSANDO..." : "RESGATAR AGORA"}
                                         </button>
                                       </>
                                     ) : (
                                       <div className="space-y-3">
                                          <Clock className="w-8 h-8 mx-auto animate-pulse" />
                                          <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
-                                         <p className="text-[9px] font-bold opacity-60 uppercase">Chave: {receipt.pix_resgate}</p>
-                                         <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado automaticamente.</p>
+                                         <p className="text-[9px] font-bold opacity-60 uppercase">PIX: {receipt.pix_resgate}</p>
+                                         <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado pelo administrador.</p>
                                       </div>
                                     )}
                                  </div>

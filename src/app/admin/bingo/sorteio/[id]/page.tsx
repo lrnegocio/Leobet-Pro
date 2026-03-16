@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, Trophy, RotateCcw, Youtube, AlertTriangle, Database } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trophy, RotateCcw, Database } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   const [isAuto, setIsAuto] = useState(false);
   const [finished, setFinished] = useState(false);
   const [currentPrizeLevel, setCurrentPrizeLevel] = useState<'quadra' | 'quina' | 'bingo'>('quadra');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   
   const [winners, setWinners] = useState<{
     quadra: any[],
@@ -31,7 +30,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   }>({ quadra: [], quina: [], bingo: [] });
 
   const loadBingoData = async () => {
-    // Busca dados do Bingo
     const { data: bingoData } = await supabase
       .from('bingos')
       .select('*')
@@ -47,20 +45,17 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       if (bingoData.status === 'finalizado') setFinished(true);
     }
 
-    // Busca todos os bilhetes vendidos e pagos para este evento
     const { data: ticketsData } = await supabase
       .from('tickets')
       .select('*')
       .eq('evento_id', params.id)
-      .eq('status', 'pago');
+      .in('status', ['pago', 'ganhou', 'premio_pago']);
     
     setTickets(ticketsData || []);
   };
 
   useEffect(() => {
     loadBingoData();
-    const settings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    setYoutubeUrl(settings.youtubeUrl || '');
   }, [params.id]);
 
   const totalArrecadado = useMemo(() => {
@@ -84,6 +79,23 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       .eq('id', params.id);
   };
 
+  const markTicketAsWinner = async (receiptId: string, ticketId: string, level: string, prize: number) => {
+    const { data: receipt } = await supabase.from('tickets').select('*').eq('id', receiptId).single();
+    if (receipt) {
+      const updatedData = receipt.tickets_data.map((t: any) => {
+        if (t.id === ticketId) {
+          return { ...t, status: 'ganhou', premio_tipo: level, valorPremio: prize };
+        }
+        return t;
+      });
+
+      await supabase.from('tickets').update({ 
+        tickets_data: updatedData,
+        status: 'ganhou'
+      }).eq('id', receiptId);
+    }
+  };
+
   const checkWinners = useCallback(async (drawn: number[]) => {
     if (finished) return;
 
@@ -92,6 +104,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     const targetHits = level === 'bingo' ? 15 : (level === 'quina' ? 5 : 4);
 
     tickets.forEach(receipt => {
+      if (!receipt.tickets_data) return;
       receipt.tickets_data.forEach((t: any) => {
         if (!t.numeros) return;
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
@@ -100,6 +113,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
           const alreadyInThisLevel = (winners[level] || []).some((w: any) => w.ticketId === t.id);
           if (!alreadyInThisLevel) {
             currentRoundWinners.push({ 
+              receiptId: receipt.id,
               ticketId: t.id, 
               cliente: receipt.cliente, 
               vendedorId: receipt.vendedor_id 
@@ -115,12 +129,15 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       newWinners[level] = [...(newWinners[level] || []), ...currentRoundWinners];
       setWinners(newWinners);
 
-      const individual = premios[level] / newWinners[level].length;
+      const individualPrize = premios[level] / newWinners[level].length;
       
-      // Atualiza status dos bilhetes ganhadores no Supabase (Opcional: implementar lógica de atualização de JSONB)
+      for (const winner of currentRoundWinners) {
+        await markTicketAsWinner(winner.receiptId, winner.ticketId, level, individualPrize);
+      }
+
       toast({
         title: `🔥 GANHADORES DA ${level.toUpperCase()}!`,
-        description: `${currentRoundWinners.length} novo(s) premiado(s) detectado(s).`,
+        description: `${currentRoundWinners.length} novo(s) premiado(s) gravado(s) no banco.`,
       });
 
       if (level === 'bingo') {
@@ -208,7 +225,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
              <Card className="bg-primary text-white rounded-2xl shadow-lg flex flex-col items-center justify-center p-4 space-y-2 shrink-0 h-40 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
                 <p className="text-[8px] font-black uppercase tracking-[0.3em] opacity-60">Última Bola</p>
-                <div className="w-20 h-20 rounded-full bg-white text-primary flex items-center justify-center text-4xl font-black border-4 border-accent shadow-xl animate-in zoom-in duration-300">
+                <div className="w-20 h-20 rounded-full bg-white text-primary flex items-center justify-center text-4xl font-black border-4 border-accent shadow-xl">
                   {lastNumber || '--'}
                 </div>
                 <Badge className="bg-accent text-white font-black px-3 py-1 uppercase text-[8px] tracking-widest rounded-lg">
@@ -255,7 +272,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
                 })}
              </div>
              <div className="mt-2 pt-2 border-t flex justify-between items-center shrink-0">
-                <p className="text-[8px] font-black uppercase text-muted-foreground">© LEOBET PRO • AUDITORIA EM TEMPO REAL • SUPABASE CLOUD</p>
+                <p className="text-[8px] font-black uppercase text-muted-foreground">© LEOBET PRO • AUDITORIA EM TEMPO REAL</p>
                 <div className="text-right">
                    <p className="text-[8px] font-black text-primary uppercase">{tickets.length} BILHETES EM JOGO</p>
                 </div>
