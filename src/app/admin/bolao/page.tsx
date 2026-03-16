@@ -27,8 +27,6 @@ export default function BolaoPage() {
       setBoloes(data || []);
     } catch (err) {
       console.error("Erro Supabase:", err);
-      const stored = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
-      setBoloes(stored);
     } finally {
       setLoading(false);
     }

@@ -69,11 +69,23 @@ export default function VendaPage() {
 
   const loadEventos = async () => {
     try {
+      const now = new Date();
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
-      const bFormated = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
-      const bolFormated = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
-      setEventosAtivos([...bFormated, ...bolFormated]);
+      
+      // Filtra Bingos: Devem sumir 1 minuto antes do sorteio
+      const validBingos = (bingos || []).filter(b => {
+        const limit = new Date(new Date(b.data_sorteio).getTime() - 60000);
+        return now < limit;
+      }).map(b => ({ ...b, tipo: 'bingo' }));
+
+      // Filtra Bolões: Devem sumir 1 minuto antes da 1ª partida (data_fim)
+      const validBoloes = (boloes || []).filter(b => {
+        const limit = new Date(new Date(b.data_fim).getTime() - 60000);
+        return now < limit;
+      }).map(b => ({ ...b, tipo: 'bolao' }));
+
+      setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err) {
       console.warn("Erro ao carregar eventos");
     }
