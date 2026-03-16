@@ -72,23 +72,16 @@ function FinanceiroContent() {
     if (!mounted) return;
     setSyncing(true);
     try {
-      const query = supabase
+      const { data: tData } = await supabase
         .from('tickets')
-        .select('*');
-      
-      if (startDate && endDate) {
-        query.gte('created_at', `${startDate}T00:00:00`)
-             .lte('created_at', `${endDate}T23:59:59`);
-      }
-
-      const { data: tData } = await query.order('created_at', { ascending: false });
+        .select('*')
+        .order('created_at', { ascending: false });
       if (tData) setTickets(tData);
 
       const { data: uData } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
-      
       if (uData) setUsers(uData);
 
     } catch (err) {
@@ -103,7 +96,7 @@ function FinanceiroContent() {
     if (mounted) {
       loadData();
     }
-  }, [startDate, endDate, mounted]);
+  }, [mounted]);
 
   const approveUser = async (userId: string) => {
     const { error } = await supabase.from('users').update({ status: 'approved' }).eq('id', userId);
@@ -124,7 +117,7 @@ function FinanceiroContent() {
   };
 
   const clearDatabase = async () => {
-    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações? Esta ação não pode ser desfeita.")) {
+    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações de teste? Esta ação não pode ser desfeita.")) {
       setSyncing(true);
       try {
         await supabase.from('tickets').delete().neq('id', '0');
@@ -187,7 +180,10 @@ function FinanceiroContent() {
   }, [tickets]);
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => (t.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) || (t.id || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    return tickets.filter(t => 
+      (t.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (t.id || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
   }, [tickets, searchTerm]);
 
   const filteredUsers = useMemo(() => {
@@ -210,11 +206,6 @@ function FinanceiroContent() {
             </div>
             
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
-               <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border items-center flex-1 md:flex-none">
-                 <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
-                 <span className="text-muted-foreground text-[10px] font-black uppercase hidden md:inline">até</span>
-                 <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
-               </div>
                <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2">
                  <RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} />
                </Button>
@@ -243,6 +234,52 @@ function FinanceiroContent() {
               <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Histórico Geral</TabsTrigger>
             </TabsList>
             
+            <TabsContent value="payouts" className="mt-6 space-y-4">
+               {tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').length === 0 ? (
+                 <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências ou prêmios no momento</Card>
+               ) : (
+                 tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => (
+                   <Card key={i} className={cn(
+                     "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
+                     t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
+                   )}>
+                     <div className="space-y-2 flex-1 w-full">
+                       <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
+                       <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
+                       <p className="text-[9px] font-black text-muted-foreground uppercase">CÓDIGO: {t.id}</p>
+                       
+                       {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                         <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mt-2">
+                            <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
+                            <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
+                            <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO</Badge>
+                         </div>
+                       )}
+                     </div>
+                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
+                        <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
+                        
+                        {t.status === 'pendente' && (
+                          <div className="flex gap-2 flex-1">
+                            <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar Venda</Button>
+                            <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
+                          </div>
+                        )}
+
+                        {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                           <Button 
+                             onClick={() => confirmPayout(t.id)} 
+                             className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
+                           >
+                             <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento
+                           </Button>
+                        )}
+                     </div>
+                   </Card>
+                 ))
+               )}
+            </TabsContent>
+
             <TabsContent value="users" className="mt-6 space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <Input 
@@ -287,7 +324,7 @@ function FinanceiroContent() {
                       <div className="bg-primary/10 p-4 rounded-2xl"><UserCircle className="w-8 h-8 text-primary" /></div>
                       <div>
                         <p className="font-black uppercase text-lg text-primary leading-tight">{user.nome}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{user.email} • {user.role.toUpperCase()}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{user.email} • {user.role?.toUpperCase()}</p>
                         <Badge variant={user.status === 'approved' ? 'default' : 'destructive'} className="mt-2 font-black text-[8px] uppercase">
                           {user.status === 'approved' ? '✓ Ativo' : '⚠ Pendente'}
                         </Badge>
@@ -302,58 +339,6 @@ function FinanceiroContent() {
                   </Card>
                 ))}
               </div>
-            </TabsContent>
-
-            <TabsContent value="payouts" className="mt-6 space-y-4">
-               {filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').length === 0 ? (
-                 <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências no momento</Card>
-               ) : (
-                 filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => (
-                   <Card key={i} className={cn(
-                     "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
-                     t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
-                   )}>
-                     <div className="space-y-2 flex-1 w-full">
-                       <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
-                       <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
-                       
-                       {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
-                         <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mt-2">
-                            <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
-                            <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
-                            <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">GANHADOR</Badge>
-                         </div>
-                       )}
-
-                       {t.status === 'pendente' && (
-                         <div className="bg-muted/50 p-3 rounded-xl inline-block w-full md:w-auto">
-                            <p className="text-[8px] font-black uppercase opacity-60">Chave PIX de Resgate (Segurança):</p>
-                            <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
-                         </div>
-                       )}
-                     </div>
-                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
-                        <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                        
-                        {t.status === 'pendente' && (
-                          <div className="flex gap-2 flex-1">
-                            <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar</Button>
-                            <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
-                          </div>
-                        )}
-
-                        {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
-                           <Button 
-                             onClick={() => confirmPayout(t.id)} 
-                             className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
-                           >
-                             <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento
-                           </Button>
-                        )}
-                     </div>
-                   </Card>
-                 ))
-               )}
             </TabsContent>
 
             <TabsContent value="history" className="mt-6 space-y-6">

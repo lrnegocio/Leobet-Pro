@@ -34,7 +34,7 @@ export default function BingoPage() {
       toast({
         variant: "destructive",
         title: "Erro de Sincronização",
-        description: "Verifique se a tabela 'bingos' existe no seu Supabase."
+        description: "Verifique sua conexão com o banco."
       });
     } finally {
       setLoading(false);
@@ -79,7 +79,7 @@ export default function BingoPage() {
           <div className="flex justify-between items-center px-4 md:px-0">
             <div>
               <h1 className="text-3xl font-black font-headline uppercase text-primary flex items-center gap-3">
-                Gestão de Bingos <Database className="w-6 h-6 text-green-600 hidden md:block" />
+                Gestão de Bingos <Database className="w-6 h-6 text-green-600" />
               </h1>
               <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Painel Administrativo LEOBET PRO</p>
             </div>
@@ -106,8 +106,7 @@ export default function BingoPage() {
             ) : bingos.length === 0 ? (
               <Card className="py-20 text-center border-dashed rounded-[3rem] opacity-30 bg-white">
                 <History className="w-12 h-12 mx-auto mb-4" />
-                <p className="font-black uppercase text-xs">Nenhum bingo encontrado no banco</p>
-                <p className="text-[10px] mt-2">Os dados cadastrados devem aparecer aqui.</p>
+                <p className="font-black uppercase text-xs">Nenhum bingo encontrado</p>
               </Card>
             ) : bingos.map((bingo) => {
               const drawDate = bingo.data_sorteio ? new Date(bingo.data_sorteio) : new Date();
@@ -145,7 +144,7 @@ export default function BingoPage() {
                                <p className="text-[10px] font-black">{bingo.vendidas || 0}</p>
                             </div>
                             <div className="space-y-1">
-                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Identificador</p>
+                               <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">ID</p>
                                <p className="text-[8px] font-black uppercase text-primary/40 truncate w-32">{bingo.id}</p>
                             </div>
                           </div>
@@ -158,10 +157,9 @@ export default function BingoPage() {
                                  <Button 
                                     variant="outline" 
                                     size="sm" 
-                                    className="flex-1 font-black text-[10px] uppercase gap-2 h-10 border-primary/20 bg-white shadow-sm"
+                                    className="flex-1 font-black text-[10px] uppercase gap-2 h-10 border-primary/20 bg-white"
                                     onClick={() => toggleStatus(bingo.id, bingo.status)}
                                  >
-                                    {isSalesClosed ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Lock className="w-3 h-3 text-orange-600" />}
                                     {isSalesClosed ? "Reabrir" : "Fechar"}
                                  </Button>
                                  <Link href={`/admin/bingo/editar/${bingo.id}`} className="flex-1">
@@ -180,21 +178,18 @@ export default function BingoPage() {
                                  )}
                                  disabled={!isSalesClosed && !isFinished}
                                 >
-                                 {isFinished ? <History className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-                                 {isFinished ? "Ver Resultados" : "Iniciar Sorteio"}
+                                 {isFinished ? "Ver Auditoria" : "Iniciar Sorteio"}
                                 </Button>
                              </Link>
                           </div>
-                          <div className="flex flex-col gap-2">
-                             <Button 
-                               variant="ghost" 
-                               size="icon" 
-                               className="h-12 w-12 text-destructive hover:bg-destructive/10 rounded-2xl border border-destructive/20 bg-white shadow-sm"
-                               onClick={() => deleteBingo(bingo.id)}
-                             >
-                               <Trash2 className="w-5 h-5" />
-                             </Button>
-                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-12 w-12 text-destructive hover:bg-destructive/10 rounded-2xl border border-destructive/20 bg-white"
+                            onClick={() => deleteBingo(bingo.id)}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
                        </div>
                     </div>
                   </CardContent>

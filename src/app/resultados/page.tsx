@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { useAuthStore } from '@/store/use-auth-store';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
@@ -27,7 +26,6 @@ function ResultadosContent() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [eventoData, setEventoData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
-  const [pixConfirm, setPixConfirm] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -56,7 +54,6 @@ function ResultadosContent() {
 
       if (found) {
         setReceipt(found);
-        setPixConfirm(found.pix_resgate || '');
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
@@ -82,13 +79,15 @@ function ResultadosContent() {
   }, [searchParams, mounted]);
 
   const handleClaim = async (ticketId: string) => {
-    if (!pixConfirm) {
-      toast({ variant: "destructive", title: "INFORME A CHAVE PIX", description: "Precisamos da sua chave para enviar o prêmio." });
-      return;
-    }
-
     setClaiming(ticketId);
     try {
+      // Usa a chave PIX que já está no bilhete
+      const pixKey = receipt.pix_resgate;
+      
+      if (!pixKey) {
+        throw new Error("Chave PIX não localizada no bilhete. Entre em contato com o suporte.");
+      }
+
       const updatedTicketsData = (receipt.tickets_data || []).map((t: any) => 
         t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
       );
@@ -97,17 +96,16 @@ function ResultadosContent() {
         .from('tickets')
         .update({ 
           tickets_data: updatedTicketsData,
-          pix_resgate: pixConfirm,
           status: 'pendente-resgate'
         })
         .eq('id', receipt.id);
 
       if (error) throw error;
       
-      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para a chave PIX confirmada." });
+      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para sua chave PIX cadastrada." });
       handleSearch(receipt.id);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO", description: err.message });
+      toast({ variant: "destructive", title: "ERRO AO RESGATAR", description: err.message });
     } finally {
       setClaiming(null);
     }
@@ -206,7 +204,7 @@ function ResultadosContent() {
                         )}>
                           {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : 
                            receipt.status === 'premio_pago' ? '🏆 PRÊMIO PAGO ✓' :
-                           receipt.status === 'ganhou' || receipt.status === 'pendente-resgate' ? '🔥 GANHADOR / AGUARDANDO RESGATE' :
+                           receipt.status === 'ganhou' || receipt.status === 'pendente-resgate' ? '🔥 GANHADOR! SOLICITE O RESGATE' :
                            receipt.status === 'rejeitado' ? '✖ APOSTA REJEITADA' : '⚠ AGUARDANDO PAGAMENTO'}
                         </Badge>
                         <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
@@ -217,113 +215,98 @@ function ResultadosContent() {
                    </div>
                 </div>
 
-                {receipt.status === 'rejeitado' ? (
-                  <div className="bg-red-50 p-12 rounded-[2rem] border-2 border-red-100 text-center space-y-4">
-                    <ShieldAlert className="w-16 h-16 mx-auto text-red-200" />
-                    <h3 className="text-xl font-black text-red-600 uppercase">BILHETE CANCELADO</h3>
-                    <p className="text-xs font-bold text-red-400 uppercase leading-relaxed">
-                      Esta aposta foi rejeitada pela auditoria administrativa.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {receipt.tickets_data?.map((t: any, idx: number) => {
-                      const isWinner = t.status === 'ganhou' || receipt.status === 'ganhou';
-                      const isPending = t.status === 'pendente-resgate' || receipt.status === 'pendente-resgate';
-                      const isPaid = receipt.status === 'premio_pago';
-                      const isBetPaid = receipt.status === 'pago' || isWinner || isPending || isPaid;
-                      
-                      return (
-                        <Card key={idx} className={cn(
-                          "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                          isWinner || isPaid ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
-                        )}>
-                           <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
-                               <div className="flex-1 space-y-4">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
-                                    <Badge variant={(isWinner || isPaid) ? 'default' : 'outline'} className={cn(
-                                      "font-black uppercase text-[9px] h-6 px-4",
-                                      (isWinner || isPaid) ? 'bg-green-600' : ''
-                                    )}>
-                                      {isPaid ? "✓ PRÊMIO PAGO" : isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetPaid ? "✓ ATIVO" : "AGUARDANDO"}
-                                    </Badge>
-                                  </div>
-                                  {t.numeros ? (
-                                    <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
-                                      {t.numeros.map((n: number) => {
-                                        const isDrawn = eventoData?.bolas_sorteadas?.includes(n);
-                                        return (
-                                          <div key={n} className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center border-2 rounded-xl font-black text-md md:text-lg transition-all shadow-sm",
-                                            isDrawn ? "bg-green-600 text-white border-green-700 scale-105" : "bg-white border-muted/20 text-muted-foreground/40"
-                                          )}>
-                                            {n.toString().padStart(2, '0')}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-5 gap-2">
-                                      {(t.palpite || '').split('-').map((g: string, i: number) => (
-                                        <div key={i} className="p-3 md:p-4 rounded-xl border-2 text-center font-black text-lg md:text-xl shadow-sm bg-muted/10">
-                                          {g}
+                <div className="space-y-4">
+                  {receipt.tickets_data?.map((t: any, idx: number) => {
+                    const isWinner = t.status === 'ganhou' || receipt.status === 'ganhou';
+                    const isPending = t.status === 'pendente-resgate' || receipt.status === 'pendente-resgate';
+                    const isPaid = t.status === 'premio_pago' || receipt.status === 'premio_pago';
+                    const isBetActive = receipt.status === 'pago' || isWinner || isPending || isPaid;
+                    
+                    return (
+                      <Card key={idx} className={cn(
+                        "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
+                        isWinner || isPaid ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
+                      )}>
+                         <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
+                             <div className="flex-1 space-y-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
+                                  <Badge variant={(isWinner || isPaid) ? 'default' : 'outline'} className={cn(
+                                    "font-black uppercase text-[9px] h-6 px-4",
+                                    (isWinner || isPaid) ? 'bg-green-600' : ''
+                                  )}>
+                                    {isPaid ? "✓ PRÊMIO PAGO" : isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetActive ? "✓ ATIVO" : "AGUARDANDO"}
+                                  </Badge>
+                                </div>
+                                {t.numeros ? (
+                                  <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+                                    {t.numeros.map((n: number) => {
+                                      const isDrawn = eventoData?.bolas_sorteadas?.includes(n);
+                                      return (
+                                        <div key={n} className={cn(
+                                          "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center border-2 rounded-xl font-black text-md md:text-lg transition-all shadow-sm",
+                                          isDrawn ? "bg-green-600 text-white border-green-700 scale-105" : "bg-white border-muted/20 text-muted-foreground/40"
+                                        )}>
+                                          {n.toString().padStart(2, '0')}
                                         </div>
-                                      ))}
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-5 gap-2">
+                                    {(t.palpite || '').split('-').map((g: string, i: number) => (
+                                      <div key={i} className="p-3 md:p-4 rounded-xl border-2 text-center font-black text-lg md:text-xl shadow-sm bg-muted/10">
+                                        {g}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                             </div>
+                             {(isWinner || isPending || isPaid) && (
+                               <div className={cn(
+                                 "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
+                                 isPaid ? 'bg-blue-600' : (isWinner ? 'bg-green-600' : 'bg-orange-600'),
+                                 "text-white"
+                               )}>
+                                  {isPaid ? (
+                                    <div className="space-y-2">
+                                       <CheckCircle2 className="w-12 h-12 mx-auto" />
+                                       <p className="font-black uppercase text-lg">PAGAMENTO REALIZADO</p>
+                                       <p className="text-[10px] font-bold opacity-80">Prêmio enviado com sucesso via PIX.</p>
+                                    </div>
+                                  ) : isWinner ? (
+                                    <>
+                                      <div>
+                                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
+                                        <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
+                                      </div>
+                                      <div className="bg-white/10 p-3 rounded-xl">
+                                         <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Cadastrada:</p>
+                                         <p className="text-[10px] font-black truncate">{receipt.pix_resgate}</p>
+                                      </div>
+                                      <button 
+                                        onClick={() => handleClaim(t.id)} 
+                                        className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg transition-all active:scale-95" 
+                                        disabled={claiming === t.id}
+                                      >
+                                        {claiming === t.id ? "PROCESSANDO..." : "RESGATAR PRÊMIO"}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <div className="space-y-3">
+                                       <Clock className="w-8 h-8 mx-auto animate-pulse" />
+                                       <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
+                                       <p className="text-[9px] font-bold opacity-60 uppercase">PIX: {receipt.pix_resgate}</p>
+                                       <p className="text-[8px] font-black opacity-40 uppercase">Aguardando auditoria administrativa.</p>
                                     </div>
                                   )}
                                </div>
-                               {(isWinner || isPending || isPaid) && (
-                                 <div className={cn(
-                                   "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
-                                   isPaid ? 'bg-blue-600' : (isWinner ? 'bg-green-600' : 'bg-orange-600'),
-                                   "text-white"
-                                 )}>
-                                    {isPaid ? (
-                                      <div className="space-y-2">
-                                         <CheckCircle2 className="w-12 h-12 mx-auto" />
-                                         <p className="font-black uppercase text-lg">PAGAMENTO REALIZADO</p>
-                                         <p className="text-[10px] font-bold opacity-80">Prêmio enviado com sucesso via PIX.</p>
-                                      </div>
-                                    ) : isWinner ? (
-                                      <>
-                                        <div>
-                                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
-                                          <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                           <label className="text-[8px] font-black uppercase opacity-60">Confirme sua Chave PIX:</label>
-                                           <Input 
-                                              value={pixConfirm} 
-                                              onChange={(e) => setPixConfirm(e.target.value)}
-                                              placeholder="CPF, E-mail ou Celular"
-                                              className="h-10 bg-white text-primary font-black text-center rounded-xl"
-                                           />
-                                        </div>
-                                        <button 
-                                          onClick={() => handleClaim(t.id)} 
-                                          className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg transition-all active:scale-95" 
-                                          disabled={claiming === t.id}
-                                        >
-                                          {claiming === t.id ? "PROCESSANDO..." : "RESGATAR AGORA"}
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <div className="space-y-3">
-                                         <Clock className="w-8 h-8 mx-auto animate-pulse" />
-                                         <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
-                                         <p className="text-[9px] font-bold opacity-60 uppercase">PIX: {receipt.pix_resgate}</p>
-                                         <p className="text-[8px] font-black opacity-40 uppercase">O prêmio será enviado pelo administrador.</p>
-                                      </div>
-                                    )}
-                                 </div>
-                               )}
-                           </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
+                             )}
+                         </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
             ) : searched && (
               <div className="text-center py-16 bg-red-50 rounded-[3rem] border-2 border-dashed border-red-100">

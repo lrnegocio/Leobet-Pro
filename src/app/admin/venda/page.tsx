@@ -73,13 +73,11 @@ export default function VendaPage() {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
-      // Filtra Bingos: Devem sumir 1 minuto antes do sorteio
       const validBingos = (bingos || []).filter(b => {
         const limit = new Date(new Date(b.data_sorteio).getTime() - 60000);
         return now < limit;
       }).map(b => ({ ...b, tipo: 'bingo' }));
 
-      // Filtra Bolões: Devem sumir 1 minuto antes da 1ª partida (data_fim)
       const validBoloes = (boloes || []).filter(b => {
         const limit = new Date(new Date(b.data_fim).getTime() - 60000);
         return now < limit;
@@ -232,7 +230,7 @@ export default function VendaPage() {
     }
 
     if (formData.tipo === 'bolao' && palpites.some(p => p === '')) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES", description: "Todos os 10 jogos do bolão devem ser marcados." });
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES" });
       return;
     }
 
@@ -280,18 +278,14 @@ export default function VendaPage() {
       if (error) throw error;
       
       setVendaRealizada(receipt);
-      toast({ 
-        title: finalStatus === 'pago' ? "VENDA REGISTRADA!" : "APOSTA EM ESPERA", 
-        description: finalStatus === 'pago' ? "Bilhete validado com sucesso." : "Bilhete aguardando pagamento/aprovação." 
-      });
+      toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       
-      // Limpa formulário
       setFormData({ ...formData, cliente: '', whatsapp: '', pixKey: '' });
       setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
       console.error(err);
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: "Verifique as tabelas do Supabase." });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
     } finally {
       setLoading(false);
     }
@@ -355,7 +349,7 @@ export default function VendaPage() {
                   {formData.tipo === 'bolao' && partidasBolao.length > 0 && (
                     <div className="space-y-4 pt-4 border-t">
                        <h3 className="text-xs font-black uppercase text-primary flex items-center gap-2">
-                         <Trophy className="w-4 h-4 text-accent" /> Grade de Palpites do Cliente
+                         <Trophy className="w-4 h-4 text-accent" /> Grade de Palpites
                        </h3>
                        <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                           {partidasBolao.map((p, idx) => (
@@ -403,13 +397,13 @@ export default function VendaPage() {
                   </div>
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl">
-                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor Total a Receber</p>
+                     <p className="text-[10px] font-black uppercase text-white/60 mb-1">Valor Total</p>
                      <p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p>
                   </div>
                   
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
                     {loading ? <RefreshCcw className="animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                    {loading ? "PROCESSANDO..." : "CONCLUIR E GERAR BILHETE"}
+                    {loading ? "PROCESSANDO..." : "CONCLUIR VENDA"}
                   </Button>
                 </form>
               </CardContent>
@@ -422,40 +416,26 @@ export default function VendaPage() {
                      {vendaRealizada.status === 'pendente' && (
                        <div className="absolute top-4 right-4 text-orange-600 animate-pulse flex items-center gap-1">
                          <AlertCircle className="w-4 h-4" />
-                         <span className="text-[8px] font-black uppercase">Venda Pendente</span>
+                         <span className="text-[8px] font-black uppercase">Pendente</span>
                        </div>
                      )}
                      <p className="text-2xl font-black text-primary">LEOBET PRO</p>
-                     <p className="text-[8px] font-bold uppercase opacity-60">Cupom de Auditoria Digital</p>
+                     <p className="text-[8px] font-bold uppercase opacity-60">Cupom Auditado</p>
                      
                      <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                         <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
-                        <p className="flex justify-between"><span>PIX SEGURO:</span> <span className="truncate ml-2">{vendaRealizada.pix_resgate}</span></p>
+                        <p className="flex justify-between"><span>PIX:</span> <span className="truncate ml-2">{vendaRealizada.pix_resgate}</span></p>
                         <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
-                        <p className="flex justify-between"><span>QTD:</span> <span>{vendaRealizada.tickets_data.length} UNIDADES</span></p>
                         
                         <div className="pt-2 border-t mt-2">
                            {vendaRealizada.tickets_data.map((t: any, idx: number) => (
-                             <div key={t.id} className="mb-4 bg-black/5 p-2 rounded-lg">
+                             <div key={idx} className="mb-4 bg-black/5 p-2 rounded-lg">
                                <p className="text-[10px] font-black">BILHETE #{idx+1}: {t.id}</p>
                                {t.numeros && <p className="text-[11px] tracking-widest font-black mt-1">{t.numeros.join(' ')}</p>}
                                {t.palpite && <p className="text-[9px] font-bold mt-1 text-primary">PALPITE: {t.palpite}</p>}
                              </div>
                            ))}
                         </div>
-                     </div>
-
-                     <div className="space-y-1 mb-6">
-                        <p className="text-[9px] font-black uppercase opacity-40">Prêmios Acumulados (65%)</p>
-                        {vendaRealizada.tipo === 'bingo' ? (
-                          <div className="text-[10px] font-black text-primary uppercase">
-                            B: R$ {vendaRealizada.detalhe_premios.bingo.toFixed(2)} | Q: R$ {vendaRealizada.detalhe_premios.quina.toFixed(2)}
-                          </div>
-                        ) : (
-                          <div className="text-[10px] font-black text-green-600 uppercase">
-                            ACUMULADO: R$ {vendaRealizada.detalhe_premios.bolao.toFixed(2)}
-                          </div>
-                        )}
                      </div>
 
                      <p className="text-xl font-black text-primary">TOTAL: R$ {vendaRealizada.valor_total.toFixed(2)}</p>
