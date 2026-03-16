@@ -19,7 +19,10 @@ import {
   UserCircle,
   XCircle,
   CheckCircle2,
-  DollarSign
+  Calendar,
+  Search,
+  TrendingUp,
+  User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -180,11 +183,28 @@ function FinanceiroContent() {
   }, [tickets]);
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => 
-      (t.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (t.id || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tickets, searchTerm]);
+    return tickets.filter(t => {
+      const date = t.created_at ? t.created_at.split('T')[0] : "";
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = (t.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           (t.vendedor_nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (t.id || "").toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesDate && matchesSearch;
+    });
+  }, [tickets, searchTerm, startDate, endDate]);
+
+  const performancePorVendedor = useMemo(() => {
+    const summary: Record<string, { nome: string, total: number, apostas: number }> = {};
+    filteredTickets.forEach(t => {
+      if (!['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status)) return;
+      const key = t.vendedor_id || 'admin-master';
+      const nome = t.vendedor_nome || 'Administrador';
+      if (!summary[key]) summary[key] = { nome, total: 0, apostas: 0 };
+      summary[key].total += Number(t.valor_total || 0);
+      summary[key].apostas += 1;
+    });
+    return Object.values(summary).sort((a, b) => b.total - a.total);
+  }, [filteredTickets]);
 
   const filteredUsers = useMemo(() => {
     return users.filter(u => (u.nome || "").toLowerCase().includes(userSearchTerm.toLowerCase()) || (u.email || "").toLowerCase().includes(userSearchTerm.toLowerCase()));
@@ -342,47 +362,74 @@ function FinanceiroContent() {
             </TabsContent>
 
             <TabsContent value="history" className="mt-6 space-y-6">
-               <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <Input 
-                    placeholder="Pesquisar histórico..." 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="h-14 rounded-2xl font-bold border-2 px-6 flex-1"
-                  />
-                  <Button onClick={clearDatabase} variant="destructive" className="h-14 px-8 font-black uppercase text-xs rounded-2xl gap-2 shadow-lg">
-                    <Trash2 className="w-5 h-5" /> Limpar Banco de Dados
-                  </Button>
-               </div>
-               <Card className="rounded-[2.5rem] overflow-hidden bg-white shadow-xl border-none">
-                  <div className="overflow-x-auto">
-                     <table className="w-full text-left">
-                        <thead className="bg-primary text-white text-[10px] font-black uppercase">
-                           <tr><th className="p-8">Data</th><th className="p-8">Apostador</th><th className="p-8">Evento</th><th className="p-8">Valor</th><th className="p-8 text-right">Status</th></tr>
-                        </thead>
-                        <tbody className="divide-y text-[10px] font-bold uppercase">
-                           {filteredTickets.map((t, i) => (
-                             <tr key={i} className="hover:bg-muted/30 transition-colors">
-                                <td className="p-8">{new Date(t.created_at).toLocaleString('pt-BR')}</td>
-                                <td className="p-8 font-black text-primary">{t.cliente}</td>
-                                <td className="p-8">{t.evento_nome}</td>
-                                <td className="p-8">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
-                                <td className="p-8 text-right">
-                                   <Badge className={cn(
-                                     "font-black text-[8px] uppercase h-7 px-4",
-                                     t.status === 'pago' ? 'bg-blue-600' : 
-                                     t.status === 'premio_pago' ? 'bg-green-600' : 
-                                     t.status === 'ganhou' ? 'bg-orange-600' : 
-                                     t.status === 'rejeitado' ? 'bg-destructive' : 'bg-muted text-muted-foreground'
-                                   )}>
-                                     {t.status === 'pago' ? 'Aprovada' : t.status === 'premio_pago' ? 'Prêmio Pago ✓' : t.status}
-                                   </Badge>
-                                </td>
-                             </tr>
-                           ))}
-                        </tbody>
-                     </table>
+               <div className="flex flex-col gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-6 rounded-3xl shadow-sm border">
+                     <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase opacity-60">Início</Label>
+                        <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="font-bold border-2" />
+                     </div>
+                     <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase opacity-60">Fim</Label>
+                        <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="font-bold border-2" />
+                     </div>
+                     <div className="space-y-1 md:col-span-2">
+                        <Label className="text-[10px] font-black uppercase opacity-60">Pesquisar por Nome ou ID</Label>
+                        <div className="relative">
+                           <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                           <Input placeholder="Cliente ou Vendedor..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 font-bold border-2 h-12" />
+                        </div>
+                     </div>
                   </div>
-               </Card>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                     <Card className="lg:col-span-1 bg-white rounded-3xl shadow-lg border-none overflow-hidden">
+                        <div className="bg-primary p-4 text-white flex items-center justify-between">
+                           <h3 className="text-xs font-black uppercase flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Performance Equipe</h3>
+                           <Badge className="bg-white/20 text-white border-none">{performancePorVendedor.length}</Badge>
+                        </div>
+                        <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                           {performancePorVendedor.map((perf, i) => (
+                             <div key={i} className="flex justify-between items-center p-3 hover:bg-muted/50 rounded-xl transition-all border-b last:border-none">
+                                <div className="flex items-center gap-2">
+                                   <div className="bg-muted p-2 rounded-lg"><User className="w-4 h-4 text-primary" /></div>
+                                   <div><p className="text-[10px] font-black uppercase">{perf.nome}</p><p className="text-[8px] font-bold text-muted-foreground uppercase">{perf.apostas} apostas</p></div>
+                                </div>
+                                <p className="text-xs font-black text-primary">R$ {perf.total.toFixed(2)}</p>
+                             </div>
+                           ))}
+                        </div>
+                     </Card>
+
+                     <div className="lg:col-span-2 space-y-4">
+                        <div className="flex justify-between items-center px-4">
+                           <h3 className="text-xs font-black uppercase text-primary">Extrato Detalhado</h3>
+                           <Button onClick={clearDatabase} variant="destructive" size="sm" className="h-8 font-black uppercase text-[8px] rounded-lg gap-1">
+                             <Trash2 className="w-3 h-3" /> Limpar Histórico
+                           </Button>
+                        </div>
+                        <Card className="rounded-3xl overflow-hidden bg-white shadow-xl border-none">
+                           <div className="overflow-x-auto">
+                              <table className="w-full text-left">
+                                 <thead className="bg-muted/50 text-[9px] font-black uppercase text-muted-foreground">
+                                    <tr><th className="p-4">Data</th><th className="p-4">Vendedor</th><th className="p-4">Cliente</th><th className="p-4">Evento</th><th className="p-4 text-right">Valor</th></tr>
+                                 </thead>
+                                 <tbody className="divide-y text-[9px] font-bold uppercase">
+                                    {filteredTickets.map((t, i) => (
+                                      <tr key={i} className="hover:bg-muted/30 transition-colors">
+                                         <td className="p-4 whitespace-nowrap">{new Date(t.created_at).toLocaleString('pt-BR')}</td>
+                                         <td className="p-4 text-primary font-black">{t.vendedor_nome || '---'}</td>
+                                         <td className="p-4">{t.cliente}</td>
+                                         <td className="p-4">{t.evento_nome}</td>
+                                         <td className="p-4 text-right">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
+                                      </tr>
+                                    ))}
+                                 </tbody>
+                              </table>
+                           </div>
+                        </Card>
+                     </div>
+                  </div>
+               </div>
             </TabsContent>
           </Tabs>
         </div>

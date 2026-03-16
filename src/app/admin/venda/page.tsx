@@ -21,7 +21,8 @@ import {
   MessageCircle,
   AlertCircle,
   Trophy,
-  CheckCircle2
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -41,6 +42,7 @@ export default function VendaPage() {
   const [btConnecting, setBtConnecting] = useState(false);
 
   const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
+  const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [settings, setSettings] = useState({ youtubeUrl: '', systemUrl: 'https://leobet-probets.vercel.app' });
   
   const [formData, setFormData] = useState({ 
@@ -95,7 +97,7 @@ export default function VendaPage() {
         .from('tickets')
         .select('valor_total')
         .eq('evento_id', eventId)
-        .in('status', ['pago', 'ganhou', 'premio_pago']);
+        .in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
       
       const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
       const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
@@ -116,6 +118,7 @@ export default function VendaPage() {
   const handleSelectEvento = (eventId: string) => {
     const ev = eventosAtivos.find(e => e.id === eventId);
     if (ev) {
+      setSelectedEventData(ev);
       setFormData({
         ...formData,
         eventoId: ev.id,
@@ -131,6 +134,8 @@ export default function VendaPage() {
       } else {
         setPartidasBolao([]);
       }
+    } else {
+      setSelectedEventData(null);
     }
   };
 
@@ -210,15 +215,18 @@ export default function VendaPage() {
 
   const handleShareWhatsApp = (receipt: any) => {
     const link = `${settings.systemUrl}/resultados?c=${receipt.id}`;
-    let statusMsg = receipt.status === 'pendente' ? "⚠️ *STATUS:* AGUARDANDO PAGAMENTO (Pendente de Validação)%0A" : "✅ *STATUS:* VALIDADO E ATIVO%0A";
+    let statusMsg = receipt.status === 'pendente' ? "⚠️ *STATUS:* AGUARDANDO PAGAMENTO%0A" : "✅ *STATUS:* VALIDADO%0A";
     let prizeMsg = "";
+    
     if (receipt.tipo === 'bingo') {
-      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
+      prizeMsg = `🔥 *PRÊMIOS ACUMULADOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
     } else {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
     }
 
-    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A${statusMsg}👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
+    const drawInfo = selectedEventData ? `%0A📅 *SORTEIO:* ${new Date(selectedEventData.data_sorteio || selectedEventData.data_fim).toLocaleString('pt-BR')}` : "";
+
+    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A${statusMsg}👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}${drawInfo}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
     window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -267,6 +275,7 @@ export default function VendaPage() {
       pix_resgate: formData.pixKey, 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
+      vendedor_nome: user?.nome || 'Administrador',
       status: finalStatus, 
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
@@ -298,17 +307,42 @@ export default function VendaPage() {
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          <Card className="bg-white p-4 rounded-3xl shadow-sm border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={cn("p-3 rounded-2xl", btCharacteristic ? "bg-green-100" : "bg-muted")}>
-                  <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-white p-4 rounded-3xl shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={cn("p-3 rounded-2xl", btCharacteristic ? "bg-green-100" : "bg-muted")}>
+                    <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
+                  </div>
+                  <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADO"}</p></div>
                 </div>
-                <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADO"}</p></div>
-              </div>
-              <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl">
-                {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
-              </Button>
-          </Card>
+                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl">
+                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
+                </Button>
+            </Card>
+
+            {formData.eventoId && (
+              <Card className="bg-primary text-white p-4 rounded-3xl shadow-xl border-none animate-in zoom-in duration-300">
+                 <div className="flex justify-between items-center h-full">
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-black uppercase text-white/60">Arrecadação Real (65%)</p>
+                       <p className="text-2xl font-black">R$ {prizes.totalNet.toFixed(2)}</p>
+                    </div>
+                    {formData.tipo === 'bingo' ? (
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                         <div className="bg-white/10 p-2 rounded-xl"><p className="text-[7px] font-black uppercase opacity-60">Bingo</p><p className="text-[10px] font-black">R$ {prizes.bingo.toFixed(2)}</p></div>
+                         <div className="bg-white/10 p-2 rounded-xl"><p className="text-[7px] font-black uppercase opacity-60">Quina</p><p className="text-[10px] font-black">R$ {prizes.quina.toFixed(2)}</p></div>
+                         <div className="bg-white/10 p-2 rounded-xl"><p className="text-[7px] font-black uppercase opacity-60">Quadra</p><p className="text-[10px] font-black">R$ {prizes.quadra.toFixed(2)}</p></div>
+                      </div>
+                    ) : (
+                      <div className="bg-accent text-white p-3 rounded-2xl flex items-center gap-2">
+                         <Trophy className="w-5 h-5" />
+                         <div><p className="text-[8px] font-black uppercase">Acumulado</p><p className="text-sm font-black">R$ {prizes.bolao.toFixed(2)}</p></div>
+                      </div>
+                    )}
+                 </div>
+              </Card>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden border-t-8 border-primary">
@@ -332,17 +366,20 @@ export default function VendaPage() {
                   
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60 flex items-center gap-2">
-                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Resgate Imutável)
+                      <Key className="w-3 h-3 text-accent" /> Chave PIX do Cliente (Resgate)
                     </Label>
                     <Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CPF, EMAIL OU CELULAR" className="h-12 font-black border-accent/30" required />
-                    <p className="text-[8px] font-bold text-orange-600 uppercase">Esta chave será gravada no bilhete para segurança total do prêmio.</p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">Escolher Concurso</Label>
                     <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                       <option value="">-- SELECIONE O JOGO --</option>
-                      {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
+                      {eventosAtivos.map(e => (
+                        <option key={e.id} value={e.id}>
+                          {e.nome} (R$ {Number(e.preco).toFixed(2)}) - Início: {new Date(e.data_sorteio || e.data_fim).toLocaleString('pt-BR')}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
