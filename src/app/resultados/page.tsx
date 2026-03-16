@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -89,15 +89,17 @@ function ResultadosContent() {
 
     setClaiming(ticketId);
     try {
-      const updatedTickets = receipt.tickets_data.map((t: any) => 
+      // Atualiza o status do bilhete individual dentro do array JSONB
+      const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
       );
 
       const { error } = await supabase
         .from('tickets')
         .update({ 
-          tickets_data: updatedTickets,
-          pix_resgate: pixConfirm 
+          tickets_data: updatedTicketsData,
+          pix_resgate: pixConfirm,
+          status: 'ganhou' // Garante que o status do recibo permita visualização no financeiro
         })
         .eq('id', receipt.id);
 

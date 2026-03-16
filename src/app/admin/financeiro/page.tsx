@@ -288,13 +288,13 @@ function FinanceiroContent() {
             </TabsContent>
 
             <TabsContent value="payouts" className="mt-6 space-y-4">
-               {filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou').length === 0 ? (
+               {filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').length === 0 ? (
                  <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências no momento</Card>
                ) : (
-                 filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou').map((t, i) => (
+                 filteredTickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => (
                    <Card key={i} className={cn(
                      "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
-                     t.status === 'ganhou' ? 'border-l-green-500' : 'border-l-orange-500'
+                     t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
                    )}>
                      <div className="space-y-2 flex-1 w-full">
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
@@ -303,6 +303,9 @@ function FinanceiroContent() {
                           <p className="text-[8px] font-black uppercase opacity-60">Chave PIX de Resgate:</p>
                           <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
                        </div>
+                       {t.status === 'pendente-resgate' && (
+                         <Badge className="bg-green-100 text-green-700 font-black uppercase text-[8px] h-5">SOLICITAÇÃO DE PRÊMIO</Badge>
+                       )}
                      </div>
                      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                         <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
@@ -312,7 +315,7 @@ function FinanceiroContent() {
                             <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
                           </div>
                         )}
-                        {t.status === 'ganhou' && (
+                        {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
                            <Button onClick={() => supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id).then(loadData)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
                         )}
                      </div>
