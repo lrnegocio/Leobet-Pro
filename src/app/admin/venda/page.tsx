@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -56,7 +55,7 @@ export default function VendaPage() {
   });
 
   const [partidasBolao, setPartidasBolao] = useState<any[]>([]);
-  const [palpites, setPalpites] = useState<string[]>(Array(10).fill(''));
+  const [palpites, setPalpites] = useState<string[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
   useEffect(() => {
@@ -133,6 +132,7 @@ export default function VendaPage() {
         setPalpites(Array(ev.partidas?.length || 10).fill(''));
       } else {
         setPartidasBolao([]);
+        setPalpites([]);
       }
     } else {
       setSelectedEventData(null);
@@ -219,7 +219,7 @@ export default function VendaPage() {
     let prizeMsg = "";
     
     if (receipt.tipo === 'bingo') {
-      prizeMsg = `🔥 *PRÊMIOS ACUMULADOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
+      prizeMsg = `🔥 *PRÊMIOS ATUALIZADOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
     } else {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
     }
@@ -291,7 +291,7 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
       
       setFormData({ ...formData, cliente: '', whatsapp: '', pixKey: '' });
-      setPalpites(Array(partidasBolao.length || 10).fill(''));
+      if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
       console.error(err);
       toast({ variant: "destructive", title: "ERRO AO SALVAR" });
