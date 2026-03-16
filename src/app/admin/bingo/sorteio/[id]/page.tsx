@@ -49,7 +49,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       .from('tickets')
       .select('*')
       .eq('evento_id', params.id)
-      .in('status', ['pago', 'ganhou', 'premio_pago']);
+      .in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
     
     setTickets(ticketsData || []);
   };
@@ -80,7 +80,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   };
 
   const markTicketAsWinner = async (receiptId: string, ticketId: string, level: string, prize: number) => {
-    // Busca o recibo atualizado antes de alterar
     const { data: receipt } = await supabase.from('tickets').select('*').eq('id', receiptId).single();
     if (receipt) {
       const updatedData = receipt.tickets_data.map((t: any) => {
@@ -92,7 +91,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
 
       await supabase.from('tickets').update({ 
         tickets_data: updatedData,
-        status: 'ganhou' // Marca o recibo como ganhador para aparecer na auditoria do admin
+        status: 'ganhou' 
       }).eq('id', receiptId);
     }
   };
@@ -111,7 +110,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         const hits = t.numeros.filter((n: number) => drawn.includes(n)).length;
         
         if (hits >= targetHits) {
-          // Verifica se já não ganhou neste nível
           const alreadyInThisLevel = (winners[level] || []).some((w: any) => w.ticketId === t.id);
           if (!alreadyInThisLevel) {
             currentRoundWinners.push({ 
@@ -126,14 +124,13 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     });
 
     if (currentRoundWinners.length > 0) {
-      setIsAuto(false); // Pausa o sorteio para mostrar ganhadores
+      setIsAuto(false);
       const newWinners = { ...winners };
       newWinners[level] = [...(newWinners[level] || []), ...currentRoundWinners];
       setWinners(newWinners);
 
       const individualPrize = premios[level] / newWinners[level].length;
       
-      // Grava no banco de dados cada ganhador
       for (const winner of currentRoundWinners) {
         await markTicketAsWinner(winner.receiptId, winner.ticketId, level, individualPrize);
       }
@@ -180,7 +177,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
     return () => clearInterval(interval);
   }, [isAuto, finished, drawnNumbers]);
 
-  if (!bingo) return <div className="h-screen flex items-center justify-center font-black uppercase text-xs">Carregando Auditoria...</div>;
+  if (!bingo) return <div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary">Carregando Auditoria...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 overflow-hidden font-body">

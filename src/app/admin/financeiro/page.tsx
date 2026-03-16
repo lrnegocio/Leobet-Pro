@@ -18,7 +18,8 @@ import {
   UserPlus,
   UserCircle,
   XCircle,
-  CheckCircle2
+  CheckCircle2,
+  DollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -68,16 +69,19 @@ function FinanceiroContent() {
   }, []);
 
   const loadData = async () => {
-    if (!startDate || !endDate) return;
+    if (!mounted) return;
     setSyncing(true);
     try {
-      const { data: tData } = await supabase
+      const query = supabase
         .from('tickets')
-        .select('*')
-        .gte('created_at', `${startDate}T00:00:00`)
-        .lte('created_at', `${endDate}T23:59:59`)
-        .order('created_at', { ascending: false });
+        .select('*');
+      
+      if (startDate && endDate) {
+        query.gte('created_at', `${startDate}T00:00:00`)
+             .lte('created_at', `${endDate}T23:59:59`);
+      }
 
+      const { data: tData } = await query.order('created_at', { ascending: false });
       if (tData) setTickets(tData);
 
       const { data: uData } = await supabase
@@ -135,6 +139,18 @@ function FinanceiroContent() {
     }
   };
 
+  const confirmPayout = async (ticketId: string) => {
+    const { error } = await supabase
+      .from('tickets')
+      .update({ status: 'premio_pago' })
+      .eq('id', ticketId);
+    
+    if (!error) {
+      toast({ title: "PAGAMENTO CONFIRMADO!", description: "O sistema registrou a baixa do prêmio." });
+      loadData();
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUser.nome || !newUser.email || !newUser.password) {
       toast({ variant: "destructive", title: "PREENCHA OS CAMPOS BÁSICOS" });
@@ -148,7 +164,8 @@ function FinanceiroContent() {
       status: 'approved',
       balance: 0,
       commission_balance: 0,
-      pending_balance: 0
+      pending_balance: 0,
+      created_at: new Date().toISOString()
     }]);
 
     if (!error) {
@@ -162,7 +179,7 @@ function FinanceiroContent() {
 
   const finance = useMemo(() => {
     let bruto = 0;
-    const validTickets = tickets.filter(t => ['pago', 'ganhou', 'premio_pago'].includes(t.status));
+    const validTickets = tickets.filter(t => ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status));
     validTickets.forEach(t => bruto += Number(t.valor_total || 0));
     const pool = Math.floor(bruto * 0.65 * 100) / 100;
     const admin = Math.floor(bruto * 0.35 * 100) / 100;
@@ -221,7 +238,7 @@ function FinanceiroContent() {
 
           <Tabs defaultValue={defaultTab}>
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto no-scrollbar">
-              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Aprovações Tickets</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Aprovações & Prêmios</TabsTrigger>
               <TabsTrigger value="users" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Gestão de Usuários</TabsTrigger>
               <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 h-12 data-[state=active]:bg-primary data-[state=active]:text-white shrink-0">Histórico Geral</TabsTrigger>
             </TabsList>
@@ -299,24 +316,39 @@ function FinanceiroContent() {
                      <div className="space-y-2 flex-1 w-full">
                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
-                       <div className="bg-muted/50 p-3 rounded-xl inline-block w-full md:w-auto">
-                          <p className="text-[8px] font-black uppercase opacity-60">Chave PIX de Resgate:</p>
-                          <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
-                       </div>
-                       {t.status === 'pendente-resgate' && (
-                         <Badge className="bg-green-100 text-green-700 font-black uppercase text-[8px] h-5">SOLICITAÇÃO DE PRÊMIO</Badge>
+                       
+                       {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                         <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mt-2">
+                            <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
+                            <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
+                            <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">GANHADOR</Badge>
+                         </div>
+                       )}
+
+                       {t.status === 'pendente' && (
+                         <div className="bg-muted/50 p-3 rounded-xl inline-block w-full md:w-auto">
+                            <p className="text-[8px] font-black uppercase opacity-60">Chave PIX de Resgate (Segurança):</p>
+                            <p className="text-[10px] font-black truncate">{t.pix_resgate || 'NÃO CADASTRADA'}</p>
+                         </div>
                        )}
                      </div>
                      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                         <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
+                        
                         {t.status === 'pendente' && (
                           <div className="flex gap-2 flex-1">
                             <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar</Button>
                             <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
                           </div>
                         )}
+
                         {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
-                           <Button onClick={() => supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id).then(loadData)} className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg">Confirmar Pagamento</Button>
+                           <Button 
+                             onClick={() => confirmPayout(t.id)} 
+                             className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
+                           >
+                             <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento
+                           </Button>
                         )}
                      </div>
                    </Card>
@@ -357,7 +389,7 @@ function FinanceiroContent() {
                                      t.status === 'ganhou' ? 'bg-orange-600' : 
                                      t.status === 'rejeitado' ? 'bg-destructive' : 'bg-muted text-muted-foreground'
                                    )}>
-                                     {t.status === 'pago' ? 'Aprovada' : t.status === 'premio_pago' ? 'Prêmio Pago' : t.status}
+                                     {t.status === 'pago' ? 'Aprovada' : t.status === 'premio_pago' ? 'Prêmio Pago ✓' : t.status}
                                    </Badge>
                                 </td>
                              </tr>

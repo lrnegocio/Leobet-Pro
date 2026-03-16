@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert, CheckCircle2, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -89,8 +89,7 @@ function ResultadosContent() {
 
     setClaiming(ticketId);
     try {
-      // Atualiza o status do bilhete individual dentro do array JSONB
-      const updatedTicketsData = receipt.tickets_data.map((t: any) => 
+      const updatedTicketsData = (receipt.tickets_data || []).map((t: any) => 
         t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
       );
 
@@ -99,7 +98,7 @@ function ResultadosContent() {
         .update({ 
           tickets_data: updatedTicketsData,
           pix_resgate: pixConfirm,
-          status: 'ganhou' // Garante que o status do recibo permita visualização no financeiro
+          status: 'pendente-resgate'
         })
         .eq('id', receipt.id);
 
@@ -202,10 +201,12 @@ function ResultadosContent() {
                       <div className="flex gap-2 items-center">
                         <Badge className={cn(
                           "text-white border-none font-black uppercase h-10 px-6 rounded-2xl text-[10px] shadow-lg",
-                          receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago' ? 'bg-green-600' : 
+                          receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago' || receipt.status === 'pendente-resgate' ? 'bg-green-600' : 
                           receipt.status === 'rejeitado' ? 'bg-destructive' : 'bg-orange-600'
                         )}>
-                          {receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago' ? '✓ APOSTA VALIDADA' : 
+                          {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : 
+                           receipt.status === 'premio_pago' ? '🏆 PRÊMIO PAGO ✓' :
+                           receipt.status === 'ganhou' || receipt.status === 'pendente-resgate' ? '🔥 GANHADOR / AGUARDANDO RESGATE' :
                            receipt.status === 'rejeitado' ? '✖ APOSTA REJEITADA' : '⚠ AGUARDANDO PAGAMENTO'}
                         </Badge>
                         <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
@@ -227,24 +228,25 @@ function ResultadosContent() {
                 ) : (
                   <div className="space-y-4">
                     {receipt.tickets_data?.map((t: any, idx: number) => {
-                      const isWinner = t.status === 'ganhou';
-                      const isPending = t.status === 'pendente-resgate';
-                      const isBetPaid = receipt.status === 'pago' || receipt.status === 'ganhou' || receipt.status === 'premio_pago';
+                      const isWinner = t.status === 'ganhou' || receipt.status === 'ganhou';
+                      const isPending = t.status === 'pendente-resgate' || receipt.status === 'pendente-resgate';
+                      const isPaid = receipt.status === 'premio_pago';
+                      const isBetPaid = receipt.status === 'pago' || isWinner || isPending || isPaid;
                       
                       return (
                         <Card key={idx} className={cn(
                           "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                          isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
+                          isWinner || isPaid ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
                         )}>
                            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
                                <div className="flex-1 space-y-4">
                                   <div className="flex justify-between items-center">
                                     <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
-                                    <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
+                                    <Badge variant={(isWinner || isPaid) ? 'default' : 'outline'} className={cn(
                                       "font-black uppercase text-[9px] h-6 px-4",
-                                      isWinner ? 'bg-green-600 animate-bounce' : ''
+                                      (isWinner || isPaid) ? 'bg-green-600' : ''
                                     )}>
-                                      {isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetPaid ? "✓ ATIVO" : "AGUARDANDO"}
+                                      {isPaid ? "✓ PRÊMIO PAGO" : isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetPaid ? "✓ ATIVO" : "AGUARDANDO"}
                                     </Badge>
                                   </div>
                                   {t.numeros ? (
@@ -271,13 +273,19 @@ function ResultadosContent() {
                                     </div>
                                   )}
                                </div>
-                               {(isWinner || isPending) && (
+                               {(isWinner || isPending || isPaid) && (
                                  <div className={cn(
                                    "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
-                                   isWinner ? 'bg-green-600' : 'bg-orange-600',
+                                   isPaid ? 'bg-blue-600' : (isWinner ? 'bg-green-600' : 'bg-orange-600'),
                                    "text-white"
                                  )}>
-                                    {isWinner ? (
+                                    {isPaid ? (
+                                      <div className="space-y-2">
+                                         <CheckCircle2 className="w-12 h-12 mx-auto" />
+                                         <p className="font-black uppercase text-lg">PAGAMENTO REALIZADO</p>
+                                         <p className="text-[10px] font-bold opacity-80">Prêmio enviado com sucesso via PIX.</p>
+                                      </div>
+                                    ) : isWinner ? (
                                       <>
                                         <div>
                                           <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
