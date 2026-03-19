@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -21,7 +22,9 @@ import {
   Calendar,
   Search,
   TrendingUp,
-  User
+  User,
+  Trophy,
+  DollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -257,45 +260,59 @@ function FinanceiroContent() {
                {tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').length === 0 ? (
                  <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências ou prêmios no momento</Card>
                ) : (
-                 tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => (
-                   <Card key={i} className={cn(
-                     "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
-                     t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
-                   )}>
-                     <div className="space-y-2 flex-1 w-full">
-                       <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
-                       <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
-                       <p className="text-[9px] font-black text-muted-foreground uppercase">CÓDIGO: {t.id}</p>
-                       
-                       {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
-                         <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mt-2">
-                            <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
-                            <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
-                            <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO</Badge>
+                 tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => {
+                   // Calcula o prêmio total somando todos os tickets_data que ganharam
+                   const totalPremio = (t.tickets_data || []).reduce((acc: number, item: any) => acc + (item.valorPremio || 0), 0);
+                   
+                   return (
+                     <Card key={i} className={cn(
+                       "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
+                       t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
+                     )}>
+                       <div className="space-y-2 flex-1 w-full">
+                         <div className="flex items-center gap-2">
+                           <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
+                           <Badge variant="outline" className="h-5 text-[8px] font-black uppercase">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
                          </div>
-                       )}
-                     </div>
-                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
-                        <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
-                        
-                        {t.status === 'pendente' && (
-                          <div className="flex gap-2 flex-1">
-                            <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar Venda</Button>
-                            <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
-                          </div>
-                        )}
+                         <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
+                         <p className="text-[9px] font-black text-muted-foreground uppercase">CÓDIGO: {t.id}</p>
+                         
+                         {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                           <div className="bg-green-50 p-4 rounded-2xl border-2 border-green-100 mt-2 flex flex-col sm:flex-row justify-between items-center gap-4">
+                              <div className="flex-1">
+                                 <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
+                                 <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
+                                 <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO</Badge>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border-2 border-green-200 text-center min-w-[140px]">
+                                 <p className="text-[8px] font-black uppercase text-green-600">VALOR DO PRÊMIO</p>
+                                 <p className="text-xl font-black text-green-700">R$ {totalPremio.toFixed(2)}</p>
+                              </div>
+                           </div>
+                         )}
+                       </div>
+                       <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
+                          <Button onClick={() => window.open(`https://api.whatsapp.com/send?phone=55${t.whatsapp}`, '_blank')} variant="outline" className="h-14 font-black uppercase text-[9px] rounded-xl border-2"><Phone className="w-4 h-4 mr-2" /> WhatsApp</Button>
+                          
+                          {t.status === 'pendente' && (
+                            <div className="flex gap-2 flex-1">
+                              <Button onClick={() => supabase.from('tickets').update({ status: 'pago' }).eq('id', t.id).then(loadData)} className="bg-primary text-white font-black uppercase text-[10px] h-14 px-6 rounded-xl shadow-lg flex-1">Aprovar Venda</Button>
+                              <Button onClick={() => supabase.from('tickets').update({ status: 'rejeitado' }).eq('id', t.id).then(loadData)} variant="destructive" className="h-14 px-4 rounded-xl"><XCircle className="w-5 h-5" /></Button>
+                            </div>
+                          )}
 
-                        {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
-                           <Button 
-                             onClick={() => confirmPayout(t.id)} 
-                             className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
-                           >
-                             <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento
-                           </Button>
-                        )}
-                     </div>
-                   </Card>
-                 ))
+                          {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                             <Button 
+                               onClick={() => confirmPayout(t.id)} 
+                               className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
+                             >
+                               <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento
+                             </Button>
+                          )}
+                       </div>
+                     </Card>
+                   );
+                 })
                )}
             </TabsContent>
 
@@ -410,7 +427,7 @@ function FinanceiroContent() {
                            <div className="overflow-x-auto">
                               <table className="w-full text-left">
                                  <thead className="bg-muted/50 text-[9px] font-black uppercase text-muted-foreground">
-                                    <tr><th className="p-4">Data</th><th className="p-4">Vendedor</th><th className="p-4">Cliente</th><th className="p-4">Evento</th><th className="p-4 text-right">Valor</th></tr>
+                                    <tr><th className="p-4">Data</th><th className="p-4">Vendedor</th><th className="p-4">Cliente</th><th className="p-4">Evento</th><th className="p-4 text-right">Valor</th><th className="p-4">Status</th></tr>
                                  </thead>
                                  <tbody className="divide-y text-[9px] font-bold uppercase">
                                     {filteredTickets.map((t, i) => (
@@ -420,6 +437,16 @@ function FinanceiroContent() {
                                          <td className="p-4">{t.cliente}</td>
                                          <td className="p-4">{t.evento_nome}</td>
                                          <td className="p-4 text-right">R$ {Number(t.valor_total || 0).toFixed(2)}</td>
+                                         <td className="p-4">
+                                            <Badge className={cn(
+                                              "text-[7px] font-black uppercase px-2 h-5",
+                                              t.status === 'pago' ? 'bg-blue-600' : 
+                                              t.status === 'ganhou' ? 'bg-green-600' :
+                                              t.status === 'premio_pago' ? 'bg-green-800' : 'bg-orange-600'
+                                            )}>
+                                              {t.status === 'premio_pago' ? '✓ Prêmio Pago' : t.status}
+                                            </Badge>
+                                         </td>
                                       </tr>
                                     ))}
                                  </tbody>

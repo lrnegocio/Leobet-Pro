@@ -17,16 +17,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const { toast } = useToast();
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [scores, setScores] = useState<{p1: string, p2: string, excluded?: boolean}[]>(
-    Array(10).fill({p1: '', p2: '', excluded: false})
-  );
+  const [scores, setScores] = useState<{p1: string, p2: string, excluded?: boolean}[]>([]);
   const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     const { data: bData } = await supabase.from('boloes').select('*').eq('id', params.id).single();
     if (bData) {
       setBolao(bData);
-      if (bData.scores && bData.scores.length > 0) setScores(bData.scores);
+      const numPartidas = bData.partidas?.length || 10;
+      if (bData.scores && bData.scores.length > 0) {
+        setScores(bData.scores);
+      } else {
+        setScores(Array(numPartidas).fill({p1: '', p2: '', excluded: false}));
+      }
     }
 
     const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', params.id).eq('status', 'pago');
@@ -81,9 +84,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    const incomplete = scores.some(s => !s.excluded && (s.p1 === '' || s.p2 === ''));
+    // Validação robusta dos campos
+    const incomplete = scores.some((s, idx) => {
+      if (idx >= (bolao.partidas?.length || 0)) return false;
+      return !s.excluded && (s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
+    });
+
     if (incomplete) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES" });
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Certifique-se de que nenhum campo de placar está vazio." });
       return;
     }
 
@@ -99,9 +107,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     });
 
     let maxHits = 0;
-    const participants = [];
+    const participants: any[] = [];
 
+    // Primeiro pass para achar o max_hits
     tickets.forEach(receipt => {
+      if (!receipt.tickets_data) return;
       receipt.tickets_data.forEach((t: any) => {
         const guesses = t.palpite?.split('-') || [];
         let hits = 0;
@@ -109,9 +119,27 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
           if (results[i] !== 'CANCELLED' && g === results[i]) hits++;
         });
         if (hits > maxHits) maxHits = hits;
-        participants.push({ id: t.id, hits, receiptId: receipt.id });
+        participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
       });
     });
+
+    // Filtra quem atingiu o maxHits para dividir o prêmio
+    const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
+    const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
+
+    // Atualiza os tickets no banco
+    for (const winner of winnersList) {
+      const { data: receipt } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
+      if (receipt && receipt.tickets_data) {
+        const updatedData = receipt.tickets_data.map((t: any) => {
+          if (t.id === winner.ticketId) {
+            return { ...t, status: 'ganhou', valorPremio: individualPrize };
+          }
+          return t;
+        });
+        await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', winner.receiptId);
+      }
+    }
 
     const { error } = await supabase
       .from('boloes')
