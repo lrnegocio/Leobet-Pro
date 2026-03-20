@@ -365,7 +365,7 @@ function FinanceiroContent() {
               <div className="grid grid-cols-1 gap-3">
                 {filteredUsers.map((user, i) => (
                   <Card key={i} className="flex flex-col md:flex-row justify-between items-center p-6 rounded-[2rem] shadow-sm bg-white gap-6">
-                    <div className="flex items-center gap-4 flex-1 w-full">
+                    <div className="items-center gap-4 flex-1 w-full flex">
                       <div className="bg-primary/10 p-4 rounded-2xl"><UserCircle className="w-8 h-8 text-primary" /></div>
                       <div>
                         <p className="font-black uppercase text-lg text-primary leading-tight">{user.nome}</p>

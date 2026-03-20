@@ -51,7 +51,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   }, [params.id, mounted]);
 
   const totalArrecadado = useMemo(() => {
-    return tickets.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0);
+    return tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0) || 0), 0);
   }, [tickets]);
 
   const pool = Math.floor(totalArrecadado * 0.65 * 100) / 100;
@@ -71,7 +71,10 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         .update({ scores })
         .eq('id', params.id);
       
-      if (!error) toast({ title: "PLACARE SALVOS NO SUPABASE!" });
+      if (!error) {
+        toast({ title: "PLACARE SALVOS NO SUPABASE!" });
+        loadData();
+      }
     } catch (e) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR" });
     } finally {
@@ -100,18 +103,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    const incomplete = (bolao.partidas || []).some((p: any, idx: number) => {
-      const s = scores[idx];
-      if (!s) return true;
-      if (s.excluded) return false;
-      return s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === undefined;
-    });
+    // Validação robusta: aceita qualquer valor numérico inclusive zero
+    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
 
     if (incomplete) {
       toast({ 
         variant: "destructive", 
         title: "PREENCHA TODOS OS PLACARES", 
-        description: "Certifique-se de que nenhum campo de placar está vazio antes de finalizar a auditoria." 
+        description: "Todos os 10 placares devem ser preenchidos antes de finalizar." 
       });
       return;
     }
@@ -121,7 +120,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     try {
       const results = (bolao.partidas || []).map((p: any, i: number) => {
         const s = scores[i];
-        if (s.excluded) return 'CANCELLED';
         const g1 = parseInt(s.p1);
         const g2 = parseInt(s.p2);
         if (g1 > g2) return '1';
@@ -138,7 +136,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
           const guesses = t.palpite?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => {
-            if (results[i] !== 'CANCELLED' && g === results[i]) hits++;
+            if (g === results[i]) hits++;
           });
           if (hits > maxHits) maxHits = hits;
           participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
@@ -157,7 +155,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             }
             return t;
           });
-          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', winner.receiptId);
+          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', receipt.id);
         }
       }
 

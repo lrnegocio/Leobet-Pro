@@ -256,12 +256,16 @@ export default function VendaPage() {
       return Array.from(nums).sort((a,b) => a-b);
     };
 
-    const ticketsGenerated = Array.from({ length: quantity }).map(() => ({
-      id: Math.random().toString().substring(2, 10),
-      numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
-      palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
-      status: 'ativo'
-    }));
+    // OTIMIZAÇÃO: Gerando dados de bilhetes de forma eficiente
+    const ticketsGenerated = [];
+    for (let i = 0; i < quantity; i++) {
+      ticketsGenerated.push({
+        id: Math.random().toString().substring(2, 10),
+        numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
+        palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
+        status: 'ativo'
+      });
+    }
 
     const totalVenda = formData.unitario * quantity;
     const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
@@ -294,11 +298,16 @@ export default function VendaPage() {
       toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       
-      setFormData({ ...formData, cliente: '', whatsapp: '', pixKey: '' });
+      // Reseta formulário mantendo o evento selecionado para próxima venda rápida
+      setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
       console.error("Erro Supabase:", err);
-      toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA", description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes." });
+      toast({ 
+        variant: "destructive", 
+        title: "ERRO AO SALVAR VENDA", 
+        description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes para processar em lotes menores." 
+      });
     } finally {
       setLoading(false);
     }
