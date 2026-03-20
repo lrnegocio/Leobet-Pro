@@ -256,11 +256,11 @@ export default function VendaPage() {
       return Array.from(nums).sort((a,b) => a-b);
     };
 
-    // OTIMIZAÇÃO: Gerando dados de bilhetes de forma eficiente
+    // OTIMIZAÇÃO DE PAYLOAD: Geramos o mínimo necessário para evitar erros de salvamento
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
-        id: Math.random().toString().substring(2, 10),
+        id: Math.random().toString().substring(2, 8),
         numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
         palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
         status: 'ativo'
@@ -298,7 +298,6 @@ export default function VendaPage() {
       toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       
-      // Reseta formulário mantendo o evento selecionado para próxima venda rápida
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
@@ -306,7 +305,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes para processar em lotes menores." 
+        description: "Payload pesado. Tente reduzir a quantidade de bilhetes para processar." 
       });
     } finally {
       setLoading(false);
@@ -390,7 +389,7 @@ export default function VendaPage() {
                       <option value="">-- SELECIONE O JOGO --</option>
                       {eventosAtivos.map(e => (
                         <option key={e.id} value={e.id}>
-                          {e.nome} (R$ {Number(e.preco).toFixed(2)}) - Início: {new Date(e.data_sorteio || e.data_fim).toLocaleString('pt-BR')}
+                          {e.nome} (R$ {Number(e.preco).toFixed(2)}) - Sorteio: {new Date(e.data_sorteio || e.data_fim).toLocaleString('pt-BR')}
                         </option>
                       ))}
                     </select>
