@@ -32,7 +32,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       if (bData) {
         setBolao(bData);
         const numPartidas = bData.partidas?.length || 10;
-        if (bData.scores && bData.scores.length > 0) {
+        if (bData.scores && Array.isArray(bData.scores) && bData.scores.length > 0) {
           setScores(bData.scores);
         } else {
           setScores(Array(numPartidas).fill(null).map(() => ({ p1: '', p2: '', excluded: false })));
@@ -100,16 +100,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Validação robusta dos campos (Garante que strings vazias sejam detectadas)
     const incomplete = (bolao.partidas || []).some((p: any, idx: number) => {
       const s = scores[idx];
       if (!s) return true;
       if (s.excluded) return false;
-      return s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null;
+      return s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === undefined;
     });
 
     if (incomplete) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Certifique-se de que nenhum campo de placar está vazio antes de finalizar." });
+      toast({ 
+        variant: "destructive", 
+        title: "PREENCHA TODOS OS PLACARES", 
+        description: "Certifique-se de que nenhum campo de placar está vazio antes de finalizar a auditoria." 
+      });
       return;
     }
 
@@ -145,7 +148,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
       const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
 
-      // Atualização dos bilhetes ganhadores
       for (const winner of winnersList) {
         const { data: receipt } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (receipt && receipt.tickets_data) {
@@ -170,7 +172,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         .eq('id', params.id);
 
       if (!error) {
-        toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHits} acertos.` });
+        toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHits} acertos. Prêmios distribuídos.` });
         loadData();
       }
     } catch (e) {

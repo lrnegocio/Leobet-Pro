@@ -121,10 +121,11 @@ function FinanceiroContent() {
   };
 
   const clearDatabase = async () => {
-    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações de teste? Esta ação não pode ser desfeita.")) {
+    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações? Esta ação não pode ser desfeita.")) {
       setSyncing(true);
       try {
-        await supabase.from('tickets').delete().neq('id', '0');
+        const { error } = await supabase.from('tickets').delete().neq('id', '0');
+        if (error) throw error;
         toast({ title: "SISTEMA LIMPO!" });
         loadData();
       } catch (e) {
@@ -139,7 +140,6 @@ function FinanceiroContent() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
-    // Atualiza status de todas as cartelas premiadas para premio_pago
     const updatedTicketsData = ticket.tickets_data.map((t: any) => 
       (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
     );
@@ -270,7 +270,6 @@ function FinanceiroContent() {
                  <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências ou prêmios no momento</Card>
                ) : (
                  tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => {
-                   // Calcula o prêmio total acumulado de todas as cartelas premiadas no recibo
                    const totalPremioAcumulado = (t.tickets_data || []).reduce((acc: number, item: any) => 
                      (item.status === 'ganhou' || item.status === 'pendente-resgate') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
                    

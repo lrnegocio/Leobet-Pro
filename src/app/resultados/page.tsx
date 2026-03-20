@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, CheckCircle2 } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -78,14 +78,14 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // Cálculo do prêmio acumulado unificado
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
-    const isClaiming = receipt.status === 'pendente-resgate' || receipt.tickets_data.some((t: any) => t.status === 'pendente-resgate');
-    const isPaid = receipt.status === 'premio_pago' || receipt.tickets_data.every((t: any) => t.status === 'premio_pago' && winners.length > 0);
+    
+    const isClaiming = receipt.status === 'pendente-resgate';
+    const isPaid = receipt.status === 'premio_pago';
 
     return { 
       total, 
@@ -97,10 +97,9 @@ function ResultadosContent() {
   }, [receipt]);
 
   const handleClaimAll = async () => {
-    if (!receipt) return;
+    if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Marca todas as cartelas premiadas como pendente de resgate
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
@@ -115,7 +114,10 @@ function ResultadosContent() {
 
       if (error) throw error;
       
-      toast({ title: "RESGATE ACUMULADO SOLICITADO!", description: `O valor de R$ ${statsGanhos.total.toFixed(2)} foi enviado para análise.` });
+      toast({ 
+        title: "RESGATE ACUMULADO SOLICITADO!", 
+        description: `O valor total de R$ ${statsGanhos.total.toFixed(2)} foi enviado para análise administrativa.` 
+      });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO RESGATAR", description: err.message });
@@ -170,7 +172,7 @@ function ResultadosContent() {
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
                 <Button onClick={() => handleSearch()} className="h-16 md:h-20 bg-primary hover:bg-primary/90 font-black uppercase px-12 rounded-3xl shadow-xl" disabled={loading}>
-                  {loading ? <Clock className="animate-spin w-8 h-8" /> : <Search className="w-8 h-8" />}
+                  {loading ? <Loader2 className="animate-spin w-8 h-8" /> : <Search className="w-8 h-8" />}
                 </Button>
               </div>
             </div>
@@ -183,9 +185,8 @@ function ResultadosContent() {
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
                 
-                {/* ÁREA DE RESGATE UNIFICADO ACUMULADO */}
                 {statsGanhos.hasPending && (
-                  <Card className="bg-green-600 text-white border-none shadow-2xl rounded-[2rem] overflow-hidden">
+                  <Card className="bg-green-600 text-white border-none shadow-2xl rounded-[2rem] overflow-hidden animate-bounce-subtle">
                     <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
                       <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-4 rounded-3xl">
@@ -277,7 +278,7 @@ function ResultadosContent() {
                     return (
                       <Card key={idx} className={cn(
                         "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                        isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
+                        isWinner ? 'bg-green-50 border-green-400 scale-[1.02]' : 'bg-white border-muted-foreground/10'
                       )}>
                          <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
                              <div className="flex-1 space-y-4">
@@ -340,6 +341,15 @@ function ResultadosContent() {
           </CardContent>
         </Card>
       </div>
+      <style jsx global>{`
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .animate-bounce-subtle {
+          animation: bounce-subtle 2s infinite;
+        }
+      `}</style>
     </div>
   );
 }
