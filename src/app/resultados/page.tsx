@@ -29,7 +29,7 @@ function ResultadosContent() {
 
   useEffect(() => {
     setMounted(true);
-    const savedSettings = localStorage.getItem('leobet_settings');
+    const savedSettings = typeof window !== 'undefined' ? localStorage.getItem('leobet_settings') : null;
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
@@ -40,7 +40,7 @@ function ResultadosContent() {
 
   const handleSearch = async (searchCode?: string) => {
     const codeToSearch = (searchCode || code).trim().toUpperCase();
-    if (codeToSearch.length < 5) return;
+    if (codeToSearch.length < 3) return;
 
     setLoading(true);
     setSearched(true);
@@ -78,7 +78,6 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // UNIFICAÇÃO DE PRÊMIOS: Soma todas as cartelas premiadas em um único valor
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
@@ -101,7 +100,6 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Altera o status de todas as cartelas premiadas para pendente-resgate de uma vez
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
@@ -187,7 +185,6 @@ function ResultadosContent() {
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
                 
-                {/* BOTÃO DE RESGATE UNIFICADO */}
                 {statsGanhos.hasPending && (
                   <Card className="bg-green-600 text-white border-none shadow-2xl rounded-[2rem] overflow-hidden animate-bounce-subtle">
                     <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -332,11 +329,6 @@ function ResultadosContent() {
                       </Card>
                     );
                   })}
-                  {receipt.tickets_data?.length > 100 && (
-                    <div className="text-center py-4 opacity-40 font-black uppercase text-[10px]">
-                      Exibindo as primeiras 100 cartelas de {receipt.tickets_data.length} total.
-                    </div>
-                  )}
                 </div>
               </div>
             ) : searched && (

@@ -61,7 +61,7 @@ export default function VendaPage() {
   useEffect(() => {
     setMounted(true);
     loadEventos();
-    const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
+    const savedSettings = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('leobet_settings') || '{}') : {};
     setSettings({
       youtubeUrl: savedSettings.youtubeUrl || '',
       systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app'
@@ -191,19 +191,16 @@ export default function VendaPage() {
       text += `PIX SEGURO: ${receipt.pix_resgate}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += "--------------------------------\n";
-      receipt.tickets_data.slice(0, 10).forEach((t: any, i: number) => {
+      receipt.tickets_data.slice(0, 5).forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.numeros) text += `DEZ: ${t.numeros.join(' ')}\n`;
         if (t.palpite) text += `PALPITE: ${t.palpite}\n`;
         text += "\n";
       });
-      if (receipt.tickets_data.length > 10) {
-        text += `... e mais ${receipt.tickets_data.length - 10} bilhetes\n`;
-      }
       text += "--------------------------------\n";
       text += `VALOR: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += `CONFERIR: ${settings.systemUrl}\n`;
-      text += `BARCODE: ${receipt.barcode}\n`;
+      text += `CÓDIGO: ${receipt.id}\n`;
       text += "\x1B\x61\x01BOA SORTE!\n\n\n\n";
       const data = encoder.encode(text);
       const chunkSize = 20;
@@ -222,14 +219,14 @@ export default function VendaPage() {
     let prizeMsg = "";
     
     if (receipt.tipo === 'bingo') {
-      prizeMsg = `🔥 *PRÊMIOS ATUALIZADOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
+      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`;
     } else {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
     }
 
     const drawInfo = selectedEventData ? `%0A📅 *SORTEIO:* ${new Date(selectedEventData.data_sorteio || selectedEventData.data_fim).toLocaleString('pt-BR')}` : "";
 
-    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A${statusMsg}👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}${drawInfo}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.barcode}`;
+    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A${statusMsg}👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX SEGURO:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}${drawInfo}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.id}`;
     window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -255,11 +252,10 @@ export default function VendaPage() {
       return Array.from(nums).sort((a,b) => a-b);
     };
 
-    // OTIMIZAÇÃO DE PAYLOAD: Geramos o mínimo necessário para evitar erros de salvamento
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
-        id: Math.random().toString().substring(2, 8),
+        id: Math.random().toString(36).substring(7).toUpperCase(),
         numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
         palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
         status: 'ativo'
@@ -304,7 +300,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou tente reduzir a quantidade para processar." 
+        description: "Verifique a conexão ou campos do banco." 
       });
     } finally {
       setLoading(false);
@@ -483,9 +479,6 @@ export default function VendaPage() {
                                {t.palpite && <p className="text-[9px] font-bold mt-1 text-primary">PALPITE: {t.palpite}</p>}
                              </div>
                            ))}
-                           {vendaRealizada.tickets_data.length > 5 && (
-                             <p className="text-[10px] font-black text-center py-2 opacity-40">... e mais {vendaRealizada.tickets_data.length - 5} bilhetes</p>
-                           )}
                         </div>
                      </div>
 

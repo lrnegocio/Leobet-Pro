@@ -120,7 +120,7 @@ function FinanceiroContent() {
   };
 
   const clearDatabase = async () => {
-    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes e transações? Esta ação não pode ser desfeita.")) {
+    if (confirm("ATENÇÃO: Deseja apagar todos os bilhetes? Esta ação não pode ser desfeita.")) {
       setSyncing(true);
       try {
         const { error } = await supabase.from('tickets').delete().neq('id', '0');
@@ -139,7 +139,6 @@ function FinanceiroContent() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
-    // UNIFICAÇÃO: Muda o status de todas as cartelas premiadas do bilhete para premio_pago
     const updatedTicketsData = ticket.tickets_data.map((t: any) => 
       (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
     );

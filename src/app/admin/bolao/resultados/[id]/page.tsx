@@ -28,7 +28,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const loadData = async () => {
     if (!mounted) return;
     try {
-      const { data: bData } = await supabase.from('boloes').select('*').eq('id', params.id).single();
+      const { data: bData } = await supabase.from('boloes').select('*').eq('id', (await params).id).single();
       if (bData) {
         setBolao(bData);
         const numPartidas = bData.partidas?.length || 10;
@@ -39,7 +39,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
 
-      const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', params.id).eq('status', 'pago');
+      const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', (await params).id).eq('status', 'pago');
       setTickets(tData || []);
     } catch (err) {
       console.error(err);
@@ -48,7 +48,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   useEffect(() => {
     loadData();
-  }, [params.id, mounted]);
+  }, [params, mounted]);
 
   const totalArrecadado = useMemo(() => {
     return tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0) || 0), 0);
@@ -69,10 +69,10 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const { error } = await supabase
         .from('boloes')
         .update({ scores })
-        .eq('id', params.id);
+        .eq('id', (await params).id);
       
       if (!error) {
-        toast({ title: "PLACARE SALVOS NO SUPABASE!" });
+        toast({ title: "PLACARE SALVOS!" });
         loadData();
       }
     } catch (e) {
@@ -83,35 +83,20 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const resetBolao = async () => {
-    if (confirm("ATENÇÃO: Deseja resetar os resultados deste Bolão? Isso permitirá editar os placares novamente.")) {
+    if (confirm("Resetar resultados?")) {
       setSaving(true);
-      const { error } = await supabase
-        .from('boloes')
-        .update({ 
-          status: 'aberto',
-          resultados: null,
-          max_hits: 0
-        })
-        .eq('id', params.id);
-      
-      if (!error) {
-        toast({ title: "BOLÃO REABERTO PARA EDIÇÃO" });
-        loadData();
-      }
+      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', (await params).id);
+      loadData();
       setSaving(false);
     }
   };
 
   const calculateWinners = async () => {
-    // Validação robusta: aceita qualquer valor numérico inclusive zero
+    // Validação correta: permite 0, mas não string vazia
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
 
     if (incomplete) {
-      toast({ 
-        variant: "destructive", 
-        title: "PREENCHA TODOS OS PLACARES", 
-        description: "Todos os 10 placares devem ser preenchidos antes de finalizar." 
-      });
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES" });
       return;
     }
 
@@ -159,20 +144,9 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
 
-      const { error } = await supabase
-        .from('boloes')
-        .update({ 
-          scores, 
-          resultados: results, 
-          status: 'finalizado', 
-          max_hits: maxHits 
-        })
-        .eq('id', params.id);
-
-      if (!error) {
-        toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHits} acertos. Prêmios distribuídos.` });
-        loadData();
-      }
+      await supabase.from('boloes').update({ scores, resultados: results, status: 'finalizado', max_hits: maxHits }).eq('id', (await params).id);
+      toast({ title: "AUDITORIA FINALIZADA!" });
+      loadData();
     } catch (e) {
       toast({ variant: "destructive", title: "ERRO NA AUDITORIA" });
     } finally {
@@ -180,7 +154,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary">Carregando Banco de Dados...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary">Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -194,11 +168,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             <div className="flex gap-2">
               {bolao.status === 'finalizado' && (
                 <Button onClick={resetBolao} variant="outline" className="h-9 text-[9px] font-black uppercase text-destructive border-destructive/20 rounded-xl">
-                  <RotateCcw className="w-3 h-3 mr-1" /> Resetar Resultados
+                  <RotateCcw className="w-3 h-3 mr-1" /> Resetar
                 </Button>
               )}
               <Badge className="bg-green-100 text-green-700 font-black uppercase text-[9px] gap-2 h-9 px-4 rounded-xl">
-                <Database className="w-3 h-3" /> Supabase Cloud
+                <Database className="w-3 h-3" /> Supabase
               </Badge>
             </div>
           </div>
@@ -207,7 +181,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             <div>
               <h1 className="text-4xl font-black uppercase text-primary leading-none tracking-tighter">{bolao.nome}</h1>
               <p className="text-[10px] font-black text-muted-foreground uppercase mt-2 flex items-center gap-2">
-                <Clock className="w-3 h-3" /> Lançamento de Placares Oficiais
+                <Clock className="w-3 h-3" /> Lançamento de Placares
               </p>
             </div>
             <div className="bg-white p-6 rounded-3xl shadow-xl border-2 border-primary/5 text-right w-full md:w-auto">
@@ -220,7 +194,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
             <Card className="lg:col-span-2 border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
               <CardHeader className="bg-muted/50 border-b p-6">
                 <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" /> Grade de Resultados Reais
+                  <Calendar className="w-4 h-4 text-primary" /> Grade de Resultados
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-8 space-y-4">
@@ -262,27 +236,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
             <div className="space-y-6">
                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2rem] p-8">
-                  <h3 className="text-[10px] font-black uppercase opacity-60 mb-4">Resumo da Rodada</h3>
+                  <h3 className="text-[10px] font-black uppercase opacity-60 mb-4">Resumo</h3>
                   <div className="space-y-4">
                      <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                        <span className="text-[9px] font-black uppercase">Bilhetes Vendidos</span>
+                        <span className="text-[9px] font-black uppercase">Bilhetes</span>
                         <span className="text-lg font-black">{tickets.length}</span>
                      </div>
-                     <div className="pt-4">
-                        <p className="text-[9px] font-black uppercase opacity-60">Status do Sistema</p>
-                        <Badge className="mt-2 bg-white text-primary font-black uppercase text-[10px] h-10 w-full justify-center rounded-2xl shadow-lg border-none">
-                          {bolao.status === 'finalizado' ? '✓ AUDITADO' : '⌚ AGUARDANDO'}
-                        </Badge>
-                     </div>
-                  </div>
-               </Card>
-
-               <Card className="bg-orange-50 border-2 border-orange-100 rounded-[2rem] p-6">
-                  <div className="flex gap-3">
-                     <AlertTriangle className="w-6 h-6 text-orange-600 shrink-0" />
-                     <p className="text-[10px] font-bold text-orange-800 uppercase leading-tight">
-                        Ao finalizar, o sistema divide o prêmio acumulado de R$ {pool.toFixed(2)} entre os maiores pontuadores automaticamente.
-                     </p>
                   </div>
                </Card>
             </div>
