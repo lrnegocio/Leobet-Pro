@@ -72,7 +72,7 @@ function ResultadosContent() {
         setReceipt(null);
       }
     } catch (err: any) {
-      console.error(err.message || err);
+      console.error(err.message || "Erro de busca");
       setReceipt(null);
     } finally {
       setLoading(false);
@@ -92,7 +92,7 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
-    const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
+    const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
     
     const isClaiming = receipt.status === 'pendente-resgate';
@@ -112,7 +112,7 @@ function ResultadosContent() {
     setClaiming(true);
     try {
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
-        t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
+        (t.status === 'ganhou' || t.s === 'ganhou') ? { ...t, status: 'pendente-resgate', s: 'pendente-resgate' } : t
       );
 
       const { error } = await supabase
@@ -283,7 +283,7 @@ function ResultadosContent() {
 
                 <div className="space-y-4">
                   {receipt.tickets_data?.slice(0, 100).map((t: any, idx: number) => {
-                    const isWinner = t.status === 'ganhou' || t.status === 'pendente-resgate' || t.status === 'premio_pago';
+                    const isWinner = t.status === 'ganhou' || t.status === 'pendente-resgate' || t.status === 'premio_pago' || t.s === 'ganhou';
                     const isPaidCard = t.status === 'premio_pago';
                     
                     return (

@@ -5,11 +5,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, AlertTriangle, Calendar, Save, Database, Clock, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Calendar, Save, Database, Clock, RotateCcw, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/supabase/client';
 
 export default function ResultadosBolaoPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
@@ -80,16 +79,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     } catch (e: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: e.message });
     } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetBolao = async () => {
-    if (confirm("Resetar resultados?")) {
-      setSaving(true);
-      const resolvedParams = await params;
-      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', resolvedParams.id);
-      loadData();
       setSaving(false);
     }
   };
@@ -169,6 +158,16 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     } catch (e: any) {
       toast({ variant: "destructive", title: "ERRO NA AUDITORIA", description: e.message });
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetBolao = async () => {
+    if (confirm("Resetar resultados?")) {
+      setSaving(true);
+      const resolvedParams = await params;
+      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', resolvedParams.id);
+      loadData();
       setSaving(false);
     }
   };

@@ -72,9 +72,11 @@ export default function VendaPage() {
   const loadEventos = async () => {
     try {
       const now = new Date();
-      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
-      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
+      const { data: bingos, error: bErr } = await supabase.from('bingos').select('*').eq('status', 'aberto');
+      const { data: boloes, error: bolErr } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
+      if (bErr || bolErr) throw bErr || bolErr;
+
       const validBingos = (bingos || []).filter(b => {
         const limit = new Date(new Date(b.data_sorteio).getTime() - 60000);
         return now < limit;
@@ -253,8 +255,8 @@ export default function VendaPage() {
       return Array.from(nums).sort((a,b) => a-b);
     };
 
+    // Otimização de dados para reduzir o payload do Supabase
     const ticketsGenerated = [];
-    // Otimização de chaves para reduzir peso do payload JSON
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
@@ -266,8 +268,7 @@ export default function VendaPage() {
 
     const totalVenda = formData.unitario * quantity;
     const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
-    const hasBalance = (user?.balance || 0) >= totalVenda;
-    const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
+    const finalStatus = (isMaster || (user?.balance || 0) >= totalVenda) ? 'pago' : 'pendente';
 
     const receipt = {
       id: receiptId,
@@ -308,11 +309,11 @@ export default function VendaPage() {
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
-      console.error("Erro Supabase:", err.message || err);
+      console.error("Erro Supabase:", err.message || "Falha de conexão");
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou chaves Supabase. Se for venda grande, aguarde processar." 
+        description: err.message || "Verifique sua conexão ou chaves Supabase." 
       });
     } finally {
       setLoading(false);

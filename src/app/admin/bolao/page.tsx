@@ -27,7 +27,7 @@ export default function BolaoPage() {
       if (error) throw error;
       setBoloes(data || []);
     } catch (err: any) {
-      console.error("Erro Supabase:", err.message || err);
+      console.error("Erro Supabase:", err.message || "Falha de conexão");
     } finally {
       setLoading(false);
     }
