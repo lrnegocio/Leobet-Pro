@@ -100,12 +100,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Validação robusta dos campos
+    // Validação robusta dos campos (Garante que strings vazias sejam detectadas)
     const incomplete = (bolao.partidas || []).some((p: any, idx: number) => {
       const s = scores[idx];
       if (!s) return true;
-      // Se não estiver excluído, p1 e p2 devem ser preenchidos
-      return !s.excluded && (s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
+      if (s.excluded) return false;
+      return s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null;
     });
 
     if (incomplete) {
