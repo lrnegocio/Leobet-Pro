@@ -192,12 +192,15 @@ export default function VendaPage() {
       text += `PIX SEGURO: ${receipt.pix_resgate}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += "--------------------------------\n";
-      receipt.tickets_data.forEach((t: any, i: number) => {
+      receipt.tickets_data.slice(0, 10).forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.numeros) text += `DEZ: ${t.numeros.join(' ')}\n`;
         if (t.palpite) text += `PALPITE: ${t.palpite}\n`;
         text += "\n";
       });
+      if (receipt.tickets_data.length > 10) {
+        text += `... e mais ${receipt.tickets_data.length - 10} bilhetes\n`;
+      }
       text += "--------------------------------\n";
       text += `VALOR: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += `CONFERIR: ${settings.systemUrl}\n`;
@@ -294,8 +297,8 @@ export default function VendaPage() {
       setFormData({ ...formData, cliente: '', whatsapp: '', pixKey: '' });
       if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
-      console.error(err);
-      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
+      console.error("Erro Supabase:", err);
+      toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA", description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes." });
     } finally {
       setLoading(false);
     }
@@ -466,13 +469,16 @@ export default function VendaPage() {
                         <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                         
                         <div className="pt-2 border-t mt-2">
-                           {vendaRealizada.tickets_data.map((t: any, idx: number) => (
+                           {vendaRealizada.tickets_data.slice(0, 5).map((t: any, idx: number) => (
                              <div key={idx} className="mb-4 bg-black/5 p-2 rounded-lg">
                                <p className="text-[10px] font-black">BILHETE #{idx+1}: {t.id}</p>
                                {t.numeros && <p className="text-[11px] tracking-widest font-black mt-1">{t.numeros.join(' ')}</p>}
                                {t.palpite && <p className="text-[9px] font-bold mt-1 text-primary">PALPITE: {t.palpite}</p>}
                              </div>
                            ))}
+                           {vendaRealizada.tickets_data.length > 5 && (
+                             <p className="text-[10px] font-black text-center py-2 opacity-40">... e mais {vendaRealizada.tickets_data.length - 5} bilhetes</p>
+                           )}
                         </div>
                      </div>
 

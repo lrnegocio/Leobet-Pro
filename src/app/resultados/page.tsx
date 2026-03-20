@@ -271,7 +271,7 @@ function ResultadosContent() {
                 </div>
 
                 <div className="space-y-4">
-                  {receipt.tickets_data?.map((t: any, idx: number) => {
+                  {receipt.tickets_data?.slice(0, 100).map((t: any, idx: number) => {
                     const isWinner = t.status === 'ganhou' || t.status === 'pendente-resgate' || t.status === 'premio_pago';
                     const isPaidCard = t.status === 'premio_pago';
                     
@@ -329,6 +329,11 @@ function ResultadosContent() {
                       </Card>
                     );
                   })}
+                  {receipt.tickets_data?.length > 100 && (
+                    <div className="text-center py-4 opacity-40 font-black uppercase text-[10px]">
+                      Exibindo as primeiras 100 cartelas de {receipt.tickets_data.length} total.
+                    </div>
+                  )}
                 </div>
               </div>
             ) : searched && (
