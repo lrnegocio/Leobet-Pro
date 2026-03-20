@@ -11,4 +11,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true
   },
+  global: {
+    fetch: (...args) => fetch(...args).catch(err => {
+      console.error("Erro de Rede Supabase (Verifique as chaves no Vercel):", err);
+      throw err;
+    })
+  }
 });

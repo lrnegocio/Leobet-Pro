@@ -139,6 +139,7 @@ function FinanceiroContent() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
+    // Atualiza o status de todos os bilhetes premiados dentro deste recibo para "premio_pago"
     const updatedTicketsData = ticket.tickets_data.map((t: any) => 
       (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
     );

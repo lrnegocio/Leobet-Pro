@@ -81,6 +81,7 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
+    // Filtra todos os tickets que ganharam dentro deste cupom
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
     
@@ -100,6 +101,7 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
+      // Atualiza o status de todos os bilhetes premiados dentro do array tickets_data
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
@@ -108,7 +110,7 @@ function ResultadosContent() {
         .from('tickets')
         .update({ 
           tickets_data: updatedTicketsData,
-          status: 'pendente-resgate'
+          status: 'pendente-resgate' // Status geral do cupom também muda
         })
         .eq('id', receipt.id);
 

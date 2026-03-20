@@ -30,11 +30,11 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err: any) {
-      console.error("Erro Supabase:", err.message || err);
+      console.error("Erro Supabase:", err.message || "Erro de conexão");
       toast({
         variant: "destructive",
         title: "Erro de Sincronização",
-        description: err.message || "Verifique sua conexão com o banco."
+        description: "Verifique a conexão com o banco ou as chaves no Vercel."
       });
     } finally {
       setLoading(false);

@@ -95,11 +95,15 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Permite 0, mas não string vazia
-    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
+    // Validação robusta: permite 0 mas não vazio
+    const incomplete = scores.some(s => 
+      s.p1 === '' || s.p2 === '' || 
+      s.p1 === null || s.p2 === null ||
+      s.p1 === undefined || s.p2 === undefined
+    );
 
     if (incomplete) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES" });
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Até mesmo o placar 0 deve ser preenchido." });
       return;
     }
 

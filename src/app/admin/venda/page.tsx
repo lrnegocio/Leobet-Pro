@@ -267,6 +267,7 @@ export default function VendaPage() {
     const hasBalance = (user?.balance || 0) >= totalVenda;
     const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
 
+    // Otimização de payload para centenas de tickets
     const receipt = {
       id: receiptId,
       barcode: barcode,
@@ -300,7 +301,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: err.message || "Verifique a conexão ou campos do banco." 
+        description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes." 
       });
     } finally {
       setLoading(false);
