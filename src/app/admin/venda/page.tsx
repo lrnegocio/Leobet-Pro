@@ -21,8 +21,7 @@ import {
   MessageCircle,
   AlertCircle,
   Trophy,
-  CheckCircle2,
-  Clock
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -305,7 +304,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Payload pesado. Tente reduzir a quantidade de bilhetes para processar." 
+        description: "Verifique a conexão ou tente reduzir a quantidade para processar." 
       });
     } finally {
       setLoading(false);

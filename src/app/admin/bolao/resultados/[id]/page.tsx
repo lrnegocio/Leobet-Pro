@@ -231,19 +231,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                          <p className="text-xs font-black uppercase truncate">{p.time1} vs {p.time2}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                         <Input 
+                         <input 
                            type="number" 
                            placeholder="0" 
-                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white"
+                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white outline-none focus:border-primary"
                            value={scores[i]?.p1 ?? ''}
                            onChange={(e) => handleUpdateScore(i, 'p1', e.target.value)}
                            disabled={bolao.status === 'finalizado'}
                          />
                          <span className="font-black opacity-30">X</span>
-                         <Input 
+                         <input 
                            type="number" 
                            placeholder="0" 
-                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white"
+                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white outline-none focus:border-primary"
                            value={scores[i]?.p2 ?? ''}
                            onChange={(e) => handleUpdateScore(i, 'p2', e.target.value)}
                            disabled={bolao.status === 'finalizado'}

@@ -22,8 +22,7 @@ import {
   Calendar,
   Search,
   TrendingUp,
-  User,
-  Trophy
+  User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -140,6 +139,7 @@ function FinanceiroContent() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
+    // UNIFICAÇÃO: Muda o status de todas as cartelas premiadas do bilhete para premio_pago
     const updatedTicketsData = ticket.tickets_data.map((t: any) => 
       (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
     );
