@@ -20,6 +20,7 @@ export default function BingoPage() {
   const { toast } = useToast();
 
   const loadData = async () => {
+    if (!mounted) return;
     setSyncing(true);
     try {
       const { data, error } = await supabase
@@ -30,7 +31,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err: any) {
-      console.error("Erro Supabase:", err.message || "Erro de conexão");
+      console.warn("Erro Supabase:", err.message || "Erro de conexão");
       toast({
         variant: "destructive",
         title: "Erro de Sincronização",
@@ -44,8 +45,13 @@ export default function BingoPage() {
 
   useEffect(() => {
     setMounted(true);
-    loadData();
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      loadData();
+    }
+  }, [mounted]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'aberto' ? 'encerrado' : 'aberto';
