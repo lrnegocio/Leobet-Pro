@@ -17,28 +17,38 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const { toast } = useToast();
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [scores, setScores] = useState<{p1: string, p2: string, excluded?: boolean}[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadData = async () => {
-    const { data: bData } = await supabase.from('boloes').select('*').eq('id', params.id).single();
-    if (bData) {
-      setBolao(bData);
-      const numPartidas = bData.partidas?.length || 10;
-      if (bData.scores && bData.scores.length > 0) {
-        setScores(bData.scores);
-      } else {
-        setScores(Array(numPartidas).fill({p1: '', p2: '', excluded: false}));
+    if (!mounted) return;
+    try {
+      const { data: bData } = await supabase.from('boloes').select('*').eq('id', params.id).single();
+      if (bData) {
+        setBolao(bData);
+        const numPartidas = bData.partidas?.length || 10;
+        if (bData.scores && bData.scores.length > 0) {
+          setScores(bData.scores);
+        } else {
+          setScores(Array(numPartidas).fill(null).map(() => ({ p1: '', p2: '', excluded: false })));
+        }
       }
-    }
 
-    const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', params.id).eq('status', 'pago');
-    setTickets(tData || []);
+      const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', params.id).eq('status', 'pago');
+      setTickets(tData || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [params.id]);
+  }, [params.id, mounted]);
 
   const totalArrecadado = useMemo(() => {
     return tickets.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0);
@@ -48,19 +58,25 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   const handleUpdateScore = (index: number, field: 'p1' | 'p2', val: string) => {
     const newScores = [...scores];
+    if (!newScores[index]) newScores[index] = { p1: '', p2: '', excluded: false };
     newScores[index] = { ...newScores[index], [field]: val, excluded: false };
     setScores(newScores);
   };
 
   const handleSaveProgress = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from('boloes')
-      .update({ scores })
-      .eq('id', params.id);
-    
-    setSaving(false);
-    if (!error) toast({ title: "PLACARE SALVOS NO SUPABASE!" });
+    try {
+      const { error } = await supabase
+        .from('boloes')
+        .update({ scores })
+        .eq('id', params.id);
+      
+      if (!error) toast({ title: "PLACARE SALVOS NO SUPABASE!" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetBolao = async () => {
@@ -85,80 +101,86 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   const calculateWinners = async () => {
     // Validação robusta dos campos
-    const incomplete = scores.some((s, idx) => {
-      if (idx >= (bolao.partidas?.length || 0)) return false;
+    const incomplete = (bolao.partidas || []).some((p: any, idx: number) => {
+      const s = scores[idx];
+      if (!s) return true;
+      // Se não estiver excluído, p1 e p2 devem ser preenchidos
       return !s.excluded && (s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
     });
 
     if (incomplete) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Certifique-se de que nenhum campo de placar está vazio." });
+      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Certifique-se de que nenhum campo de placar está vazio antes de finalizar." });
       return;
     }
 
     setSaving(true);
     
-    const results = scores.map(s => {
-      if (s.excluded) return 'CANCELLED';
-      const g1 = parseInt(s.p1);
-      const g2 = parseInt(s.p2);
-      if (g1 > g2) return '1';
-      if (g1 < g2) return '2';
-      return 'X';
-    });
-
-    let maxHits = 0;
-    const participants: any[] = [];
-
-    // Primeiro pass para achar o max_hits
-    tickets.forEach(receipt => {
-      if (!receipt.tickets_data) return;
-      receipt.tickets_data.forEach((t: any) => {
-        const guesses = t.palpite?.split('-') || [];
-        let hits = 0;
-        guesses.forEach((g: string, i: number) => {
-          if (results[i] !== 'CANCELLED' && g === results[i]) hits++;
-        });
-        if (hits > maxHits) maxHits = hits;
-        participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
+    try {
+      const results = (bolao.partidas || []).map((p: any, i: number) => {
+        const s = scores[i];
+        if (s.excluded) return 'CANCELLED';
+        const g1 = parseInt(s.p1);
+        const g2 = parseInt(s.p2);
+        if (g1 > g2) return '1';
+        if (g1 < g2) return '2';
+        return 'X';
       });
-    });
 
-    // Filtra quem atingiu o maxHits para dividir o prêmio
-    const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
-    const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
+      let maxHits = 0;
+      const participants: any[] = [];
 
-    // Atualiza os tickets no banco
-    for (const winner of winnersList) {
-      const { data: receipt } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
-      if (receipt && receipt.tickets_data) {
-        const updatedData = receipt.tickets_data.map((t: any) => {
-          if (t.id === winner.ticketId) {
-            return { ...t, status: 'ganhou', valorPremio: individualPrize };
-          }
-          return t;
+      tickets.forEach(receipt => {
+        if (!receipt.tickets_data) return;
+        receipt.tickets_data.forEach((t: any) => {
+          const guesses = t.palpite?.split('-') || [];
+          let hits = 0;
+          guesses.forEach((g: string, i: number) => {
+            if (results[i] !== 'CANCELLED' && g === results[i]) hits++;
+          });
+          if (hits > maxHits) maxHits = hits;
+          participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
         });
-        await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', winner.receiptId);
+      });
+
+      const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
+      const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
+
+      // Atualização dos bilhetes ganhadores
+      for (const winner of winnersList) {
+        const { data: receipt } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
+        if (receipt && receipt.tickets_data) {
+          const updatedData = receipt.tickets_data.map((t: any) => {
+            if (t.id === winner.ticketId) {
+              return { ...t, status: 'ganhou', valorPremio: individualPrize };
+            }
+            return t;
+          });
+          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', winner.receiptId);
+        }
       }
-    }
 
-    const { error } = await supabase
-      .from('boloes')
-      .update({ 
-        scores, 
-        resultados: results, 
-        status: 'finalizado', 
-        max_hits: maxHits 
-      })
-      .eq('id', params.id);
+      const { error } = await supabase
+        .from('boloes')
+        .update({ 
+          scores, 
+          resultados: results, 
+          status: 'finalizado', 
+          max_hits: maxHits 
+        })
+        .eq('id', params.id);
 
-    if (!error) {
-      toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHits} acertos.` });
-      loadData();
+      if (!error) {
+        toast({ title: "AUDITORIA FINALIZADA!", description: `Maior pontuação: ${maxHits} acertos.` });
+        loadData();
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERRO NA AUDITORIA" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  if (!bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary">Carregando Banco de Dados...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary">Carregando Banco de Dados...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -213,7 +235,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                            type="number" 
                            placeholder="0" 
                            className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white"
-                           value={scores[i]?.p1 || ''}
+                           value={scores[i]?.p1 ?? ''}
                            onChange={(e) => handleUpdateScore(i, 'p1', e.target.value)}
                            disabled={bolao.status === 'finalizado'}
                          />
@@ -222,7 +244,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                            type="number" 
                            placeholder="0" 
                            className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white"
-                           value={scores[i]?.p2 || ''}
+                           value={scores[i]?.p2 ?? ''}
                            onChange={(e) => handleUpdateScore(i, 'p2', e.target.value)}
                            disabled={bolao.status === 'finalizado'}
                          />
@@ -259,7 +281,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                   <div className="flex gap-3">
                      <AlertTriangle className="w-6 h-6 text-orange-600 shrink-0" />
                      <p className="text-[10px] font-bold text-orange-800 uppercase leading-tight">
-                        Ao finalizar, o sistema divide o prêmio de R$ {pool.toFixed(2)} entre os maiores pontuadores automaticamente.
+                        Ao finalizar, o sistema divide o prêmio acumulado de R$ {pool.toFixed(2)} entre os maiores pontuadores automaticamente.
                      </p>
                   </div>
                </Card>

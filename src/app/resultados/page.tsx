@@ -1,11 +1,11 @@
 
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, ShieldAlert, CheckCircle2, DollarSign } from 'lucide-react';
+import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -22,7 +22,7 @@ function ResultadosContent() {
   const [receipt, setReceipt] = useState<any>(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [claiming, setClaiming] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [eventoData, setEventoData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
@@ -78,18 +78,31 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  const handleClaim = async (ticketId: string) => {
-    setClaiming(ticketId);
-    try {
-      // Usa a chave PIX que já está no bilhete
-      const pixKey = receipt.pix_resgate;
-      
-      if (!pixKey) {
-        throw new Error("Chave PIX não localizada no bilhete. Entre em contato com o suporte.");
-      }
+  // Cálculo do prêmio acumulado unificado
+  const statsGanhos = useMemo(() => {
+    if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
+    
+    const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
+    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
+    const isClaiming = receipt.status === 'pendente-resgate' || receipt.tickets_data.some((t: any) => t.status === 'pendente-resgate');
+    const isPaid = receipt.status === 'premio_pago' || receipt.tickets_data.every((t: any) => t.status === 'premio_pago' && winners.length > 0);
 
-      const updatedTicketsData = (receipt.tickets_data || []).map((t: any) => 
-        t.id === ticketId ? { ...t, status: 'pendente-resgate' } : t
+    return { 
+      total, 
+      count: winners.length, 
+      hasPending: winners.length > 0 && !isClaiming && !isPaid,
+      isClaiming,
+      isPaid
+    };
+  }, [receipt]);
+
+  const handleClaimAll = async () => {
+    if (!receipt) return;
+    setClaiming(true);
+    try {
+      // Marca todas as cartelas premiadas como pendente de resgate
+      const updatedTicketsData = receipt.tickets_data.map((t: any) => 
+        t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
 
       const { error } = await supabase
@@ -102,12 +115,12 @@ function ResultadosContent() {
 
       if (error) throw error;
       
-      toast({ title: "RESGATE SOLICITADO!", description: "Seu prêmio será enviado para sua chave PIX cadastrada." });
+      toast({ title: "RESGATE ACUMULADO SOLICITADO!", description: `O valor de R$ ${statsGanhos.total.toFixed(2)} foi enviado para análise.` });
       handleSearch(receipt.id);
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO RESGATAR", description: err.message });
     } finally {
-      setClaiming(null);
+      setClaiming(false);
     }
   };
 
@@ -169,6 +182,47 @@ function ResultadosContent() {
               </div>
             ) : receipt ? (
               <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
+                
+                {/* ÁREA DE RESGATE UNIFICADO ACUMULADO */}
+                {statsGanhos.hasPending && (
+                  <Card className="bg-green-600 text-white border-none shadow-2xl rounded-[2rem] overflow-hidden">
+                    <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-4 rounded-3xl">
+                          <Trophy className="w-10 h-10" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados ({statsGanhos.count} cartelas)</p>
+                          <p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleClaimAll} 
+                        disabled={claiming}
+                        className="bg-white text-green-700 hover:bg-white/90 h-16 px-10 font-black uppercase rounded-2xl shadow-xl transition-all active:scale-95"
+                      >
+                        {claiming ? "PROCESSANDO..." : "RESGATAR TUDO AGORA"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {statsGanhos.isClaiming && (
+                  <Card className="bg-orange-500 text-white border-none shadow-xl rounded-[2rem] p-8 text-center">
+                    <Clock className="w-10 h-10 mx-auto mb-4 animate-pulse" />
+                    <p className="font-black uppercase text-xl">RESGATE EM ANÁLISE</p>
+                    <p className="text-sm opacity-80 mt-2 font-bold">O administrador está processando seu prêmio total de R$ {statsGanhos.total.toFixed(2)}</p>
+                  </Card>
+                )}
+
+                {statsGanhos.isPaid && (
+                  <Card className="bg-blue-600 text-white border-none shadow-xl rounded-[2rem] p-8 text-center">
+                    <CheckCircle2 className="w-10 h-10 mx-auto mb-4" />
+                    <p className="font-black uppercase text-xl">PRÊMIO PAGO ✓</p>
+                    <p className="text-sm opacity-80 mt-2 font-bold">O pagamento já foi realizado para sua chave PIX: {receipt.pix_resgate}</p>
+                  </Card>
+                )}
+
                 <div className="bg-primary/5 p-6 md:p-8 rounded-[2rem] border-2 border-primary/10 space-y-6">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div>
@@ -204,7 +258,7 @@ function ResultadosContent() {
                         )}>
                           {receipt.status === 'pago' ? '✓ APOSTA VALIDADA' : 
                            receipt.status === 'premio_pago' ? '🏆 PRÊMIO PAGO ✓' :
-                           receipt.status === 'ganhou' || receipt.status === 'pendente-resgate' ? '🔥 GANHADOR! SOLICITE O RESGATE' :
+                           receipt.status === 'ganhou' || receipt.status === 'pendente-resgate' ? '🔥 BILHETE PREMIADO!' :
                            receipt.status === 'rejeitado' ? '✖ APOSTA REJEITADA' : '⚠ AGUARDANDO PAGAMENTO'}
                         </Badge>
                         <Badge variant="outline" className="h-10 px-4 font-black text-[9px] uppercase border-2">BARCODE: {receipt.barcode}</Badge>
@@ -217,25 +271,23 @@ function ResultadosContent() {
 
                 <div className="space-y-4">
                   {receipt.tickets_data?.map((t: any, idx: number) => {
-                    const isWinner = t.status === 'ganhou' || receipt.status === 'ganhou';
-                    const isPending = t.status === 'pendente-resgate' || receipt.status === 'pendente-resgate';
-                    const isPaid = t.status === 'premio_pago' || receipt.status === 'premio_pago';
-                    const isBetActive = receipt.status === 'pago' || isWinner || isPending || isPaid;
+                    const isWinner = t.status === 'ganhou' || t.status === 'pendente-resgate' || t.status === 'premio_pago';
+                    const isPaidCard = t.status === 'premio_pago';
                     
                     return (
                       <Card key={idx} className={cn(
                         "rounded-[2.5rem] border-4 transition-all overflow-hidden shadow-md",
-                        isWinner || isPaid ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
+                        isWinner ? 'bg-green-50 border-green-400' : 'bg-white border-muted-foreground/10'
                       )}>
                          <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-stretch gap-6">
                              <div className="flex-1 space-y-4">
                                 <div className="flex justify-between items-center">
                                   <span className="font-black text-[10px] uppercase text-muted-foreground">BILHETE #{idx+1} (ID: {t.id})</span>
-                                  <Badge variant={(isWinner || isPaid) ? 'default' : 'outline'} className={cn(
+                                  <Badge variant={isWinner ? 'default' : 'outline'} className={cn(
                                     "font-black uppercase text-[9px] h-6 px-4",
-                                    (isWinner || isPaid) ? 'bg-green-600' : ''
+                                    isWinner ? 'bg-green-600' : ''
                                   )}>
-                                    {isPaid ? "✓ PRÊMIO PAGO" : isWinner ? "🔥 GANHADOR!" : isPending ? "⌚ ANÁLISE" : isBetActive ? "✓ ATIVO" : "AGUARDANDO"}
+                                    {isPaidCard ? "✓ PAGO" : t.status === 'pendente-resgate' ? "⌚ EM ANÁLISE" : isWinner ? "🔥 GANHADOR!" : "✓ ATIVO"}
                                   </Badge>
                                 </div>
                                 {t.numeros ? (
@@ -262,44 +314,14 @@ function ResultadosContent() {
                                   </div>
                                 )}
                              </div>
-                             {(isWinner || isPending || isPaid) && (
+                             {isWinner && Number(t.valorPremio) > 0 && (
                                <div className={cn(
-                                 "p-6 rounded-[2rem] md:w-72 text-center flex flex-col justify-center gap-4 shadow-xl",
-                                 isPaid ? 'bg-blue-600' : (isWinner ? 'bg-green-600' : 'bg-orange-600'),
+                                 "p-6 rounded-[2rem] md:w-64 text-center flex flex-col justify-center gap-2 shadow-xl",
+                                 isPaidCard ? 'bg-blue-600' : 'bg-green-600',
                                  "text-white"
                                )}>
-                                  {isPaid ? (
-                                    <div className="space-y-2">
-                                       <CheckCircle2 className="w-12 h-12 mx-auto" />
-                                       <p className="font-black uppercase text-lg">PAGAMENTO REALIZADO</p>
-                                       <p className="text-[10px] font-bold opacity-80">Prêmio enviado com sucesso via PIX.</p>
-                                    </div>
-                                  ) : isWinner ? (
-                                    <>
-                                      <div>
-                                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Seu Prêmio:</p>
-                                        <p className="text-3xl font-black">R$ {t.valorPremio?.toFixed(2) || '0.00'}</p>
-                                      </div>
-                                      <div className="bg-white/10 p-3 rounded-xl">
-                                         <p className="text-[8px] font-black uppercase opacity-60">Chave PIX Cadastrada:</p>
-                                         <p className="text-[10px] font-black truncate">{receipt.pix_resgate}</p>
-                                      </div>
-                                      <button 
-                                        onClick={() => handleClaim(t.id)} 
-                                        className="bg-white text-green-700 hover:bg-white/90 font-black uppercase text-[10px] h-12 w-full rounded-xl shadow-lg transition-all active:scale-95" 
-                                        disabled={claiming === t.id}
-                                      >
-                                        {claiming === t.id ? "PROCESSANDO..." : "RESGATAR PRÊMIO"}
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <div className="space-y-3">
-                                       <Clock className="w-8 h-8 mx-auto animate-pulse" />
-                                       <p className="font-black uppercase text-md leading-tight">RESGATE EM ANÁLISE</p>
-                                       <p className="text-[9px] font-bold opacity-60 uppercase">PIX: {receipt.pix_resgate}</p>
-                                       <p className="text-[8px] font-black opacity-40 uppercase">Aguardando auditoria administrativa.</p>
-                                    </div>
-                                  )}
+                                  <p className="text-[8px] font-black uppercase opacity-60">Prêmio desta cartela</p>
+                                  <p className="text-2xl font-black">R$ {Number(t.valorPremio).toFixed(2)}</p>
                                </div>
                              )}
                          </CardContent>

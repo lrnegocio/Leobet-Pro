@@ -23,8 +23,7 @@ import {
   Search,
   TrendingUp,
   User,
-  Trophy,
-  DollarSign
+  Trophy
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -126,7 +125,6 @@ function FinanceiroContent() {
       setSyncing(true);
       try {
         await supabase.from('tickets').delete().neq('id', '0');
-        await supabase.from('transactions').delete().neq('id', '0');
         toast({ title: "SISTEMA LIMPO!" });
         loadData();
       } catch (e) {
@@ -138,13 +136,24 @@ function FinanceiroContent() {
   };
 
   const confirmPayout = async (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    // Atualiza status de todas as cartelas premiadas para premio_pago
+    const updatedTicketsData = ticket.tickets_data.map((t: any) => 
+      (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
+    );
+
     const { error } = await supabase
       .from('tickets')
-      .update({ status: 'premio_pago' })
+      .update({ 
+        status: 'premio_pago',
+        tickets_data: updatedTicketsData 
+      })
       .eq('id', ticketId);
     
     if (!error) {
-      toast({ title: "PAGAMENTO CONFIRMADO!", description: "O sistema registrou a baixa do prêmio." });
+      toast({ title: "PAGAMENTO CONFIRMADO!", description: "O sistema registrou a baixa do prêmio acumulado." });
       loadData();
     }
   };
@@ -261,8 +270,9 @@ function FinanceiroContent() {
                  <Card className="py-24 text-center border-dashed rounded-[3rem] opacity-30 bg-white font-black uppercase text-xs">Sem pendências ou prêmios no momento</Card>
                ) : (
                  tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => {
-                   // Calcula o prêmio total somando todos os tickets_data que ganharam
-                   const totalPremio = (t.tickets_data || []).reduce((acc: number, item: any) => acc + (item.valorPremio || 0), 0);
+                   // Calcula o prêmio total acumulado de todas as cartelas premiadas no recibo
+                   const totalPremioAcumulado = (t.tickets_data || []).reduce((acc: number, item: any) => 
+                     (item.status === 'ganhou' || item.status === 'pendente-resgate') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
                    
                    return (
                      <Card key={i} className={cn(
@@ -277,16 +287,16 @@ function FinanceiroContent() {
                          <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.evento_nome} • R$ {Number(t.valor_total || 0).toFixed(2)}</p>
                          <p className="text-[9px] font-black text-muted-foreground uppercase">CÓDIGO: {t.id}</p>
                          
-                         {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                         {(t.status === 'ganhou' || t.status === 'pendente-resgate' || totalPremioAcumulado > 0) && (
                            <div className="bg-green-50 p-4 rounded-2xl border-2 border-green-100 mt-2 flex flex-col sm:flex-row justify-between items-center gap-4">
                               <div className="flex-1">
                                  <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
                                  <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
-                                 <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO</Badge>
+                                 <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO UNIFICADO</Badge>
                               </div>
                               <div className="bg-white p-3 rounded-xl border-2 border-green-200 text-center min-w-[140px]">
-                                 <p className="text-[8px] font-black uppercase text-green-600">VALOR DO PRÊMIO</p>
-                                 <p className="text-xl font-black text-green-700">R$ {totalPremio.toFixed(2)}</p>
+                                 <p className="text-[8px] font-black uppercase text-green-600">VALOR TOTAL ACUMULADO</p>
+                                 <p className="text-xl font-black text-green-700">R$ {totalPremioAcumulado.toFixed(2)}</p>
                               </div>
                            </div>
                          )}
@@ -301,7 +311,7 @@ function FinanceiroContent() {
                             </div>
                           )}
 
-                          {(t.status === 'ganhou' || t.status === 'pendente-resgate') && (
+                          {(t.status === 'ganhou' || t.status === 'pendente-resgate' || totalPremioAcumulado > 0) && (
                              <Button 
                                onClick={() => confirmPayout(t.id)} 
                                className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"
