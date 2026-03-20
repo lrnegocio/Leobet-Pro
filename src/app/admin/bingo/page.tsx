@@ -6,7 +6,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Lock, PlayCircle, Trash2, Clock, CheckCircle2, Database, History, RefreshCcw, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Clock, History, RefreshCcw, Edit2, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -30,11 +30,11 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err: any) {
-      console.error("Erro Supabase:", err);
+      console.error("Erro Supabase:", err.message || err);
       toast({
         variant: "destructive",
         title: "Erro de Sincronização",
-        description: "Verifique sua conexão com o banco."
+        description: err.message || "Verifique sua conexão com o banco."
       });
     } finally {
       setLoading(false);
@@ -133,7 +133,7 @@ export default function BingoPage() {
                                <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Sorteio</p>
                                <p className="text-[10px] font-bold flex items-center gap-1">
                                  <Clock className="w-3 h-3 text-accent" /> {drawDate.toLocaleString('pt-BR')}
-                               </p>
+                                </p>
                             </div>
                             <div className="space-y-1">
                                <p className="text-[9px] font-black uppercase text-muted-foreground opacity-60">Valor Unitário</p>

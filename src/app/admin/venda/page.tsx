@@ -296,11 +296,11 @@ export default function VendaPage() {
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       if (formData.tipo === 'bolao') setPalpites(Array(partidasBolao.length || 10).fill(''));
     } catch (err: any) {
-      console.error("Erro Supabase:", err);
+      console.error("Erro Supabase:", err.message || err);
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou campos do banco." 
+        description: err.message || "Verifique a conexão ou campos do banco." 
       });
     } finally {
       setLoading(false);

@@ -28,7 +28,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const loadData = async () => {
     if (!mounted) return;
     try {
-      const { data: bData } = await supabase.from('boloes').select('*').eq('id', (await params).id).single();
+      const resolvedParams = await params;
+      const { data: bData } = await supabase.from('boloes').select('*').eq('id', resolvedParams.id).single();
       if (bData) {
         setBolao(bData);
         const numPartidas = bData.partidas?.length || 10;
@@ -39,7 +40,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
 
-      const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', (await params).id).eq('status', 'pago');
+      const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
       setTickets(tData || []);
     } catch (err) {
       console.error(err);
@@ -48,7 +49,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
   useEffect(() => {
     loadData();
-  }, [params, mounted]);
+  }, [mounted]);
 
   const totalArrecadado = useMemo(() => {
     return tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0) || 0), 0);
@@ -66,10 +67,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const handleSaveProgress = async () => {
     setSaving(true);
     try {
+      const resolvedParams = await params;
       const { error } = await supabase
         .from('boloes')
         .update({ scores })
-        .eq('id', (await params).id);
+        .eq('id', resolvedParams.id);
       
       if (!error) {
         toast({ title: "PLACARE SALVOS!" });
@@ -85,14 +87,15 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const resetBolao = async () => {
     if (confirm("Resetar resultados?")) {
       setSaving(true);
-      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', (await params).id);
+      const resolvedParams = await params;
+      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', resolvedParams.id);
       loadData();
       setSaving(false);
     }
   };
 
   const calculateWinners = async () => {
-    // Validação correta: permite 0, mas não string vazia
+    // Permite 0, mas não string vazia
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
 
     if (incomplete) {
@@ -144,7 +147,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
 
-      await supabase.from('boloes').update({ scores, resultados: results, status: 'finalizado', max_hits: maxHits }).eq('id', (await params).id);
+      const resolvedParams = await params;
+      await supabase.from('boloes').update({ scores, resultados: results, status: 'finalizado', max_hits: maxHits }).eq('id', resolvedParams.id);
       toast({ title: "AUDITORIA FINALIZADA!" });
       loadData();
     } catch (e) {
