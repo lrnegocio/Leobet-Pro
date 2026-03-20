@@ -89,7 +89,7 @@ function FinanceiroContent() {
       if (uData) setUsers(uData);
 
     } catch (err: any) {
-      console.warn("Erro Supabase:", err.message);
+      console.warn("Erro Supabase:", err.message || err);
     } finally {
       setLoading(false);
       setSyncing(false);
@@ -128,8 +128,8 @@ function FinanceiroContent() {
         if (error) throw error;
         toast({ title: "SISTEMA LIMPO!" });
         loadData();
-      } catch (e) {
-        toast({ variant: "destructive", title: "ERRO AO LIMPAR" });
+      } catch (e: any) {
+        toast({ variant: "destructive", title: "ERRO AO LIMPAR", description: e.message });
       } finally {
         setSyncing(false);
       }
@@ -140,7 +140,6 @@ function FinanceiroContent() {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
 
-    // Atualiza o status de todos os bilhetes premiados dentro deste recibo para "premio_pago"
     const updatedTicketsData = (ticket.tickets_data || []).map((t: any) => 
       (t.status === 'ganhou' || t.status === 'pendente-resgate' || t.s === 'ganhou') ? { ...t, status: 'premio_pago', s: 'premio_pago' } : t
     );
@@ -272,12 +271,15 @@ function FinanceiroContent() {
                ) : (
                  tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => {
                    const totalPremioAcumulado = (t.tickets_data || []).reduce((acc: number, item: any) => 
-                     (item.status === 'ganhou' || item.status === 'pendente-resgate' || item.s === 'ganhou') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
+                     (item.status === 'ganhou' || item.status === 'pendente-resgate' || item.s === 'ganhou' || item.status === 'premio_pago') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
                    
+                   const hasAlreadyPaid = t.status === 'premio_pago';
+
                    return (
                      <Card key={i} className={cn(
                        "flex flex-col md:flex-row justify-between items-center p-6 border-l-8 rounded-[2rem] shadow-lg bg-white gap-6",
-                       t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 'border-l-orange-500'
+                       t.status === 'ganhou' || t.status === 'pendente-resgate' ? 'border-l-green-500' : 
+                       t.status === 'premio_pago' ? 'border-l-blue-500' : 'border-l-orange-500'
                      )}>
                        <div className="space-y-2 flex-1 w-full">
                          <div className="flex items-center gap-2">
@@ -292,7 +294,9 @@ function FinanceiroContent() {
                               <div className="flex-1">
                                  <p className="text-[8px] font-black uppercase text-green-600 opacity-60">Enviar prêmio para:</p>
                                  <p className="text-sm font-black text-green-700 truncate">{t.pix_resgate || 'CHAVE NÃO INFORMADA'}</p>
-                                 <Badge className="bg-green-600 text-white font-black uppercase text-[8px] h-5 mt-2">AGUARDANDO PAGAMENTO UNIFICADO</Badge>
+                                 <Badge className={cn("text-white font-black uppercase text-[8px] h-5 mt-2", hasAlreadyPaid ? "bg-blue-600" : "bg-green-600")}>
+                                   {hasAlreadyPaid ? "PAGAMENTO REALIZADO" : "AGUARDANDO PAGAMENTO UNIFICADO"}
+                                 </Badge>
                               </div>
                               <div className="bg-white p-3 rounded-xl border-2 border-green-200 text-center min-w-[140px]">
                                  <p className="text-[8px] font-black uppercase text-green-600">VALOR TOTAL ACUMULADO</p>
@@ -311,7 +315,7 @@ function FinanceiroContent() {
                             </div>
                           )}
 
-                          {(t.status === 'ganhou' || t.status === 'pendente-resgate' || totalPremioAcumulado > 0) && (
+                          {(t.status === 'ganhou' || t.status === 'pendente-resgate' || (totalPremioAcumulado > 0 && !hasAlreadyPaid)) && (
                              <Button 
                                onClick={() => confirmPayout(t.id)} 
                                className="bg-green-600 hover:bg-green-700 text-white font-black uppercase text-xs h-14 px-8 rounded-xl shadow-lg flex items-center gap-2"

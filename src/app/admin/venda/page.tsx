@@ -86,8 +86,8 @@ export default function VendaPage() {
       }).map(b => ({ ...b, tipo: 'bolao' }));
 
       setEventosAtivos([...validBingos, ...validBoloes]);
-    } catch (err) {
-      console.warn("Erro ao carregar eventos");
+    } catch (err: any) {
+      console.warn("Erro ao carregar eventos:", err.message);
     }
   };
 
@@ -110,8 +110,8 @@ export default function VendaPage() {
       } else {
         setPrizes({ totalNet: pool, quadra: 0, quina: 0, bingo: 0, bolao: pool });
       }
-    } catch (err) {
-      console.error("Erro ao calcular prêmios");
+    } catch (err: any) {
+      console.error("Erro ao calcular prêmios:", err.message);
     }
   };
 
@@ -169,7 +169,7 @@ export default function VendaPage() {
         toast({ title: "IMPRESSORA CONECTADA!" });
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "FALHA DE CONEXÃO" });
+      toast({ variant: "destructive", title: "FALHA DE CONEXÃO", description: err.message });
     } finally {
       setBtConnecting(false);
     }
@@ -209,8 +209,8 @@ export default function VendaPage() {
         await btCharacteristic.writeValue(data.slice(i, i + chunkSize));
       }
       toast({ title: "CUPOM IMPRESSO!" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: e.message });
     }
   }, [btCharacteristic, settings, toast]);
 
@@ -254,13 +254,13 @@ export default function VendaPage() {
     };
 
     const ticketsGenerated = [];
-    // Otimização extrema para o array de tickets: usa chaves curtas para reduzir peso JSON
+    // Otimização de chaves para reduzir peso do payload JSON
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: formData.tipo === 'bingo' ? generateBingoNumbers() : null, // 'n' em vez de 'numeros'
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // 'p' em vez de 'palpite'
-        s: 'ativo' // 's' em vez de 'status'
+        n: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
+        s: 'ativo'
       });
     }
 
@@ -291,7 +291,6 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
       
-      // Converte de volta para nomes legíveis para a UI do recibo após salvar
       const receiptForUI = {
         ...receipt,
         tickets_data: ticketsGenerated.map(t => ({
@@ -313,7 +312,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou chaves Supabase." 
+        description: "Verifique a conexão ou chaves Supabase. Se for venda grande, aguarde processar." 
       });
     } finally {
       setLoading(false);

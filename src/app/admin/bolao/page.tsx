@@ -14,6 +14,7 @@ import { supabase } from '@/supabase/client';
 export default function BolaoPage() {
   const [boloes, setBoloes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
   const loadData = async () => {
@@ -25,16 +26,17 @@ export default function BolaoPage() {
 
       if (error) throw error;
       setBoloes(data || []);
-    } catch (err) {
-      console.error("Erro Supabase:", err);
+    } catch (err: any) {
+      console.error("Erro Supabase:", err.message || err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    setMounted(true);
     loadData();
-    const interval = setInterval(loadData, 10000);
+    const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -52,10 +54,12 @@ export default function BolaoPage() {
     }
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
             <div>

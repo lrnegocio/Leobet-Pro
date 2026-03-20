@@ -42,8 +42,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
       setTickets(tData || []);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error(err.message || err);
     }
   };
 
@@ -77,8 +77,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         toast({ title: "PLACARE SALVOS!" });
         loadData();
       }
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: e.message });
     } finally {
       setSaving(false);
     }
@@ -95,7 +95,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Validação robusta: permite 0 mas não vazio
+    // Permite 0 mas não vazio
     const incomplete = scores.some(s => 
       s.p1 === '' || s.p2 === '' || 
       s.p1 === null || s.p2 === null ||
@@ -129,7 +129,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          // Aceita tanto palpites quanto p (otimizado)
           const guessStr = t.palpite || t.p || '';
           const guesses = guessStr.split('-') || [];
           let hits = 0;
@@ -167,8 +166,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       
       toast({ title: "AUDITORIA FINALIZADA!" });
       loadData();
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERRO NA AUDITORIA" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "ERRO NA AUDITORIA", description: e.message });
     } finally {
       setSaving(false);
     }

@@ -53,7 +53,6 @@ function ResultadosContent() {
         .maybeSingle();
 
       if (found) {
-        // Normaliza tickets_data caso as chaves estejam otimizadas
         const normalizedData = (found.tickets_data || []).map((t: any) => ({
           id: t.id,
           numeros: t.numeros || t.n,
@@ -72,8 +71,8 @@ function ResultadosContent() {
       } else {
         setReceipt(null);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error(err.message || err);
       setReceipt(null);
     } finally {
       setLoading(false);
@@ -93,7 +92,6 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
-    // Soma todos os prêmios ganhos no recibo
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
     
@@ -113,7 +111,6 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o status de todos os bilhetes premiados para pendente-resgate
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
