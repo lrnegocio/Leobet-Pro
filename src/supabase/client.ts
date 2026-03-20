@@ -13,8 +13,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     fetch: (...args) => fetch(...args).catch(err => {
-      console.error("Erro de Rede Supabase (Verifique as chaves no Vercel):", err);
-      throw err;
+      // Falha silenciosa para não travar a UI, logando no console apenas
+      console.warn("Supabase Fetch Warning (Verifique as chaves no Vercel):", err.message);
+      return new Response(JSON.stringify({ error: "Failed to fetch" }), { status: 500 });
     })
   }
 });

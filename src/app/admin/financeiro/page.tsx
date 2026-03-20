@@ -22,7 +22,8 @@ import {
   Calendar,
   Search,
   TrendingUp,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -87,8 +88,8 @@ function FinanceiroContent() {
         .order('created_at', { ascending: false });
       if (uData) setUsers(uData);
 
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.warn("Erro Supabase:", err.message);
     } finally {
       setLoading(false);
       setSyncing(false);
@@ -140,8 +141,8 @@ function FinanceiroContent() {
     if (!ticket) return;
 
     // Atualiza o status de todos os bilhetes premiados dentro deste recibo para "premio_pago"
-    const updatedTicketsData = ticket.tickets_data.map((t: any) => 
-      (t.status === 'ganhou' || t.status === 'pendente-resgate') ? { ...t, status: 'premio_pago' } : t
+    const updatedTicketsData = (ticket.tickets_data || []).map((t: any) => 
+      (t.status === 'ganhou' || t.status === 'pendente-resgate' || t.s === 'ganhou') ? { ...t, status: 'premio_pago', s: 'premio_pago' } : t
     );
 
     const { error } = await supabase
@@ -271,7 +272,7 @@ function FinanceiroContent() {
                ) : (
                  tickets.filter(t => t.status === 'pendente' || t.status === 'ganhou' || t.status === 'pendente-resgate').map((t, i) => {
                    const totalPremioAcumulado = (t.tickets_data || []).reduce((acc: number, item: any) => 
-                     (item.status === 'ganhou' || item.status === 'pendente-resgate') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
+                     (item.status === 'ganhou' || item.status === 'pendente-resgate' || item.s === 'ganhou') ? acc + (Number(item.valorPremio) || 0) : acc, 0);
                    
                    return (
                      <Card key={i} className={cn(
@@ -475,7 +476,7 @@ function FinanceiroContent() {
 
 export default function FinanceiroPage() {
   return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary">Carregando Auditoria...</div>}>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary"><Loader2 className="animate-spin mr-2" /> Carregando Auditoria...</div>}>
       <FinanceiroContent />
     </Suspense>
   );

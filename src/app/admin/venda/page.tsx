@@ -21,7 +21,8 @@ import {
   MessageCircle,
   AlertCircle,
   Trophy,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -253,12 +254,13 @@ export default function VendaPage() {
     };
 
     const ticketsGenerated = [];
+    // Otimização extrema para o array de tickets: usa chaves curtas para reduzir peso JSON
     for (let i = 0; i < quantity; i++) {
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        numeros: formData.tipo === 'bingo' ? generateBingoNumbers() : null,
-        palpite: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        status: 'ativo'
+        n: formData.tipo === 'bingo' ? generateBingoNumbers() : null, // 'n' em vez de 'numeros'
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // 'p' em vez de 'palpite'
+        s: 'ativo' // 's' em vez de 'status'
       });
     }
 
@@ -267,7 +269,6 @@ export default function VendaPage() {
     const hasBalance = (user?.balance || 0) >= totalVenda;
     const finalStatus = (isMaster || hasBalance) ? 'pago' : 'pendente';
 
-    // Otimização de payload para centenas de tickets
     const receipt = {
       id: receiptId,
       barcode: barcode,
@@ -290,7 +291,18 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
       
-      setVendaRealizada(receipt);
+      // Converte de volta para nomes legíveis para a UI do recibo após salvar
+      const receiptForUI = {
+        ...receipt,
+        tickets_data: ticketsGenerated.map(t => ({
+          id: t.id,
+          numeros: t.n,
+          palpite: t.p,
+          status: t.s
+        }))
+      };
+
+      setVendaRealizada(receiptForUI);
       toast({ title: "VENDA REGISTRADA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       
@@ -301,7 +313,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Verifique a conexão ou tente reduzir a quantidade de bilhetes." 
+        description: "Verifique a conexão ou chaves Supabase." 
       });
     } finally {
       setLoading(false);
@@ -447,7 +459,7 @@ export default function VendaPage() {
                   </div>
                   
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl transition-all active:scale-95" disabled={loading}>
-                    {loading ? <RefreshCcw className="animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                    {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
                     {loading ? "PROCESSANDO..." : "CONCLUIR VENDA"}
                   </Button>
                 </form>

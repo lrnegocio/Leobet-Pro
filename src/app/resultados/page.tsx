@@ -53,7 +53,19 @@ function ResultadosContent() {
         .maybeSingle();
 
       if (found) {
-        setReceipt(found);
+        // Normaliza tickets_data caso as chaves estejam otimizadas
+        const normalizedData = (found.tickets_data || []).map((t: any) => ({
+          id: t.id,
+          numeros: t.numeros || t.n,
+          palpite: t.palpite || t.p,
+          status: t.status || t.s,
+          premio_tipo: t.premio_tipo,
+          valorPremio: t.valorPremio
+        }));
+        
+        const normalizedReceipt = { ...found, tickets_data: normalizedData };
+        setReceipt(normalizedReceipt);
+        
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).maybeSingle();
         setEventoData(ev);
@@ -81,7 +93,7 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isClaiming: false, isPaid: false };
     
-    // Filtra todos os tickets que ganharam dentro deste cupom
+    // Soma todos os prêmios ganhos no recibo
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio) || 0), 0);
     
@@ -101,7 +113,7 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o status de todos os bilhetes premiados dentro do array tickets_data
+      // Atualiza o status de todos os bilhetes premiados para pendente-resgate
       const updatedTicketsData = receipt.tickets_data.map((t: any) => 
         t.status === 'ganhou' ? { ...t, status: 'pendente-resgate' } : t
       );
@@ -110,7 +122,7 @@ function ResultadosContent() {
         .from('tickets')
         .update({ 
           tickets_data: updatedTicketsData,
-          status: 'pendente-resgate' // Status geral do cupom também muda
+          status: 'pendente-resgate' 
         })
         .eq('id', receipt.id);
 

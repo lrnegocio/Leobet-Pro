@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, AlertTriangle, Calendar, Save, Database, Clock, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trophy, AlertTriangle, Calendar, Save, Database, Clock, RotateCcw, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -103,7 +103,11 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     );
 
     if (incomplete) {
-      toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Até mesmo o placar 0 deve ser preenchido." });
+      toast({ 
+        variant: "destructive", 
+        title: "PREENCHA TODOS OS PLACARES", 
+        description: "Certifique-se de que todos os jogos têm placares (use 0 se necessário)." 
+      });
       return;
     }
 
@@ -125,7 +129,9 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          const guesses = t.palpite?.split('-') || [];
+          // Aceita tanto palpites quanto p (otimizado)
+          const guessStr = t.palpite || t.p || '';
+          const guesses = guessStr.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => {
             if (g === results[i]) hits++;
@@ -143,7 +149,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         if (receipt && receipt.tickets_data) {
           const updatedData = receipt.tickets_data.map((t: any) => {
             if (t.id === winner.ticketId) {
-              return { ...t, status: 'ganhou', valorPremio: individualPrize };
+              return { ...t, status: 'ganhou', s: 'ganhou', valorPremio: individualPrize };
             }
             return t;
           });
@@ -152,7 +158,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       }
 
       const resolvedParams = await params;
-      await supabase.from('boloes').update({ scores, resultados: results, status: 'finalizado', max_hits: maxHits }).eq('id', resolvedParams.id);
+      await supabase.from('boloes').update({ 
+        scores, 
+        resultados: results, 
+        status: 'finalizado', 
+        max_hits: maxHits 
+      }).eq('id', resolvedParams.id);
+      
       toast({ title: "AUDITORIA FINALIZADA!" });
       loadData();
     } catch (e) {
@@ -162,7 +174,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary">Carregando...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -180,7 +192,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 </Button>
               )}
               <Badge className="bg-green-100 text-green-700 font-black uppercase text-[9px] gap-2 h-9 px-4 rounded-xl">
-                <Database className="w-3 h-3" /> Supabase
+                <Database className="w-3 h-3" /> Supabase Live
               </Badge>
             </div>
           </div>
@@ -236,8 +248,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
               </CardContent>
               {bolao.status !== 'finalizado' && (
                 <div className="p-6 md:p-8 border-t bg-muted/30 flex flex-col sm:flex-row gap-4">
-                  <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-14 font-black uppercase border-2 rounded-2xl bg-white">Salvar Parcial</Button>
-                  <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-14 bg-accent hover:bg-accent/90 font-black uppercase text-lg shadow-xl rounded-2xl">Finalizar Auditoria</Button>
+                  <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-14 font-black uppercase border-2 rounded-2xl bg-white">
+                    {saving ? <Loader2 className="animate-spin" /> : 'Salvar Parcial'}
+                  </Button>
+                  <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-14 bg-accent hover:bg-accent/90 font-black uppercase text-lg shadow-xl rounded-2xl">
+                    {saving ? <Loader2 className="animate-spin" /> : 'Finalizar Auditoria'}
+                  </Button>
                 </div>
               )}
             </Card>
