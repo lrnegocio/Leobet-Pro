@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,11 +16,8 @@ import {
   Plus,
   Minus,
   Database,
-  Key,
   MessageCircle,
-  AlertCircle,
   Trophy,
-  CheckCircle2,
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -197,8 +193,8 @@ export default function VendaPage() {
       ? `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`
       : `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
 
-    const drawInfo = selectedEventData ? `%0A📅 *SORTEIO:* ${new Date(selectedEventData.data_sorteio || selectedEventData.data_fim).toLocaleString('pt-BR')}` : "";
-    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${receipt.cliente}%0A🔑 *PIX:* ${receipt.pix_resgate}%0A🏆 *JOGO:* ${receipt.evento_nome}${drawInfo}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${receipt.id}`;
+    const drawDate = selectedEventData ? new Date(selectedEventData.data_sorteio || selectedEventData.data_fim).toLocaleString('pt-BR') : "";
+    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${receipt.cliente}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A📅 *SORTEIO:* ${drawDate}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -210,7 +206,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO DE PAYLOAD: nomes de chaves curtos para aceitar milhares de bilhetes
+    // OTIMIZAÇÃO: tickets_data leve para suportar milhares de itens
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       const nums = new Set<number>();
@@ -228,7 +224,6 @@ export default function VendaPage() {
     
     const receipt = {
       id: receiptId,
-      barcode: Math.floor(1000000000 + Math.random() * 9000000000).toString(),
       evento_id: formData.eventoId,
       evento_nome: formData.eventoNome,
       tipo: formData.tipo,
@@ -252,7 +247,7 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA", description: err.message });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA", description: "Tente reduzir a quantidade ou verifique a conexão." });
     } finally {
       setLoading(false);
     }
@@ -309,7 +304,7 @@ export default function VendaPage() {
                     <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                       <option value="">-- SELECIONE --</option>
                       {eventosAtivos.map(e => (
-                        <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)}) - Sorteio: {new Date(e.data_sorteio || e.data_fim).toLocaleString('pt-BR')}</option>
+                        <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>
                       ))}
                     </select>
                   </div>

@@ -1,21 +1,17 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, ArrowLeft, Clock, XCircle, Youtube, Database, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Search, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
-import { useAuthStore } from '@/store/use-auth-store';
 import { cn } from '@/lib/utils';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuthStore();
   const { toast } = useToast();
   
   const [code, setCode] = useState('');
@@ -52,7 +48,6 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // RESGATE UNIFICADO: Soma todos os prêmios do tickets_data
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
@@ -69,7 +64,6 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o recibo principal para 'pendente-resgate'
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       toast({ title: "RESGATE SOLICITADO!", description: `Valor de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` });

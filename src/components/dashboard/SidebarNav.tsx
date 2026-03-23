@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface NavItem {
@@ -159,6 +159,9 @@ export function SidebarNav() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Menu de Navegação</SheetTitle>
+            </SheetHeader>
             <NavContent />
           </SheetContent>
         </Sheet>

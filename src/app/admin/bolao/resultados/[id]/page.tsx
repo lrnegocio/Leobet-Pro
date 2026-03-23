@@ -1,11 +1,10 @@
-
-"use client"
+'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Calendar, Save, Database, Clock, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +58,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // FIX: Considerar '0' como preenchido corretamente
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
     if (incomplete) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Use '0' se necessário." });
 

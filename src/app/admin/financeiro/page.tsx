@@ -1,15 +1,15 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, Phone, CheckCircle2, Calendar, Search, TrendingUp, User, Loader2 } from 'lucide-react';
+import { RefreshCcw, Database, CheckCircle2, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -44,7 +44,6 @@ function FinanceiroContent() {
   useEffect(() => { if (mounted) loadData(); }, [mounted]);
 
   const confirmPayout = async (receiptId: string) => {
-    // Atualiza o recibo principal para 'premio_pago'
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', receiptId);
     if (!error) { toast({ title: "PRÊMIO PAGO ✓" }); loadData(); }
   };
@@ -102,9 +101,9 @@ function FinanceiroContent() {
 
             <TabsContent value="history" className="mt-6 space-y-6">
                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-6 rounded-3xl border">
-                  <div><Label className="text-[10px] font-black uppercase">Início</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
-                  <div><Label className="text-[10px] font-black uppercase">Fim</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
-                  <div className="md:col-span-2"><Label className="text-[10px] font-black uppercase">Busca</Label><Input placeholder="NOME OU CÓDIGO" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                  <div><Label className="text-[10px] font-black uppercase">Início</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-10" /></div>
+                  <div><Label className="text-[10px] font-black uppercase">Fim</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-10" /></div>
+                  <div className="md:col-span-2"><Label className="text-[10px] font-black uppercase">Busca</Label><Input placeholder="NOME OU CÓDIGO" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-10" /></div>
                </div>
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <Card className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-lg">
