@@ -20,9 +20,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   const loadData = async () => {
     if (!mounted) return;
@@ -31,99 +29,56 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const { data: bData } = await supabase.from('boloes').select('*').eq('id', resolvedParams.id).single();
       if (bData) {
         setBolao(bData);
-        const numPartidas = bData.partidas?.length || 10;
-        if (bData.scores && Array.isArray(bData.scores) && bData.scores.length > 0) {
-          setScores(bData.scores);
-        } else {
-          setScores(Array(numPartidas).fill(null).map(() => ({ p1: '', p2: '', excluded: false })));
-        }
+        if (bData.scores) setScores(bData.scores);
+        else setScores(Array(bData.partidas?.length || 10).fill(null).map(() => ({ p1: '', p2: '' })));
       }
-
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
       setTickets(tData || []);
-    } catch (err: any) {
-      console.error(err.message || err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [mounted]);
+  useEffect(() => { loadData(); }, [mounted]);
 
-  const totalArrecadado = useMemo(() => {
-    return tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0) || 0), 0);
+  const pool = useMemo(() => {
+    const total = tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0)), 0);
+    return Math.floor(total * 0.65 * 100) / 100;
   }, [tickets]);
-
-  const pool = Math.floor(totalArrecadado * 0.65 * 100) / 100;
 
   const handleUpdateScore = (index: number, field: 'p1' | 'p2', val: string) => {
     const newScores = [...scores];
-    if (!newScores[index]) newScores[index] = { p1: '', p2: '', excluded: false };
-    newScores[index] = { ...newScores[index], [field]: val, excluded: false };
+    newScores[index] = { ...newScores[index], [field]: val };
     setScores(newScores);
   };
 
   const handleSaveProgress = async () => {
     setSaving(true);
     try {
-      const resolvedParams = await params;
-      const { error } = await supabase
-        .from('boloes')
-        .update({ scores })
-        .eq('id', resolvedParams.id);
-      
-      if (!error) {
-        toast({ title: "PLACARE SALVOS!" });
-        loadData();
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: e.message });
-    } finally {
-      setSaving(false);
-    }
+      await supabase.from('boloes').update({ scores }).eq('id', (await params).id);
+      toast({ title: "PLACARE SALVOS!" });
+    } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
-    // Permite 0 mas não vazio
-    const incomplete = scores.some(s => 
-      s.p1 === '' || s.p2 === '' || 
-      s.p1 === null || s.p2 === null ||
-      s.p1 === undefined || s.p2 === undefined
-    );
-
-    if (incomplete) {
-      toast({ 
-        variant: "destructive", 
-        title: "PREENCHA TODOS OS PLACARES", 
-        description: "Certifique-se de que todos os jogos têm placares (use 0 se necessário)." 
-      });
-      return;
-    }
+    // FIX: Considerar '0' como preenchido corretamente
+    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
+    if (incomplete) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Use '0' se necessário." });
 
     setSaving(true);
-    
     try {
-      const results = (bolao.partidas || []).map((p: any, i: number) => {
+      const results = bolao.partidas.map((p: any, i: number) => {
         const s = scores[i];
-        const g1 = parseInt(s.p1);
-        const g2 = parseInt(s.p2);
-        if (g1 > g2) return '1';
-        if (g1 < g2) return '2';
+        if (parseInt(s.p1) > parseInt(s.p2)) return '1';
+        if (parseInt(s.p1) < parseInt(s.p2)) return '2';
         return 'X';
       });
 
       let maxHits = 0;
       const participants: any[] = [];
-
       tickets.forEach(receipt => {
-        if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          const guessStr = t.palpite || t.p || '';
-          const guesses = guessStr.split('-') || [];
+          const guesses = t.p?.split('-') || [];
           let hits = 0;
-          guesses.forEach((g: string, i: number) => {
-            if (g === results[i]) hits++;
-          });
+          guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
           if (hits > maxHits) maxHits = hits;
           participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
         });
@@ -133,141 +88,51 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
 
       for (const winner of winnersList) {
-        const { data: receipt } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
-        if (receipt && receipt.tickets_data) {
-          const updatedData = receipt.tickets_data.map((t: any) => {
-            if (t.id === winner.ticketId) {
-              return { ...t, status: 'ganhou', s: 'ganhou', valorPremio: individualPrize };
-            }
-            return t;
-          });
-          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', receipt.id);
-        }
+        const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
+        const updatedData = rec.tickets_data.map((t: any) => t.id === winner.ticketId ? { ...t, status: 'ganhou', vp: individualPrize } : t);
+        await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
       }
 
-      const resolvedParams = await params;
-      await supabase.from('boloes').update({ 
-        scores, 
-        resultados: results, 
-        status: 'finalizado', 
-        max_hits: maxHits 
-      }).eq('id', resolvedParams.id);
-      
-      toast({ title: "AUDITORIA FINALIZADA!" });
+      await supabase.from('boloes').update({ scores, status: 'finalizado', max_hits: maxHits }).eq('id', (await params).id);
+      toast({ title: "RODADA FINALIZADA!" });
       loadData();
     } catch (e: any) {
       toast({ variant: "destructive", title: "ERRO NA AUDITORIA", description: e.message });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  const resetBolao = async () => {
-    if (confirm("Resetar resultados?")) {
-      setSaving(true);
-      const resolvedParams = await params;
-      await supabase.from('boloes').update({ status: 'aberto', resultados: null, max_hits: 0, scores: null }).eq('id', resolvedParams.id);
-      loadData();
-      setSaving(false);
-    }
-  };
-
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black text-xs uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-5xl mx-auto space-y-8">
-          <div className="flex justify-between items-center">
-            <Link href="/admin/bolao" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase">
-              <ArrowLeft className="w-4 h-4" /> Voltar
-            </Link>
-            <div className="flex gap-2">
-              {bolao.status === 'finalizado' && (
-                <Button onClick={resetBolao} variant="outline" className="h-9 text-[9px] font-black uppercase text-destructive border-destructive/20 rounded-xl">
-                  <RotateCcw className="w-3 h-3 mr-1" /> Resetar
-                </Button>
-              )}
-              <Badge className="bg-green-100 text-green-700 font-black uppercase text-[9px] gap-2 h-9 px-4 rounded-xl">
-                <Database className="w-3 h-3" /> Supabase Live
-              </Badge>
-            </div>
+          <Link href="/admin/bolao" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase"><ArrowLeft className="w-4 h-4" /> Gestão</Link>
+          <div className="flex justify-between items-end gap-6">
+            <div><h1 className="text-4xl font-black uppercase text-primary">{bolao.nome}</h1><p className="text-[10px] font-black text-muted-foreground uppercase mt-2">Prêmio: R$ {pool.toFixed(2)}</p></div>
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-              <h1 className="text-4xl font-black uppercase text-primary leading-none tracking-tighter">{bolao.nome}</h1>
-              <p className="text-[10px] font-black text-muted-foreground uppercase mt-2 flex items-center gap-2">
-                <Clock className="w-3 h-3" /> Lançamento de Placares
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-3xl shadow-xl border-2 border-primary/5 text-right w-full md:w-auto">
-               <p className="text-[10px] font-black uppercase text-muted-foreground">Prêmio Estimado (65%)</p>
-               <p className="text-3xl font-black text-green-600">R$ {pool.toFixed(2)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-32">
-            <Card className="lg:col-span-2 border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
-              <CardHeader className="bg-muted/50 border-b p-6">
-                <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" /> Grade de Resultados
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 md:p-8 space-y-4">
-                 {(bolao.partidas || []).map((p: any, i: number) => (
-                   <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-muted/20 border-2 border-transparent hover:border-accent transition-all">
-                      <div className="flex-1 w-full text-center sm:text-left">
-                         <Badge className="bg-primary text-white font-black text-[8px] px-2 mb-1">JOGO #{i+1}</Badge>
-                         <p className="text-xs font-black uppercase truncate">{p.time1} vs {p.time2}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <input 
-                           type="number" 
-                           placeholder="0" 
-                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white outline-none focus:border-primary"
-                           value={scores[i]?.p1 ?? ''}
-                           onChange={(e) => handleUpdateScore(i, 'p1', e.target.value)}
-                           disabled={bolao.status === 'finalizado'}
-                         />
-                         <span className="font-black opacity-30">X</span>
-                         <input 
-                           type="number" 
-                           placeholder="0" 
-                           className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2 bg-white outline-none focus:border-primary"
-                           value={scores[i]?.p2 ?? ''}
-                           onChange={(e) => handleUpdateScore(i, 'p2', e.target.value)}
-                           disabled={bolao.status === 'finalizado'}
-                         />
-                      </div>
-                   </div>
-                 ))}
-              </CardContent>
-              {bolao.status !== 'finalizado' && (
-                <div className="p-6 md:p-8 border-t bg-muted/30 flex flex-col sm:flex-row gap-4">
-                  <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-14 font-black uppercase border-2 rounded-2xl bg-white">
-                    {saving ? <Loader2 className="animate-spin" /> : 'Salvar Parcial'}
-                  </Button>
-                  <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-14 bg-accent hover:bg-accent/90 font-black uppercase text-lg shadow-xl rounded-2xl">
-                    {saving ? <Loader2 className="animate-spin" /> : 'Finalizar Auditoria'}
-                  </Button>
-                </div>
-              )}
-            </Card>
-
-            <div className="space-y-6">
-               <Card className="bg-primary text-white border-none shadow-2xl rounded-[2rem] p-8">
-                  <h3 className="text-[10px] font-black uppercase opacity-60 mb-4">Resumo</h3>
-                  <div className="space-y-4">
-                     <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                        <span className="text-[9px] font-black uppercase">Bilhetes</span>
-                        <span className="text-lg font-black">{tickets.length}</span>
-                     </div>
-                  </div>
-               </Card>
-            </div>
-          </div>
+          <Card className="rounded-[2.5rem] bg-white overflow-hidden shadow-2xl">
+            <CardContent className="p-8 space-y-4">
+               {bolao.partidas.map((p: any, i: number) => (
+                 <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-muted/20">
+                    <div className="flex-1"><Badge className="bg-primary text-white font-black text-[8px] mb-1">JOGO #{i+1}</Badge><p className="text-xs font-black uppercase">{p.time1} vs {p.time2}</p></div>
+                    <div className="flex items-center gap-2">
+                       <input type="number" placeholder="0" className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2" value={scores[i]?.p1 ?? ''} onChange={e => handleUpdateScore(i, 'p1', e.target.value)} disabled={bolao.status === 'finalizado'} />
+                       <span className="font-black opacity-30">X</span>
+                       <input type="number" placeholder="0" className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2" value={scores[i]?.p2 ?? ''} onChange={e => handleUpdateScore(i, 'p2', e.target.value)} disabled={bolao.status === 'finalizado'} />
+                    </div>
+                 </div>
+               ))}
+               {bolao.status !== 'finalizado' && (
+                 <div className="pt-6 flex gap-4">
+                   <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-14 font-black uppercase rounded-2xl">Salvar Parcial</Button>
+                   <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-14 bg-accent font-black uppercase rounded-2xl shadow-xl">{saving ? <Loader2 className="animate-spin" /> : 'Finalizar e Premiar'}</Button>
+                 </div>
+               )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
