@@ -61,7 +61,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Permite 0 como placar válido
+    // FIX: Permite 0 como placar válido, checando especificamente se a string está vazia
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
@@ -89,6 +89,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
+          // p ou palpites para suportar payload otimizado
           const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });

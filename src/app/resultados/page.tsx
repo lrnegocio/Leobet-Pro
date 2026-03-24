@@ -54,6 +54,7 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
+    // Suporta n/numeros e vp/valorPremio (payload otimizado)
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio || t.vp || 0)), 0);
     

@@ -206,7 +206,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: Chaves curtas para reduzir tamanho do payload
+    // OTIMIZAÇÃO: Chaves curtas para reduzir tamanho do payload no Supabase
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -217,9 +217,9 @@ export default function VendaPage() {
       }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: numsArr,
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        s: 'pago' 
+        n: numsArr, // n = numeros
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
+        s: 'pago' // s = status
       });
     }
 
