@@ -206,7 +206,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: Gerar tickets com chaves curtas para economizar payload
+    // OTIMIZAÇÃO: Gerar tickets com chaves ultra-curtas para economizar payload
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       const nums = new Set<number>();
@@ -217,7 +217,7 @@ export default function VendaPage() {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: formData.tipo === 'bingo' ? Array.from(nums).sort((a,b) => a-b) : null,
         p: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        s: 'pago' // s = status
+        s: 'pago' 
       });
     }
 
@@ -250,7 +250,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Payload otimizado, verifique conexão ou reduza a quantidade." 
+        description: "Payload otimizado, verifique conexão ou reduza a quantidade para evitar limites do Supabase." 
       });
     } finally {
       setLoading(false);

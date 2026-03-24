@@ -49,11 +49,10 @@ export default function NovoBingoPage() {
       toast({ title: "BINGO PUBLICADO!" });
       router.push('/admin/bingo');
     } catch (err: any) {
-      // Falha silenciosa: O sistema avisa que as chaves devem ser colocadas no Vercel
       toast({ 
         variant: "destructive", 
-        title: "VENDA EM ESPERA", 
-        description: "Configure NEXT_PUBLIC_SUPABASE_URL na Vercel para sincronizar." 
+        title: "ERRO AO PUBLICAR", 
+        description: err.message || "Verifique a conexão com o Supabase." 
       });
     } finally {
       setSaving(false);
@@ -131,7 +130,7 @@ export default function NovoBingoPage() {
                     required
                   />
                   <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1">
-                    <Info className="w-3 h-3" /> O sistema sincroniza as vendas em tempo real.
+                    <Info className="w-3 h-3" /> O sistema sincroniza as vendas em tempo real no Supabase.
                   </p>
                 </div>
 

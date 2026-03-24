@@ -53,19 +53,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     setSaving(true);
     try {
       await supabase.from('boloes').update({ scores }).eq('id', (await params).id);
-      toast({ title: "PROGRESSO SALVO!" });
+      toast({ title: "PROGRESSO SALVO NO SUPABASE!" });
     } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
-    // FIX: Permitir "0" como placar válido
+    // Verifica se todos os campos foram preenchidos (0 é válido)
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares (use 0 para zero)." 
+        description: "Preencha todos os placares das partidas (use 0 para zero)." 
       });
     }
 
@@ -86,7 +86,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          // p = palpites
           const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
@@ -105,6 +104,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
           const updatedData = rec.tickets_data.map((t: any) => 
             t.id === winner.ticketId ? { ...t, status: 'ganhou', valorPremio: individualPrize } : t
           );
+          // O status do recibo principal fica como 'ganhou' para sinalizar que há prêmios ali
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }
       }
@@ -129,7 +129,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 <ArrowLeft className="w-4 h-4" /> Voltar
              </Link>
              <Badge variant="outline" className="font-black uppercase text-[10px] flex gap-1 items-center">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria Supabase
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Supabase Live
              </Badge>
           </div>
 

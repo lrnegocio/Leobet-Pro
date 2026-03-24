@@ -54,6 +54,7 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
+    // Filtra cartelas que ganharam (status 'ganhou' ou 's' abreviado)
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio || t.vp || 0)), 0);
     
@@ -69,13 +70,13 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o recibo principal para pendente-resgate
+      // Atualiza o recibo principal para pendente-resgate no Supabase
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       
       toast({ 
         title: "RESGATE UNIFICADO SOLICITADO!", 
-        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` 
+        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise da diretoria.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {
