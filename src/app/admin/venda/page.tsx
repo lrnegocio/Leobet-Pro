@@ -39,7 +39,6 @@ export default function VendaPage() {
 
   const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
-  const [settings, setSettings] = useState({ youtubeUrl: '', systemUrl: 'https://leobet-probets.vercel.app' });
   
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -58,11 +57,6 @@ export default function VendaPage() {
   useEffect(() => {
     setMounted(true);
     loadEventos();
-    const savedSettings = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('leobet_settings') || '{}') : {};
-    setSettings({
-      youtubeUrl: savedSettings.youtubeUrl || '',
-      systemUrl: savedSettings.systemUrl || 'https://leobet-probets.vercel.app'
-    });
   }, []);
 
   const loadEventos = async () => {
@@ -71,12 +65,12 @@ export default function VendaPage() {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
-      const validBingos = (bingos || []).filter(b => b.data_sorteio > now).map(b => ({ ...b, tipo: 'bingo' }));
-      const validBoloes = (boloes || []).filter(b => b.data_fim > now).map(b => ({ ...b, tipo: 'bolao' }));
+      const validBingos = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
+      const validBoloes = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
 
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err: any) {
-      console.warn("Erro ao carregar eventos:", err.message);
+      console.warn("Erro ao carregar concursos:", err.message);
     }
   };
 
@@ -95,7 +89,7 @@ export default function VendaPage() {
         setPrizes({ totalNet: pool, quadra: 0, quina: 0, bingo: 0, bolao: pool });
       }
     } catch (err: any) {
-      console.error("Erro ao calcular prêmios:", err.message);
+      console.error("Erro ao calcular prêmios live:", err.message);
     }
   };
 
@@ -166,7 +160,7 @@ export default function VendaPage() {
       text += `PIX: ${receipt.pix_resgate}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += "--------------------------------\n";
-      receipt.tickets_data.slice(0, 5).forEach((t: any, i: number) => {
+      receipt.tickets_data.slice(0, 10).forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.n) text += `DEZ: ${t.n.join(' ')}\n`;
         if (t.p) text += `PALPITE: ${t.p}\n`;
@@ -186,17 +180,6 @@ export default function VendaPage() {
       toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO", description: e.message });
     }
   }, [btCharacteristic, toast]);
-
-  const handleShareWhatsApp = (receipt: any) => {
-    const link = `${settings.systemUrl}/resultados?c=${receipt.id}`;
-    let prizeMsg = receipt.tipo === 'bingo' 
-      ? `🔥 *PRÊMIOS:*%0ABingo: R$ ${receipt.detalhe_premios.bingo.toFixed(2)}%0AQuina: R$ ${receipt.detalhe_premios.quina.toFixed(2)}%0AQuadra: R$ ${receipt.detalhe_premios.quadra.toFixed(2)}`
-      : `🔥 *ACUMULADO:* R$ ${receipt.detalhe_premios.bolao.toFixed(2)}`;
-
-    const drawDate = selectedEventData ? new Date(selectedEventData.data_sorteio || selectedEventData.data_fim).toLocaleString('pt-BR') : "";
-    const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${receipt.cliente}%0A🏆 *JOGO:* ${receipt.evento_nome}%0A📅 *SORTEIO:* ${drawDate}%0A💰 *VALOR:* R$ ${receipt.valor_total.toFixed(2)}%0A%0A${prizeMsg}%0A%0A*Conferir Auditoria:*%0A${link}`;
-    window.open(`https://api.whatsapp.com/send?phone=55${receipt.whatsapp}&text=${message}`, '_blank');
-  };
 
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +217,6 @@ export default function VendaPage() {
       pix_resgate: formData.pixKey, 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
-      vendedor_nome: user?.nome || 'Administrador',
       status: 'pago', 
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
@@ -252,7 +234,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Payload reduzido, verifique conexão ou reduza a quantidade." 
+        description: "Payload otimizado, verifique conexão ou reduza a quantidade." 
       });
     } finally {
       setLoading(false);
@@ -357,7 +339,11 @@ export default function VendaPage() {
                    </div>
                    <div className="flex gap-2">
                       <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2"><Printer className="w-5 h-5" /> Imprimir</Button>
-                      <Button onClick={() => handleShareWhatsApp(vendaRealizada)} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
+                      <Button onClick={() => {
+                        const link = `${window.location.origin}/resultados?c=${vendaRealizada.id}`;
+                        const msg = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A%0A*Conferir Auditoria:*%0A${link}`;
+                        window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
+                      }} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
                    </div>
                    <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Nova Venda</Button>
                 </div>
