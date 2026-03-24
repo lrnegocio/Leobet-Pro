@@ -54,9 +54,9 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // Suporta n/numeros e vp/valorPremio (payload otimizado)
-    const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
-    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio || t.vp || 0)), 0);
+    // Suporta 's' ou 'status' e 'vp' ou 'valorPremio' para payload otimizado
+    const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
+    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.vp || t.valorPremio || 0)), 0);
     
     return { 
       total, 
@@ -133,7 +133,7 @@ function ResultadosContent() {
                 
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                   {receipt.tickets_data?.map((t: any, idx: number) => {
-                    const isWinner = t.status === 'ganhou' || t.s === 'ganhou';
+                    const isWinner = (t.s || t.status) === 'ganhou';
                     return (
                       <div key={idx} className={cn(
                         "p-4 rounded-2xl border-2 flex justify-between items-center", 
@@ -142,12 +142,12 @@ function ResultadosContent() {
                         <div>
                           <p className="text-[10px] font-black text-muted-foreground uppercase">Cartela #{idx+1}</p>
                           {(t.n || t.numeros) && <p className="font-black text-sm tracking-widest">{(t.n || t.numeros).join(' ')}</p>}
-                          {(t.p || t.palpites) && <p className="font-black text-sm">PALPITE: {t.p || t.palpites}</p>}
+                          {(t.p || t.palpites) && <p className="font-black text-sm uppercase">PALPITE: {t.p || t.palpites}</p>}
                         </div>
                         {isWinner && (
                           <div className="text-right">
                              <Badge className="bg-green-600 text-white font-black text-[9px] uppercase">PREMIADA</Badge>
-                             <p className="font-black text-green-600">R$ {(t.valorPremio || t.vp || 0).toFixed(2)}</p>
+                             <p className="font-black text-green-600">R$ {(t.vp || t.valorPremio || 0).toFixed(2)}</p>
                           </div>
                         )}
                       </div>

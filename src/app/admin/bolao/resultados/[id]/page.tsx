@@ -28,7 +28,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const { data: bData } = await supabase.from('boloes').select('*').eq('id', resolvedParams.id).single();
       if (bData) {
         setBolao(bData);
-        if (bData.scores) setScores(bData.scores);
+        if (bData.scores && bData.scores.length > 0) setScores(bData.scores);
         else setScores(Array(bData.partidas?.length || 10).fill({ p1: '', p2: '' }));
       }
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
@@ -61,7 +61,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // FIX: Permite 0 como placar válido, checando especificamente se a string está vazia
+    // FIX: Verifica se os campos estão vazios, permitindo '0' como valor válido
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
@@ -89,7 +89,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          // p ou palpites para suportar payload otimizado
+          // 'p' para palpites no payload otimizado
           const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
@@ -105,7 +105,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
-            t.id === winner.ticketId ? { ...t, status: 'ganhou', valorPremio: individualPrize } : t
+            t.id === winner.ticketId ? { ...t, status: 'ganhou', vp: individualPrize } : t
           );
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }

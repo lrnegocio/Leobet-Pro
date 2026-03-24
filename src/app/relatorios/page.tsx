@@ -49,14 +49,11 @@ export default function RelatoriosPage() {
         setTickets(all);
       } else if (user.role === 'gerente') {
         setTickets(all.filter((t: any) => t.gerente_id === user.id || t.vendedor_id === user.id));
-      } else if (user.role === 'cambista') {
-        setTickets(all.filter((t: any) => t.vendedor_id === user.id));
       } else {
-        setTickets(all.filter((t: any) => t.cliente === user.nome || t.vendedor_id === user.id));
+        setTickets(all.filter((t: any) => t.vendedor_id === user.id || t.cliente === user.nome));
       }
     } catch (err: any) {
-      console.error("Erro ao carregar relatórios:", err.message || err);
-      toast({ variant: "destructive", title: "Erro de Sincronização", description: "Verifique sua conexão com o Supabase." });
+      console.error("Erro Relatórios:", err.message || err);
     } finally {
       setLoading(false);
     }
@@ -77,7 +74,6 @@ export default function RelatoriosPage() {
   }, [tickets, startDate, endDate]);
 
   const totals = useMemo(() => {
-    if (!filteredTickets) return { bruto: 0, pendente: 0, ganhos: 0 };
     const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
     const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
     const ganhos = filteredTickets.filter(t => t.status === 'ganhou' || t.status === 'premio_pago' || t.status === 'pendente-resgate').length;
@@ -85,21 +81,10 @@ export default function RelatoriosPage() {
   }, [filteredTickets]);
 
   const handleShareValidation = (ticket: any) => {
-    const savedSettings = JSON.parse(localStorage.getItem('leobet_settings') || '{}');
-    const systemUrl = savedSettings.systemUrl || 'https://leobet-probets.vercel.app';
-    const youtubeUrl = savedSettings.youtubeUrl || '';
+    const link = `${window.location.origin}/resultados?c=${ticket.id}`;
+    let statusText = ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(ticket.status) ? '✅ VALIDADO' : '⚠ PENDENTE';
     
-    const link = `${systemUrl}/resultados?c=${ticket.id}`;
-    let statusText = ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(ticket.status) ? '✅ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
-    
-    let prizeMsg = "";
-    if (ticket.tipo === 'bingo' && ticket.detalhe_premios) {
-      prizeMsg = `🔥 *PRÊMIOS:*%0ABingo: R$ ${ticket.detalhe_premios.bingo?.toFixed(2) || '0.00'}%0AQuina: R$ ${ticket.detalhe_premios.quina?.toFixed(2) || '0.00'}%0AQuadra: R$ ${ticket.detalhe_premios.quadra?.toFixed(2) || '0.00'}`;
-    } else if (ticket.detalhe_premios) {
-      prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao?.toFixed(2) || '0.00'}`;
-    }
-
-    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir Auditoria:*%0A${link}`;
+    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A*Conferir Auditoria:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -123,8 +108,8 @@ export default function RelatoriosPage() {
                 <span className="text-muted-foreground text-[10px] font-black uppercase px-2">até</span>
                 <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-10 w-full md:w-32 border-none shadow-none font-bold text-xs" />
               </div>
-              <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2 hover:bg-primary transition-all group">
-                <RefreshCcw className={cn("w-5 h-5 group-hover:text-white", loading && "animate-spin")} />
+              <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl border-2 transition-all">
+                <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
               </Button>
             </div>
           </div>
@@ -149,16 +134,10 @@ export default function RelatoriosPage() {
           </div>
 
           <div className="space-y-4 pb-20">
-             <div className="flex justify-between items-center px-2">
-               <h3 className="text-sm font-black uppercase text-primary">Detalhamento de Movimentações</h3>
-               <Badge className="bg-primary text-white font-black uppercase text-[10px] h-7 px-4">{filteredTickets.length} Registros</Badge>
-             </div>
-
              <div className="grid grid-cols-1 gap-3">
                 {filteredTickets.length === 0 ? (
                    <Card className="py-20 text-center border-dashed opacity-30 rounded-3xl bg-white">
-                      <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                      <p className="font-black uppercase text-xs">Sem registros para o período selecionado</p>
+                      <p className="font-black uppercase text-xs">Sem registros para o período</p>
                    </Card>
                 ) : filteredTickets.map((t, i) => (
                     <Card key={i} className={cn(
@@ -169,19 +148,17 @@ export default function RelatoriosPage() {
                           <div className="flex-1 w-full text-center md:text-left">
                              <div className="flex items-center gap-2 justify-center md:justify-start">
                                 <p className="font-black uppercase text-base text-primary">{t.cliente}</p>
-                                <Badge variant="outline" className="text-[8px] h-5 font-black uppercase border-2">{t.tipo === 'bolao' ? 'BOLÃO' : 'BINGO'}</Badge>
+                                <Badge variant="outline" className="text-[8px] h-5 font-black uppercase">{t.tipo}</Badge>
                              </div>
-                             <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                               {t.evento_nome} • {t.created_at ? new Date(t.created_at).toLocaleString('pt-BR') : '---'}
-                             </p>
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{t.evento_nome} • {new Date(t.created_at).toLocaleString()}</p>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-between md:justify-end">
+                          <div className="flex items-center gap-3 shrink-0">
                              <p className="text-xl font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
                              <div className="flex gap-2">
                                <Button variant="outline" size="icon" className="h-12 w-12 border-2 rounded-xl" onClick={() => window.print()}>
                                  <Printer className="w-5 h-5 text-primary" />
                                </Button>
-                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 font-black uppercase text-[10px] px-6 rounded-xl shadow-lg">
+                               <Button onClick={() => handleShareValidation(t)} className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 font-black uppercase text-[10px] px-6 rounded-xl">
                                  <Send className="w-4 h-4" /> WhatsApp
                                </Button>
                              </div>

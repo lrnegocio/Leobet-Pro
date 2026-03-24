@@ -61,7 +61,7 @@ function FinanceiroContent() {
   const performance = useMemo(() => {
     const summary: Record<string, { nome: string, total: number }> = {};
     filteredTickets.forEach(t => {
-      if (t.status === 'pago' || t.status === 'premio_pago' || t.status === 'ganhou') {
+      if (['pago', 'premio_pago', 'ganhou'].includes(t.status)) {
         const key = t.vendedor_id || 'admin';
         if (!summary[key]) summary[key] = { nome: t.vendedor_nome || 'Admin', total: 0 };
         summary[key].total += Number(t.valor_total || 0);
@@ -85,7 +85,7 @@ function FinanceiroContent() {
             <div>
               <h1 className="text-4xl font-black uppercase text-primary">Financeiro Master</h1>
               <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria Supabase
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Cloud
               </p>
             </div>
             <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl">
@@ -103,18 +103,18 @@ function FinanceiroContent() {
 
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem solicitações pendentes...</div>
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates pendentes...</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
                  // Soma o total acumulado do bilhete (Resgate Unificado)
-                 const totalAcumulado = t.tickets_data?.filter((item: any) => item.status === 'ganhou' || item.s === 'ganhou')
-                    .reduce((acc: number, item: any) => acc + (Number(item.valorPremio || item.vp || 0)), 0);
+                 const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
+                    .reduce((acc: number, item: any) => acc + (Number(item.vp || item.valorPremio || 0)), 0);
                  
                  return (
                    <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                      <div className="flex-1 w-full">
                        <div className="flex items-center gap-2 mb-1">
                           <Badge variant="outline" className="text-[8px] font-black uppercase">{t.tipo}</Badge>
-                          <p className="text-[10px] font-black opacity-40">BILHETE: {t.id}</p>
+                          <p className="text-[10px] font-black opacity-40">CÓDIGO: {t.id}</p>
                        </div>
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
@@ -139,7 +139,7 @@ function FinanceiroContent() {
 
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <Card className="lg:col-span-1 bg-white rounded-[2rem] p-6 shadow-xl">
-                     <h3 className="font-black uppercase text-sm mb-6 flex items-center gap-2 text-primary"><TrendingUp className="w-4 h-4" /> Performance Equipe</h3>
+                     <h3 className="font-black uppercase text-sm mb-6 flex items-center gap-2 text-primary"><TrendingUp className="w-4 h-4" /> Ranking Equipe</h3>
                      <div className="space-y-3">
                         {performance.map((p, i) => (
                           <div key={i} className="flex justify-between items-center p-3 border-b">

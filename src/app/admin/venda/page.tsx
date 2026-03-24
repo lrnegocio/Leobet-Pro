@@ -61,7 +61,6 @@ export default function VendaPage() {
 
   const loadEventos = async () => {
     try {
-      const now = new Date().toISOString();
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
@@ -160,12 +159,13 @@ export default function VendaPage() {
       text += `PIX: ${receipt.pix_resgate}\n`;
       text += `JOGO: ${receipt.evento_nome}\n`;
       text += "--------------------------------\n";
-      receipt.tickets_data.slice(0, 10).forEach((t: any, i: number) => {
+      receipt.tickets_data.slice(0, 5).forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}: ${t.id}\n`;
         if (t.n) text += `DEZ: ${t.n.join(' ')}\n`;
         if (t.p) text += `PALPITE: ${t.p}\n`;
         text += "\n";
       });
+      if (receipt.tickets_data.length > 5) text += `+ ${receipt.tickets_data.length - 5} BILHETES NO LINK\n`;
       text += "--------------------------------\n";
       text += `VALOR: R$ ${receipt.valor_total.toFixed(2)}\n`;
       text += `CÓDIGO: ${receipt.id}\n`;
@@ -189,7 +189,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: Chaves curtas para reduzir tamanho do payload no Supabase
+    // OTIMIZAÇÃO: Usando chaves de 1 letra para reduzir peso do payload (n=numeros, p=palpites, s=status)
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -200,9 +200,9 @@ export default function VendaPage() {
       }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: numsArr, // n = numeros
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
-        s: 'pago' // s = status
+        n: numsArr, 
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
+        s: 'pago'
       });
     }
 
@@ -231,10 +231,11 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
     } catch (err: any) {
+      console.error("Erro venda:", err);
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Payload otimizado, verifique conexão ou reduza a quantidade." 
+        description: "Reduza a quantidade ou verifique a conexão." 
       });
     } finally {
       setLoading(false);
@@ -279,7 +280,7 @@ export default function VendaPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary">
-              <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Registro de Venda</CardTitle></CardHeader>
+              <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Terminal de Vendas</CardTitle></CardHeader>
               <CardContent className="p-8 space-y-6">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
