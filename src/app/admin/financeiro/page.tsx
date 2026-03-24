@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -106,6 +105,7 @@ function FinanceiroContent() {
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
                  <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem solicitações pendentes...</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
+                 // Soma o total acumulado do bilhete (Resgate Unificado)
                  const totalAcumulado = t.tickets_data?.filter((item: any) => item.status === 'ganhou' || item.s === 'ganhou')
                     .reduce((acc: number, item: any) => acc + (Number(item.valorPremio || item.vp || 0)), 0);
                  

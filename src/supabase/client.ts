@@ -1,3 +1,4 @@
+'use client';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -15,7 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       return new Response(JSON.stringify({ 
         error: "Network Error", 
         details: err.message,
-        hint: "Verifique se as variáveis de ambiente do Supabase estão configuradas no painel da Vercel."
+        hint: "Configure as variáveis de ambiente do Supabase no painel da Vercel."
       }), { 
         status: 500,
         headers: { 'Content-Type': 'application/json' }

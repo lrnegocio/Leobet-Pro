@@ -58,6 +58,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
+    // FIX: Permitir "0" como placar válido
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
@@ -85,6 +86,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
+          // p = palpites
           const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
@@ -96,6 +98,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
       const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
 
+      // Gravar prêmios unificados nos tickets_data
       for (const winner of winnersList) {
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {

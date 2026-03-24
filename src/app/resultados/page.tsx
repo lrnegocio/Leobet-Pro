@@ -50,6 +50,7 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
+  // RESGATE UNIFICADO: Soma todos os prêmios ganhos no recibo
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
@@ -68,6 +69,7 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
+      // Atualiza o recibo principal para pendente-resgate
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       
