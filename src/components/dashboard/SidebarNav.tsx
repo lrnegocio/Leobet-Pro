@@ -53,7 +53,7 @@ export function SidebarNav() {
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('leobet_sidebar_collapsed');
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('leobet_sidebar_collapsed') : null;
     if (saved === 'true') setIsCollapsed(true);
   }, []);
 
@@ -62,7 +62,9 @@ export function SidebarNav() {
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    localStorage.setItem('leobet_sidebar_collapsed', String(newState));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('leobet_sidebar_collapsed', String(newState));
+    }
   };
 
   const filteredItems = navItems.filter(item => item.roles.includes(user.role));
@@ -159,7 +161,6 @@ export function SidebarNav() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
-            {/* FIX: DialogTitle para acessibilidade */}
             <SheetHeader className="px-6 py-4">
               <SheetTitle className="text-primary font-black uppercase text-lg">Menu LEOBET</SheetTitle>
             </SheetHeader>

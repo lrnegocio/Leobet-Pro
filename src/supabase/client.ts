@@ -9,18 +9,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true
-  },
-  global: {
-    fetch: (...args) => fetch(...args).catch(err => {
-      console.warn("Rede instável ou chaves ausentes. Verifique NEXT_PUBLIC_SUPABASE_URL na Vercel.", err.message);
-      return new Response(JSON.stringify({ 
-        error: "Network Error", 
-        details: err.message,
-        hint: "Configure as variáveis de ambiente do Supabase no painel da Vercel."
-      }), { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    })
   }
 });

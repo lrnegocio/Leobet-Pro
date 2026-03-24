@@ -53,19 +53,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     setSaving(true);
     try {
       await supabase.from('boloes').update({ scores }).eq('id', (await params).id);
-      toast({ title: "PROGRESSO SALVO NO SUPABASE!" });
+      toast({ title: "PROGRESSO SALVO!" });
     } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
-    // FIX: Verifica se todos os campos foram preenchidos (0 é válido)
+    // FIX: Verifica se os campos foram preenchidos (incluindo 0)
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares (use 0 para zero)." 
+        description: "Preencha todos os placares." 
       });
     }
 
@@ -75,8 +75,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const s = scores[i];
         const p1 = parseInt(s.p1);
         const p2 = parseInt(s.p2);
-        if (p1 > p2) return '1';
-        if (p1 < p2) return '2';
+        if (p1 > p2) return p.time1;
+        if (p1 < p2) return p.time2;
         return 'X';
       });
 
@@ -115,7 +115,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     } finally { setSaving(false); }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando Auditoria...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -127,7 +127,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 <ArrowLeft className="w-4 h-4" /> Voltar
              </Link>
              <Badge variant="outline" className="font-black uppercase text-[10px] flex gap-1 items-center">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria Supabase Live
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Live
              </Badge>
           </div>
 
@@ -179,7 +179,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
                {bolao.status !== 'finalizado' && (
                  <div className="pt-8 flex flex-col md:flex-row gap-4">
-                   <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-16 font-black uppercase rounded-2xl border-2">Salvar Parcial</Button>
+                   <button onClick={handleSaveProgress} disabled={saving} className="flex-1 h-16 font-black uppercase rounded-2xl border-2 hover:bg-muted transition-all">Salvar Parcial</button>
                    <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-16 bg-accent text-white font-black uppercase rounded-2xl shadow-xl gap-2">
                       {saving ? <Loader2 className="animate-spin" /> : <Calculator className="w-6 h-6" />}
                       Finalizar Auditoria

@@ -206,16 +206,18 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO DE PAYLOAD: Chaves curtas (n=numeros, p=palpites, s=status)
+    // OTIMIZAÇÃO EXTREMA: Chaves curtas (n=nums, p=palpites, s=status)
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
-      const nums = new Set<number>();
+      let numsArr = null;
       if (formData.tipo === 'bingo') {
+        const nums = new Set<number>();
         while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
+        numsArr = Array.from(nums).sort((a,b) => a-b);
       }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: formData.tipo === 'bingo' ? Array.from(nums).sort((a,b) => a-b) : null,
+        n: numsArr,
         p: formData.tipo === 'bolao' ? palpites.join('-') : null,
         s: 'pago' 
       });
@@ -250,7 +252,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Payload otimizado, verifique conexão ou reduza a quantidade." 
+        description: "Reduza a quantidade se persistir." 
       });
     } finally {
       setLoading(false);

@@ -50,11 +50,9 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // RESGATE UNIFICADO: Soma todos os prêmios ganhos no recibo
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // Filtra cartelas que ganharam (status 'ganhou' ou 's' abreviado)
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio || t.vp || 0)), 0);
     
@@ -75,7 +73,7 @@ function ResultadosContent() {
       
       toast({ 
         title: "RESGATE UNIFICADO SOLICITADO!", 
-        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise da diretoria.` 
+        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {
@@ -95,7 +93,7 @@ function ResultadosContent() {
         
         <Card className="rounded-[2.5rem] shadow-2xl bg-white p-6 md:p-12">
           <div className="flex gap-2 mb-8">
-            <input placeholder="DIGITE O CÓDIGO DO BILHETE" className="w-full h-16 font-black text-center text-2xl border-2 rounded-3xl uppercase" value={code} onChange={e => setCode(e.target.value.toUpperCase())} />
+            <input placeholder="CÓDIGO DO BILHETE" className="w-full h-16 font-black text-center text-2xl border-2 rounded-3xl uppercase" value={code} onChange={e => setCode(e.target.value.toUpperCase())} />
             <Button onClick={() => handleSearch()} className="h-16 bg-primary px-8 rounded-3xl shadow-xl">{loading ? <Loader2 className="animate-spin" /> : <Search />}</Button>
           </div>
 
@@ -107,14 +105,14 @@ function ResultadosContent() {
                   statsGanhos.isPaid ? "bg-blue-600" : (receipt.status === 'pendente-resgate' ? "bg-orange-500" : "bg-green-600 animate-pulse")
                 )}>
                   <div>
-                    <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados ({statsGanhos.count} cartelas)</p>
+                    <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados ({statsGanhos.count})</p>
                     <p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p>
                   </div>
                   
                   {statsGanhos.hasPending ? (
                     <Button onClick={handleClaimAll} disabled={claiming} className="bg-white text-green-700 hover:bg-white/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg">
                       {claiming ? <Loader2 className="animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />}
-                      {claiming ? "Processando..." : "RESGATAR TODOS OS PRÊMIOS"}
+                      {claiming ? "Enviando..." : "RESGATAR TODOS OS PRÊMIOS"}
                     </Button>
                   ) : (
                     <div className="bg-white/10 px-6 py-4 rounded-2xl flex items-center gap-2">
@@ -136,8 +134,8 @@ function ResultadosContent() {
                     const isWinner = t.status === 'ganhou' || t.s === 'ganhou';
                     return (
                       <div key={idx} className={cn(
-                        "p-4 rounded-2xl border-2 flex justify-between items-center transition-all", 
-                        isWinner ? "bg-green-50 border-green-400 shadow-md" : "bg-white opacity-60"
+                        "p-4 rounded-2xl border-2 flex justify-between items-center", 
+                        isWinner ? "bg-green-50 border-green-400" : "bg-white opacity-60"
                       )}>
                         <div>
                           <p className="text-[10px] font-black text-muted-foreground uppercase">Cartela #{idx+1}</p>
@@ -146,7 +144,7 @@ function ResultadosContent() {
                         </div>
                         {isWinner && (
                           <div className="text-right">
-                             <Badge className="bg-green-600 text-white font-black text-[9px] uppercase mb-1">PREMIADA</Badge>
+                             <Badge className="bg-green-600 text-white font-black text-[9px] uppercase">PREMIADA</Badge>
                              <p className="font-black text-green-600">R$ {(t.valorPremio || t.vp || 0).toFixed(2)}</p>
                           </div>
                         )}
