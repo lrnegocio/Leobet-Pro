@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -9,6 +8,7 @@ import { Search, ArrowLeft, Loader2, Trophy, Clock, CheckCircle2 } from 'lucide-
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 function ResultadosContent() {
   const searchParams = useSearchParams();
@@ -139,8 +139,8 @@ function ResultadosContent() {
                       )}>
                         <div>
                           <p className="text-[10px] font-black text-muted-foreground uppercase">Cartela #{idx+1}</p>
-                          {t.n && <p className="font-black text-sm tracking-widest">{t.n.join(' ')}</p>}
-                          {t.p && <p className="font-black text-sm">PALPITE: {t.p}</p>}
+                          {(t.n || t.numeros) && <p className="font-black text-sm tracking-widest">{(t.n || t.numeros).join(' ')}</p>}
+                          {(t.p || t.palpites) && <p className="font-black text-sm">PALPITE: {t.p || t.palpites}</p>}
                         </div>
                         {isWinner && (
                           <div className="text-right">

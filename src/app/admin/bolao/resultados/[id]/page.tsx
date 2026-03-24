@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -30,7 +29,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       if (bData) {
         setBolao(bData);
         if (bData.scores) setScores(bData.scores);
-        else setScores(Array(bData.partidas?.length || 10).fill(null).map(() => ({ p1: '', p2: '' })));
+        else setScores(Array(bData.partidas?.length || 10).fill({ p1: '', p2: '' }));
       }
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
       setTickets(tData || []);
@@ -59,13 +58,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
+    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares." 
+        description: "Preencha todos os placares (use 0 para zero)." 
       });
     }
 
@@ -86,7 +85,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          const guesses = t.p?.split('-') || [];
+          const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
           if (hits > maxHits) maxHits = hits;

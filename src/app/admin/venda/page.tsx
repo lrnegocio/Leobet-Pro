@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -250,7 +249,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "A quantidade de dados é muito grande ou erro de conexão. Tente novamente." 
+        description: err.message || "Tente reduzir a quantidade ou verifique a conexão." 
       });
     } finally {
       setLoading(false);

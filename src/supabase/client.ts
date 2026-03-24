@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -12,8 +11,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     fetch: (...args) => fetch(...args).catch(err => {
-      console.warn("Conexão instável ou chaves ausentes na Vercel:", err.message);
-      return new Response(JSON.stringify({ error: "Network Error", details: err.message }), { 
+      console.warn("Rede instável ou chaves ausentes. Verifique NEXT_PUBLIC_SUPABASE_URL na Vercel.", err.message);
+      return new Response(JSON.stringify({ 
+        error: "Network Error", 
+        details: err.message,
+        hint: "Verifique se as variáveis de ambiente do Supabase estão configuradas no painel da Vercel."
+      }), { 
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
