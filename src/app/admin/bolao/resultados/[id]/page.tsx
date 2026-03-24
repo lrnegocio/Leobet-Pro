@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Save, Loader2, Database, History, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -53,26 +54,41 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     setSaving(true);
     try {
       await supabase.from('boloes').update({ scores }).eq('id', (await params).id);
-      toast({ title: "PLACARE SALVOS!" });
+      toast({ title: "PROGRESSO SALVO!", description: "Os placares parciais foram sincronizados no banco." });
     } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
-    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null);
-    if (incomplete) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PLACARES", description: "Use '0' se necessário." });
+    // VALIDAÇÃO ROBUSTA: Aceita "0" como placar válido
+    const incomplete = scores.some(s => 
+      s.p1 === '' || s.p2 === '' || s.p1 === null || s.p2 === null || 
+      isNaN(parseInt(s.p1)) || isNaN(parseInt(s.p2))
+    );
+
+    if (incomplete) {
+      return toast({ 
+        variant: "destructive", 
+        title: "GRADE INCOMPLETA", 
+        description: "Preencha todos os placares dos 10 jogos antes de finalizar." 
+      });
+    }
 
     setSaving(true);
     try {
       const results = bolao.partidas.map((p: any, i: number) => {
         const s = scores[i];
-        if (parseInt(s.p1) > parseInt(s.p2)) return '1';
-        if (parseInt(s.p1) < parseInt(s.p2)) return '2';
+        const p1 = parseInt(s.p1);
+        const p2 = parseInt(s.p2);
+        if (p1 > p2) return '1';
+        if (p1 < p2) return '2';
         return 'X';
       });
 
       let maxHits = 0;
       const participants: any[] = [];
+      
       tickets.forEach(receipt => {
+        if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
           const guesses = t.p?.split('-') || [];
           let hits = 0;
@@ -87,46 +103,107 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
 
       for (const winner of winnersList) {
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
-        const updatedData = rec.tickets_data.map((t: any) => t.id === winner.ticketId ? { ...t, status: 'ganhou', vp: individualPrize } : t);
-        await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
+        if (rec) {
+          const updatedData = rec.tickets_data.map((t: any) => 
+            t.id === winner.ticketId ? { ...t, status: 'ganhou', valorPremio: individualPrize, vp: individualPrize } : t
+          );
+          // O status do recibo vai para 'ganhou' para alertar o admin/cliente
+          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
+        }
       }
 
-      await supabase.from('boloes').update({ scores, status: 'finalizado', max_hits: maxHits }).eq('id', (await params).id);
-      toast({ title: "RODADA FINALIZADA!" });
+      await supabase.from('boloes').update({ 
+        scores, 
+        status: 'finalizado', 
+        max_hits: maxHits 
+      }).eq('id', (await params).id);
+
+      toast({ title: "RODADA FINALIZADA COM SUCESSO!", description: `Vencedores identificados com ${maxHits} acertos.` });
       loadData();
     } catch (e: any) {
       toast({ variant: "destructive", title: "ERRO NA AUDITORIA", description: e.message });
     } finally { setSaving(false); }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando Auditoria...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-5xl mx-auto space-y-8">
-          <Link href="/admin/bolao" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase"><ArrowLeft className="w-4 h-4" /> Gestão</Link>
-          <div className="flex justify-between items-end gap-6">
-            <div><h1 className="text-4xl font-black uppercase text-primary">{bolao.nome}</h1><p className="text-[10px] font-black text-muted-foreground uppercase mt-2">Prêmio: R$ {pool.toFixed(2)}</p></div>
+          <div className="flex justify-between items-center">
+             <Link href="/admin/bolao" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase">
+                <ArrowLeft className="w-4 h-4" /> Voltar para Gestão
+             </Link>
+             <Badge variant="outline" className="font-black uppercase text-[10px] flex gap-1 items-center">
+                <Database className="w-3 h-3 text-green-600" /> Sincronização Supabase
+             </Badge>
           </div>
 
-          <Card className="rounded-[2.5rem] bg-white overflow-hidden shadow-2xl">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-white p-8 rounded-[2.5rem] shadow-xl border-none">
+            <div>
+               <h1 className="text-4xl font-black uppercase text-primary leading-none">{bolao.nome}</h1>
+               <div className="flex gap-4 mt-4">
+                  <div className="bg-primary/5 p-3 rounded-2xl border">
+                     <p className="text-[8px] font-black uppercase text-muted-foreground">Prêmio Arrecadado (65%)</p>
+                     <p className="text-xl font-black text-green-600">R$ {pool.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-primary/5 p-3 rounded-2xl border">
+                     <p className="text-[8px] font-black uppercase text-muted-foreground">Bilhetes em Jogo</p>
+                     <p className="text-xl font-black text-primary">{tickets.length}</p>
+                  </div>
+               </div>
+            </div>
+            {bolao.status === 'finalizado' && (
+              <Badge className="bg-green-600 text-white font-black h-12 px-8 rounded-2xl uppercase text-xs flex gap-2">
+                 <Calculator className="w-5 h-5" /> AUDITADO: {bolao.max_hits} ACERTOS
+              </Badge>
+            )}
+          </div>
+
+          <Card className="rounded-[2.5rem] bg-white overflow-hidden shadow-2xl border-none">
             <CardContent className="p-8 space-y-4">
-               {bolao.partidas.map((p: any, i: number) => (
-                 <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-muted/20">
-                    <div className="flex-1"><Badge className="bg-primary text-white font-black text-[8px] mb-1">JOGO #{i+1}</Badge><p className="text-xs font-black uppercase">{p.time1} vs {p.time2}</p></div>
-                    <div className="flex items-center gap-2">
-                       <input type="number" placeholder="0" className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2" value={scores[i]?.p1 ?? ''} onChange={e => handleUpdateScore(i, 'p1', e.target.value)} disabled={bolao.status === 'finalizado'} />
-                       <span className="font-black opacity-30">X</span>
-                       <input type="number" placeholder="0" className="w-14 h-14 text-center font-black text-2xl rounded-2xl border-2" value={scores[i]?.p2 ?? ''} onChange={e => handleUpdateScore(i, 'p2', e.target.value)} disabled={bolao.status === 'finalizado'} />
+               <div className="grid grid-cols-1 gap-3">
+                  {bolao.partidas.map((p: any, i: number) => (
+                    <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-5 rounded-2xl bg-muted/20 border-2 border-transparent hover:border-primary/10 transition-all">
+                       <div className="flex-1">
+                          <Badge className="bg-primary text-white font-black text-[8px] mb-1 uppercase px-3">JOGO #{i+1}</Badge>
+                          <p className="text-sm font-black uppercase tracking-tight">{p.time1} <span className="text-accent">VS</span> {p.time2}</p>
+                          <p className="text-[9px] font-bold opacity-40 uppercase">{p.data ? new Date(p.data).toLocaleString('pt-BR') : 'Sem data'}</p>
+                       </div>
+                       <div className="flex items-center gap-3">
+                          <input 
+                            type="number" 
+                            placeholder="0" 
+                            className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2 focus:border-primary outline-none transition-all shadow-sm" 
+                            value={scores[i]?.p1 ?? ''} 
+                            onChange={e => handleUpdateScore(i, 'p1', e.target.value)} 
+                            disabled={bolao.status === 'finalizado'} 
+                          />
+                          <span className="font-black text-2xl opacity-20">X</span>
+                          <input 
+                            type="number" 
+                            placeholder="0" 
+                            className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2 focus:border-primary outline-none transition-all shadow-sm" 
+                            value={scores[i]?.p2 ?? ''} 
+                            onChange={e => handleUpdateScore(i, 'p2', e.target.value)} 
+                            disabled={bolao.status === 'finalizado'} 
+                          />
+                       </div>
                     </div>
-                 </div>
-               ))}
+                  ))}
+               </div>
+
                {bolao.status !== 'finalizado' && (
-                 <div className="pt-6 flex gap-4">
-                   <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-14 font-black uppercase rounded-2xl">Salvar Parcial</Button>
-                   <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-14 bg-accent font-black uppercase rounded-2xl shadow-xl">{saving ? <Loader2 className="animate-spin" /> : 'Finalizar e Premiar'}</Button>
+                 <div className="pt-8 flex flex-col md:flex-row gap-4">
+                   <Button onClick={handleSaveProgress} disabled={saving} variant="outline" className="flex-1 h-16 font-black uppercase rounded-2xl border-2 gap-2">
+                      <Save className="w-5 h-5" /> Salvar Parcial
+                   </Button>
+                   <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-16 bg-accent hover:bg-accent/90 text-white font-black uppercase rounded-2xl shadow-xl gap-2 transition-all active:scale-95">
+                      {saving ? <Loader2 className="animate-spin" /> : <Calculator className="w-6 h-6" />}
+                      Finalizar e Premiar
+                   </Button>
                  </div>
                )}
             </CardContent>

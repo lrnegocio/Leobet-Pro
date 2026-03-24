@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -67,12 +68,12 @@ export default function VendaPage() {
 
   const loadEventos = async () => {
     try {
-      const now = new Date();
+      const now = new Date().toISOString();
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
-      const validBingos = (bingos || []).filter(b => new Date(b.data_sorteio) > now).map(b => ({ ...b, tipo: 'bingo' }));
-      const validBoloes = (boloes || []).filter(b => new Date(b.data_fim) > now).map(b => ({ ...b, tipo: 'bolao' }));
+      const validBingos = (bingos || []).filter(b => b.data_sorteio > now).map(b => ({ ...b, tipo: 'bingo' }));
+      const validBoloes = (boloes || []).filter(b => b.data_fim > now).map(b => ({ ...b, tipo: 'bolao' }));
 
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err: any) {
@@ -206,16 +207,18 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: tickets_data leve para suportar milhares de itens
+    // OTIMIZAÇÃO: Estrutura leve para suportar milhares de itens
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       const nums = new Set<number>();
-      if (formData.tipo === 'bingo') while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
+      if (formData.tipo === 'bingo') {
+        while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
+      }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: formData.tipo === 'bingo' ? Array.from(nums).sort((a,b) => a-b) : null,
         p: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        s: 'ativo'
+        s: 'pago'
       });
     }
 
@@ -233,7 +236,7 @@ export default function VendaPage() {
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       vendedor_nome: user?.nome || 'Administrador',
-      status: (isMaster || (user?.balance || 0) >= totalVenda) ? 'pago' : 'pendente', 
+      status: 'pago', 
       tickets_data: ticketsGenerated,
       detalhe_premios: { ...prizes },
       created_at: new Date().toISOString()
@@ -247,7 +250,11 @@ export default function VendaPage() {
       updatePrizes(formData.eventoId, formData.tipo);
       setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA", description: "Tente reduzir a quantidade ou verifique a conexão." });
+      toast({ 
+        variant: "destructive", 
+        title: "ERRO AO SALVAR VENDA", 
+        description: "A quantidade de dados é muito grande. Tente dividir em duas vendas menores ou verifique sua conexão." 
+      });
     } finally {
       setLoading(false);
     }

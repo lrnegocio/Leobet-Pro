@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -160,7 +161,7 @@ export function SidebarNav() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
             <SheetHeader className="sr-only">
-              <SheetTitle>Menu de Navegação</SheetTitle>
+              <SheetTitle>Menu Principal LEOBET PRO</SheetTitle>
             </SheetHeader>
             <NavContent />
           </SheetContent>
