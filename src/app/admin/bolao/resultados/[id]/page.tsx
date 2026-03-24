@@ -52,20 +52,23 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const handleSaveProgress = async () => {
     setSaving(true);
     try {
-      await supabase.from('boloes').update({ scores }).eq('id', (await params).id);
+      const resolved = await params;
+      await supabase.from('boloes').update({ scores }).eq('id', resolved.id);
       toast({ title: "PROGRESSO SALVO!" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: e.message });
     } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
-    // FIX: Verifica se os campos foram preenchidos (incluindo 0)
+    // Permite 0 como placar válido
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares." 
+        description: "Preencha todos os placares (use 0 se for o caso)." 
       });
     }
 
@@ -107,7 +110,8 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
 
-      await supabase.from('boloes').update({ scores, status: 'finalizado', max_hits: maxHits }).eq('id', (await params).id);
+      const resolved = await params;
+      await supabase.from('boloes').update({ scores, status: 'finalizado', max_hits: maxHits }).eq('id', resolved.id);
       toast({ title: "RODADA FINALIZADA!" });
       loadData();
     } catch (e: any) {

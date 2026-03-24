@@ -50,6 +50,7 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
+  // RESGATE UNIFICADO: Soma todos os prêmios de todas as cartelas premiadas no bilhete
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
@@ -59,7 +60,7 @@ function ResultadosContent() {
     return { 
       total, 
       count: winners.length, 
-      hasPending: winners.length > 0 && receipt.status !== 'pendente-resgate' && receipt.status !== 'premio_pago',
+      hasPending: total > 0 && receipt.status !== 'pendente-resgate' && receipt.status !== 'premio_pago',
       isPaid: receipt.status === 'premio_pago'
     };
   }, [receipt]);

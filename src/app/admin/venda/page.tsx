@@ -206,7 +206,8 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO EXTREMA: Chaves curtas (n=nums, p=palpites, s=status)
+    // OTIMIZAÇÃO EXTREMA: Chaves curtas para não exceder limites de payload do Supabase
+    // n=nums, p=palpites, s=status, id=id
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -252,7 +253,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "Reduza a quantidade se persistir." 
+        description: "Payload reduzido, verifique conexão ou reduza a quantidade." 
       });
     } finally {
       setLoading(false);
