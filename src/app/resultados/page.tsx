@@ -70,7 +70,6 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o recibo principal para pendente-resgate no Supabase
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       

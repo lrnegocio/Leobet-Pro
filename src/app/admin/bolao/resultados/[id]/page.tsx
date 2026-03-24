@@ -58,14 +58,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // Verifica se todos os campos foram preenchidos (0 é válido)
+    // FIX: Verifica se todos os campos foram preenchidos (0 é válido)
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares das partidas (use 0 para zero)." 
+        description: "Preencha todos os placares (use 0 para zero)." 
       });
     }
 
@@ -97,14 +97,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const winnersList = participants.filter(p => p.hits === maxHits && maxHits > 0);
       const individualPrize = winnersList.length > 0 ? (pool / winnersList.length) : 0;
 
-      // Gravar prêmios unificados nos tickets_data
       for (const winner of winnersList) {
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
             t.id === winner.ticketId ? { ...t, status: 'ganhou', valorPremio: individualPrize } : t
           );
-          // O status do recibo principal fica como 'ganhou' para sinalizar que há prêmios ali
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }
       }

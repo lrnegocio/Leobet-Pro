@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -57,8 +56,8 @@ export default function RelatoriosPage() {
       } else {
         setTickets(all.filter((t: any) => t.cliente === user.nome || t.vendedor_id === user.id));
       }
-    } catch (err) {
-      console.error("Erro ao carregar relatórios:", err);
+    } catch (err: any) {
+      console.error("Erro ao carregar relatórios:", err.message || err);
       toast({ variant: "destructive", title: "Erro de Sincronização", description: "Verifique sua conexão com o Supabase." });
     } finally {
       setLoading(false);
@@ -81,9 +80,9 @@ export default function RelatoriosPage() {
 
   const totals = useMemo(() => {
     if (!filteredTickets) return { bruto: 0, pendente: 0, ganhos: 0 };
-    const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
+    const bruto = filteredTickets.reduce((acc, t) => acc + (['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status) ? Number(t.valor_total || 0) : 0), 0);
     const pendente = filteredTickets.reduce((acc, t) => acc + (t.status === 'pendente' ? Number(t.valor_total || 0) : 0), 0);
-    const ganhos = filteredTickets.filter(t => t.status === 'ganhou' || t.status === 'premio_pago').length;
+    const ganhos = filteredTickets.filter(t => t.status === 'ganhou' || t.status === 'premio_pago' || t.status === 'pendente-resgate').length;
     return { bruto, pendente, ganhos };
   }, [filteredTickets]);
 
@@ -93,7 +92,7 @@ export default function RelatoriosPage() {
     const youtubeUrl = savedSettings.youtubeUrl || '';
     
     const link = `${systemUrl}/resultados?c=${ticket.id}`;
-    let statusText = ['pago', 'ganhou', 'premio_pago'].includes(ticket.status) ? '✅ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
+    let statusText = ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(ticket.status) ? '✅ APOSTA VALIDADA' : '⚠ AGUARDANDO PAGAMENTO';
     
     let prizeMsg = "";
     if (ticket.tipo === 'bingo' && ticket.detalhe_premios) {
@@ -102,7 +101,7 @@ export default function RelatoriosPage() {
       prizeMsg = `🔥 *ACUMULADO:* R$ ${ticket.detalhe_premios.bolao?.toFixed(2) || '0.00'}`;
     }
 
-    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir Auditoria:*%0A${link}%0A%0A📊 *CÓDIGO:* ${ticket.barcode}`;
+    const message = `*LEOBET PRO*%0A%0A*STATUS:* ${statusText}%0A👤 *CLIENTE:* ${ticket.cliente}%0A🎟️ *CONCURSO:* ${ticket.evento_nome}%0A💰 *VALOR:* R$ ${Number(ticket.valor_total).toFixed(2)}%0A%0A${prizeMsg}%0A%0A📺 *SORTEIO:* ${youtubeUrl}%0A%0A*Conferir Auditoria:*%0A${link}`;
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
@@ -166,7 +165,7 @@ export default function RelatoriosPage() {
                 ) : filteredTickets.map((t, i) => (
                     <Card key={i} className={cn(
                         "p-5 hover:shadow-md border-l-8 rounded-2xl bg-white transition-all",
-                        ['pago', 'ganhou', 'premio_pago'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'
+                        ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status) ? 'border-l-green-600' : 'border-l-orange-500'
                     )}>
                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex-1 w-full text-center md:text-left">
