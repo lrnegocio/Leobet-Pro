@@ -207,7 +207,6 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: Estrutura leve para suportar milhares de itens
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       const nums = new Set<number>();
@@ -223,8 +222,6 @@ export default function VendaPage() {
     }
 
     const totalVenda = formData.unitario * quantity;
-    const isMaster = typeof window !== 'undefined' && localStorage.getItem('is_master_admin') === 'true';
-    
     const receipt = {
       id: receiptId,
       evento_id: formData.eventoId,
@@ -253,7 +250,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "ERRO AO SALVAR VENDA", 
-        description: "A quantidade de dados é muito grande. Tente dividir em duas vendas menores ou verifique sua conexão." 
+        description: "A quantidade de dados é muito grande ou erro de conexão. Tente novamente." 
       });
     } finally {
       setLoading(false);

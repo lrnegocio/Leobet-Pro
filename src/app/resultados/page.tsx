@@ -37,7 +37,7 @@ function ResultadosContent() {
       }
     } catch (err: any) {
       console.error(err);
-      toast({ variant: "destructive", title: "ERRO DE CONEXÃO", description: "Verifique sua internet." });
+      toast({ variant: "destructive", title: "ERRO DE CONEXÃO" });
     } finally {
       setLoading(false);
     }
@@ -53,14 +53,13 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // Filtra todos os tickets ganhadores dentro desta venda
     const winners = receipt.tickets_data.filter((t: any) => t.status === 'ganhou' || t.s === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.valorPremio || t.vp || 0)), 0);
     
     return { 
       total, 
       count: winners.length, 
-      hasPending: winners.length > 0 && receipt.status !== 'pendente-resgate' && receipt.status !== 'premio_pago' && receipt.status !== 'ganhou',
+      hasPending: winners.length > 0 && receipt.status !== 'pendente-resgate' && receipt.status !== 'premio_pago',
       isPaid: receipt.status === 'premio_pago'
     };
   }, [receipt]);
@@ -69,13 +68,12 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // Atualiza o status do RECIBO INTEIRO para pendente-resgate
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       
       toast({ 
         title: "RESGATE UNIFICADO SOLICITADO!", 
-        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} acumulado em ${statsGanhos.count} cartelas enviado para análise.` 
+        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {

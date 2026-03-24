@@ -160,8 +160,8 @@ export function SidebarNav() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menu Principal LEOBET PRO</SheetTitle>
+            <SheetHeader className="px-6 py-4">
+              <SheetTitle className="text-primary font-black uppercase text-lg">Menu LEOBET</SheetTitle>
             </SheetHeader>
             <NavContent />
           </SheetContent>
