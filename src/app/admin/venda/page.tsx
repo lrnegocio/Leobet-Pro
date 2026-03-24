@@ -206,8 +206,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO EXTREMA: Chaves curtas para não exceder limites de payload do Supabase
-    // n=nums, p=palpites, s=status, id=id
+    // OTIMIZAÇÃO: Chaves curtas para reduzir tamanho do payload
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;

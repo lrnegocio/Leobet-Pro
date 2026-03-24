@@ -119,7 +119,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     } finally { setSaving(false); }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin" /> Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">

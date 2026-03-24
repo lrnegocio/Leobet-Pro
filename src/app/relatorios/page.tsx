@@ -13,9 +13,7 @@ import {
   TrendingUp, 
   Printer,
   RefreshCcw,
-  Eraser,
-  Trophy,
-  ArrowRight
+  Trophy
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
