@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -189,7 +190,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // OTIMIZAÇÃO: Usando chaves de 1 letra para reduzir peso do payload (n=numeros, p=palpites, s=status)
+    // PAYLOAD OTIMIZADO: Chaves de 1 letra para reduzir peso no banco (n=numeros, p=palpites, s=status)
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -219,7 +220,7 @@ export default function VendaPage() {
       vendedor_id: user?.id || 'admin-master',
       status: 'pago', 
       tickets_data: ticketsGenerated,
-      detalhe_premios: { ...prizes },
+      detalhe_premios: prizes,
       created_at: new Date().toISOString()
     };
 
@@ -234,8 +235,8 @@ export default function VendaPage() {
       console.error("Erro venda:", err);
       toast({ 
         variant: "destructive", 
-        title: "ERRO AO SALVAR VENDA", 
-        description: "Reduza a quantidade ou verifique a conexão." 
+        title: "FALHA NA VENDA", 
+        description: "Payload muito grande ou erro de conexão. Tente novamente." 
       });
     } finally {
       setLoading(false);
