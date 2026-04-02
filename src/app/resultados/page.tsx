@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -56,7 +55,10 @@ function ResultadosContent() {
     
     // SOMA TODOS OS PRÊMIOS DAS CARTELAS GANHADORAS NO MESMO BILHETE (RESGATE UNIFICADO)
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
-    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.vp || t.valor_premio || t.valorPremio || 0)), 0);
+    const total = winners.reduce((acc: number, t: any) => {
+       const val = Number(t.vp || t.valor_premio || t.valorPremio || 0);
+       return acc + val;
+    }, 0);
     
     return { 
       total, 

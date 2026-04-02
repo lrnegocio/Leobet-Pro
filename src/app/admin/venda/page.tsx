@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -190,7 +189,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR ERRO DE FETCH
+    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR ERRO DE PAYLOAD TOO LARGE
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -201,9 +200,9 @@ export default function VendaPage() {
       }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: numsArr, 
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        s: 'pago'
+        n: numsArr, // n = numeros
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
+        s: 'pago' // s = status
       });
     }
 
@@ -236,7 +235,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "FALHA NA VENDA", 
-        description: "Payload muito grande ou erro de rede. Tente novamente." 
+        description: "Payload muito grande ou erro de rede. Tente reduzir a quantidade por venda." 
       });
     } finally {
       setLoading(false);

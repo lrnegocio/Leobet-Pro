@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -62,7 +61,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // FIX: Verifica se os campos estão vazios, permitindo '0' como valor válido
+    // CORREÇÃO: Permite '0' como valor válido. Apenas campos vazios são bloqueados.
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
@@ -105,7 +104,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
-            t.id === winner.ticketId ? { ...t, s: 'ganhou', status: 'ganhou', vp: individualPrize, valor_premio: individualPrize } : t
+            t.id === winner.ticketId ? { ...t, s: 'ganhou', vp: individualPrize } : t
           );
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }
