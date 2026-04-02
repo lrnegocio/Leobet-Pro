@@ -106,7 +106,7 @@ function FinanceiroContent() {
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
                  <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates pendentes no momento...</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
-                 // Soma o total acumulado do bilhete (Resgate Unificado)
+                 // SOMA O TOTAL ACUMULADO DO BILHETE (RESGATE UNIFICADO)
                  const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
                     .reduce((acc: number, item: any) => acc + (Number(item.vp || item.valor_premio || item.valorPremio || 0)), 0);
                  

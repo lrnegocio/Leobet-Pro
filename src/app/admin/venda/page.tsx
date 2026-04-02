@@ -190,7 +190,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD OTIMIZADO: Chaves de 1 letra para reduzir peso no banco (n=numeros, p=palpites, s=status)
+    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR ERRO DE FETCH
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -236,7 +236,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "FALHA NA VENDA", 
-        description: "Payload muito grande ou erro de conexão. Tente novamente." 
+        description: "Payload muito grande ou erro de rede. Tente novamente." 
       });
     } finally {
       setLoading(false);
@@ -282,7 +282,7 @@ export default function VendaPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary">
               <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Terminal de Vendas</CardTitle></CardHeader>
-              <CardContent className="p-8 space-y-6">
+              <CardContent className="p-8 space-y-4">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold uppercase" required /></div>

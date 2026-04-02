@@ -51,11 +51,10 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // RESGATE UNIFICADO: Soma todos os prêmios de todas as cartelas premiadas no bilhete
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // Suporta 's' ou 'status' e 'vp' ou 'valorPremio' para payload otimizado
+    // SOMA TODOS OS PRÊMIOS DAS CARTELAS GANHADORAS NO MESMO BILHETE (RESGATE UNIFICADO)
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.vp || t.valor_premio || t.valorPremio || 0)), 0);
     
@@ -71,6 +70,7 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
+      // ATUALIZA O STATUS DO RECIBO INTEIRO PARA PENDENTE DE RESGATE
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       

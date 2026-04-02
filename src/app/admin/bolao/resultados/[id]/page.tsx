@@ -90,7 +90,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          // 'p' para palpites no payload otimizado
           const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
           guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
@@ -106,7 +105,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
-            t.id === winner.ticketId ? { ...t, status: 'ganhou', valor_premio: individualPrize, vp: individualPrize } : t
+            t.id === winner.ticketId ? { ...t, s: 'ganhou', status: 'ganhou', vp: individualPrize, valor_premio: individualPrize } : t
           );
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }

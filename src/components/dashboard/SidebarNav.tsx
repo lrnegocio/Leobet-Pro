@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -162,7 +163,7 @@ export function SidebarNav() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
             <SheetHeader className="px-6 py-4">
-              <SheetTitle className="text-primary font-black uppercase text-lg">Menu LEOBET</SheetTitle>
+              <SheetTitle className="text-primary font-black uppercase text-lg">Menu Principal</SheetTitle>
             </SheetHeader>
             <NavContent />
           </SheetContent>
