@@ -189,7 +189,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR ERRO DE PAYLOAD TOO LARGE
+    // PAYLOAD ULTRA-OTIMIZADO
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -258,7 +258,7 @@ export default function VendaPage() {
                   <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADO"}</p></div>
                 </div>
                 <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl">
-                  {btConnecting ? <RefreshCcw className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
+                  {btConnecting ? <Loader2 className="animate-spin" /> : (btCharacteristic ? "CONECTADO" : "PAREAR")}
                 </Button>
             </Card>
 

@@ -61,7 +61,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // FIX: Verifica se os campos estão vazios, permitindo '0' como valor válido.
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {

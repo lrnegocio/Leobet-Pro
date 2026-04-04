@@ -53,12 +53,9 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // SOMA TODOS OS PRÊMIOS DAS CARTELAS GANHADORAS NO MESMO BILHETE (RESGATE UNIFICADO)
+    // SOMA TODOS OS PRÊMIOS DO MESMO BILHETE (RESGATE UNIFICADO)
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
-    const total = winners.reduce((acc: number, t: any) => {
-       const val = Number(t.vp || t.valor_premio || t.valorPremio || 0);
-       return acc + val;
-    }, 0);
+    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.vp || t.valor_premio || t.valorPremio || 0)), 0);
     
     return { 
       total, 
@@ -72,13 +69,12 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
-      // ATUALIZA O STATUS DO RECIBO INTEIRO PARA PENDENTE DE RESGATE
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       
       toast({ 
-        title: "RESGATE UNIFICADO SOLICITADO!", 
-        description: `Prêmio de R$ ${statsGanhos.total.toFixed(2)} enviado para análise administrativa.` 
+        title: "RESGATE SOLICITADO!", 
+        description: `Prêmio total de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {
@@ -117,12 +113,12 @@ function ResultadosContent() {
                   {statsGanhos.hasPending ? (
                     <Button onClick={handleClaimAll} disabled={claiming} className="bg-white text-green-700 hover:bg-white/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg">
                       {claiming ? <Loader2 className="animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />}
-                      {claiming ? "Enviando..." : "RESGATAR TODOS OS PRÊMIOS"}
+                      {claiming ? "Enviando..." : "RESGATAR TODOS"}
                     </Button>
                   ) : (
                     <div className="bg-white/10 px-6 py-4 rounded-2xl flex items-center gap-2">
                        {statsGanhos.isPaid ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                       <p className="font-black uppercase text-xs">{statsGanhos.isPaid ? "PAGO VIA PIX" : "RESGATE EM ANÁLISE"}</p>
+                       <p className="font-black uppercase text-xs">{statsGanhos.isPaid ? "PAGO" : "EM ANÁLISE"}</p>
                     </div>
                   )}
                 </div>
