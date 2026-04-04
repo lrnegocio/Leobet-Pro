@@ -15,7 +15,7 @@ export const supabase = createClient(
     },
     global: {
       fetch: (...args) => fetch(...args).catch(err => {
-        console.warn("Conexão Supabase instável. Verifique internet ou limites de payload.", err);
+        console.error("Supabase Connection Error:", err.message);
         throw err;
       })
     }

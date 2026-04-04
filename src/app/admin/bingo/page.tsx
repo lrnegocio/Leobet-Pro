@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -31,7 +30,7 @@ export default function BingoPage() {
       if (error) throw error;
       setBingos(data || []);
     } catch (err: any) {
-      console.error("Erro Supabase:", err.message || "Falha de conexão");
+      console.error("Supabase Error:", err.message || "Connection failed");
       toast({
         variant: "destructive",
         title: "Erro de Sincronização",
