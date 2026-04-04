@@ -16,7 +16,7 @@ export const supabase = createClient(
     global: {
       fetch: (...args) => fetch(...args).catch(err => {
         console.error("Erro de Conexão Supabase (Failed to Fetch):", err.message);
-        throw err;
+        return new Response(JSON.stringify({ error: "Failed to fetch" }), { status: 500 });
       })
     }
   }
