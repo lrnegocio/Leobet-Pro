@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,7 +27,7 @@ import { cn } from '@/lib/utils';
 
 export default function VendaPage() {
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
@@ -56,7 +57,15 @@ export default function VendaPage() {
   useEffect(() => {
     setMounted(true);
     loadEventos();
-  }, []);
+    if (user?.role === 'cliente') {
+      setFormData(prev => ({ 
+        ...prev, 
+        cliente: user.nome, 
+        whatsapp: user.phone || '', 
+        pixKey: user.pixKey || '' 
+      }));
+    }
+  }, [user]);
 
   const loadEventos = async () => {
     try {
@@ -151,7 +160,7 @@ export default function VendaPage() {
       });
       if (receipt.tickets_data.length > 3) text += `+ ${receipt.tickets_data.length - 3} CARTELAS NO LINK\n`;
       text += "--------------------------------\n";
-      text += `VALOR: R$ ${receipt.valor_total.toFixed(2)}\n`;
+      text += `VALOR: R$ ${Number(receipt.valor_total).toFixed(2)}\n`;
       text += `COD: ${receipt.id}\n`;
       text += "\x1B\x61\x01BOA SORTE!\n\n\n\n";
       const data = encoder.encode(text);
@@ -170,10 +179,16 @@ export default function VendaPage() {
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (formData.tipo === 'bolao' && palpites.some(p => p === '')) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES" });
 
+    const totalVenda = formData.unitario * quantity;
+
+    // Se for cliente comprando, verifica saldo
+    if (user?.role === 'cliente' && (user.balance || 0) < totalVenda) {
+      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue via PIX para continuar." });
+    }
+
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // Otimização de payload: chaves curtas para reduzir tamanho no banco
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -184,10 +199,10 @@ export default function VendaPage() {
       }
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
-        n: numsArr, // n = numeros
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
-        s: 'pago', // s = status
-        v: 0 // v = valor premio
+        n: numsArr,
+        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
+        s: 'pago',
+        v: 0
       });
     }
 
@@ -199,9 +214,10 @@ export default function VendaPage() {
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       pix_resgate: formData.pixKey, 
-      valor_total: formData.unitario * quantity,
+      valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       vendedor_nome: user?.nome || 'Admin',
+      gerente_id: user?.gerenteId || null,
       status: 'pago', 
       tickets_data: ticketsGenerated,
       created_at: new Date().toISOString()
@@ -210,16 +226,37 @@ export default function VendaPage() {
     try {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
+
+      // ATUALIZAÇÃO DE SALDOS E COMISSÕES
+      if (user) {
+        // Se for cliente comprando sozinho
+        if (user.role === 'cliente') {
+          await supabase.from('users').update({ balance: user.balance - totalVenda }).eq('id', user.id);
+          setUser({ ...user, balance: user.balance - totalVenda });
+        } 
+        // Se for cambista vendendo
+        else if (user.role === 'cambista') {
+          const comissaoCambista = totalVenda * 0.10;
+          await supabase.from('users').update({ commission_balance: (user.commission_balance || 0) + comissaoCambista }).eq('id', user.id);
+          
+          // Se o cambista tiver um gerente
+          if (user.gerenteId) {
+            const comissaoGerente = totalVenda * 0.05;
+            const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
+            if (gerente) {
+              await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comissaoGerente }).eq('id', user.gerenteId);
+            }
+          }
+          setUser({ ...user, commission_balance: (user.commission_balance || 0) + comissaoCambista });
+        }
+      }
+
       setVendaRealizada(receipt);
-      toast({ title: "VENDA REGISTRADA!" });
+      toast({ title: "COMPRA CONCLUÍDA!", description: user?.role === 'cliente' ? "Seu bilhete já está na auditoria." : "Venda registrada no banco de dados." });
       updatePrizes(formData.eventoId, formData.tipo);
-      setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
+      if (user?.role !== 'cliente') setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
     } catch (err: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "ERRO DE CONEXÃO", 
-        description: "Payload reduzido, tente novamente." 
-      });
+      toast({ variant: "destructive", title: "ERRO NA TRANSAÇÃO", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -240,8 +277,8 @@ export default function VendaPage() {
                   </div>
                   <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "OFFLINE"}</p></div>
                 </div>
-                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl">
-                  {btConnecting ? "..." : (btCharacteristic ? "OK" : "CONECTAR")}
+                <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl text-white bg-primary">
+                  {btConnecting ? "..." : (btCharacteristic ? "CONECTADA" : "CONECTAR")}
                 </Button>
             </Card>
 
@@ -265,20 +302,21 @@ export default function VendaPage() {
             <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary">
               <CardHeader className="p-8 pb-0">
                 <CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2">
-                  <ShoppingCart className="w-6 h-6" /> Terminal Vendas
+                  <ShoppingCart className="w-6 h-6" /> {user?.role === 'cliente' ? 'Comprar Bilhete' : 'Terminal de Vendas'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required /></div>
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required /></div>
+                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
+                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
                   </div>
-                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE DO CLIENTE" className="h-12 font-black border-accent/30" required /></div>
+                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE OBRIGATÓRIA" className="h-12 font-black border-accent/30" required /></div>
+                  
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Jogo</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Jogo Ativo</Label>
                     <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                      <option value="">-- SELECIONE --</option>
+                      <option value="">-- SELECIONE O CONCURSO --</option>
                       {eventosAtivos.map(e => (
                         <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>
                       ))}
@@ -301,7 +339,7 @@ export default function VendaPage() {
                   )}
 
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Bilhetes</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
                     <div className="flex items-center gap-4">
                       <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
                       <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-xl" />
@@ -309,8 +347,8 @@ export default function VendaPage() {
                     </div>
                   </div>
 
-                  <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
-                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>{loading ? "..." : "CONCLUIR VENDA"}</Button>
+                  <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
+                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl hover:bg-accent/90" disabled={loading}>{loading ? "PROCESSANDO..." : user?.role === 'cliente' ? "CONFIRMAR COMPRA" : "CONCLUIR VENDA"}</Button>
                 </form>
               </CardContent>
             </Card>
@@ -322,23 +360,23 @@ export default function VendaPage() {
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
-                      <p className="flex justify-between"><span>VALOR:</span> <span>R$ {vendaRealizada.valor_total.toFixed(2)}</span></p>
+                      <p className="flex justify-between"><span>VALOR:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                       <p className="text-center pt-2 border-t font-black">CÓDIGO: {vendaRealizada.id}</p>
                    </div>
                    <div className="flex gap-2">
-                      <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2"><Printer className="w-5 h-5" /> Imprimir</Button>
+                      <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 text-white"><Printer className="w-5 h-5" /> Imprimir</Button>
                       <Button onClick={() => {
                         const link = `${window.location.origin}/resultados?c=${vendaRealizada.id}`;
-                        const msg = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${vendaRealizada.valor_total.toFixed(2)}%0A%0A*Auditoria:* ${link}`;
+                        const msg = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${Number(vendaRealizada.valor_total).toFixed(2)}%0A%0A*Auditoria:* ${link}`;
                         window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
                       }} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
                    </div>
-                   <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Nova Venda</Button>
+                   <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Fazer Outra Venda</Button>
                 </div>
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Smartphone className="w-20 h-20 text-primary mb-4" />
-                  <h3 className="text-xl font-black uppercase text-primary">Aguardando...</h3>
+                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Seleção...</h3>
                 </div>
               )}
             </div>

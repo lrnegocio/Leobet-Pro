@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +17,12 @@ import {
   UserCheck,
   UserPlus,
   ShieldCheck,
-  X
+  X,
+  Wallet,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -41,6 +47,12 @@ export default function GestaoUsuariosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
   
+  // MODAL AJUSTE DE SALDO
+  const [openBalance, setOpenBalance] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceType, setBalanceType] = useState<'balance' | 'commission_balance'>('balance');
+
   // FORM NOVO USUÁRIO
   const [formData, setFormData] = useState({
     nome: '',
@@ -98,6 +110,33 @@ export default function GestaoUsuariosPage() {
     }
   };
 
+  const handleAdjustBalance = async (op: 'add' | 'remove') => {
+    if (!selectedUser || !balanceAmount) return;
+    setSyncing(true);
+    
+    const amount = Number(balanceAmount);
+    const currentVal = Number(selectedUser[balanceType] || 0);
+    const newVal = op === 'add' ? currentVal + amount : Math.max(0, currentVal - amount);
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ [balanceType]: newVal })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+      
+      toast({ title: "SALDO ATUALIZADO!", description: `Novo saldo: R$ ${newVal.toFixed(2)}` });
+      setOpenBalance(false);
+      setBalanceAmount('');
+      loadUsers();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO AJUSTAR SALDO" });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSyncing(true);
@@ -151,13 +190,13 @@ export default function GestaoUsuariosPage() {
               <h1 className="text-3xl font-black uppercase text-primary leading-none flex items-center gap-3">
                 Gestão de Usuários <Database className="w-6 h-6 text-green-600" />
               </h1>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Aprovação, Cadastro de Gerentes e Auditoria</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Aprovação, Cadastro de Gerentes e Auditoria de Saldo</p>
             </div>
             <div className="flex gap-2">
               <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogTrigger asChild>
-                  <Button className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg">
-                    <UserPlus className="w-4 h-4" /> Novo Gerente/Usuário
+                  <Button className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg text-white">
+                    <UserPlus className="w-4 h-4" /> Novo Usuário Master
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
@@ -172,7 +211,7 @@ export default function GestaoUsuariosPage() {
                         value={formData.role}
                         onChange={e => setFormData({...formData, role: e.target.value})}
                       >
-                        <option value="gerente">GERENTE (Master)</option>
+                        <option value="gerente">GERENTE (Diretoria)</option>
                         <option value="cambista">CAMBISTA (Vendedor)</option>
                         <option value="cliente">CLIENTE (Apostador)</option>
                       </select>
@@ -247,7 +286,7 @@ export default function GestaoUsuariosPage() {
                             <div className="flex items-center gap-2">
                                <h3 className="text-lg font-black uppercase text-primary leading-none">{u.nome}</h3>
                                <Badge className={cn(
-                                 "text-[8px] font-black uppercase h-5",
+                                 "text-[8px] font-black uppercase h-5 text-white",
                                  u.role === 'admin' ? 'bg-primary' : (u.role === 'gerente' ? 'bg-blue-700' : (u.role === 'cambista' ? 'bg-accent' : 'bg-green-600'))
                                )}>
                                  {u.role}
@@ -260,15 +299,31 @@ export default function GestaoUsuariosPage() {
                                </Badge>
                             </div>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Telefone'}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Saldo: R$ {Number(u.balance || 0).toFixed(2)} | Comiss: R$ {Number(u.commission_balance || 0).toFixed(2)}</p>
+                            <div className="flex gap-4 mt-2">
+                               <div className="bg-muted p-2 rounded-xl border border-primary/10">
+                                  <p className="text-[7px] font-black uppercase text-muted-foreground">Saldo Disponível</p>
+                                  <p className="text-sm font-black text-primary leading-none">R$ {Number(u.balance || 0).toFixed(2)}</p>
+                               </div>
+                               <div className="bg-muted p-2 rounded-xl border border-accent/10">
+                                  <p className="text-[7px] font-black uppercase text-muted-foreground">Saldo Comissões</p>
+                                  <p className="text-sm font-black text-accent leading-none">R$ {Number(u.commission_balance || 0).toFixed(2)}</p>
+                               </div>
+                            </div>
                          </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
+                         <Button 
+                           onClick={() => { setSelectedUser(u); setOpenBalance(true); }}
+                           className="bg-primary hover:bg-primary/90 h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-white shadow-md"
+                         >
+                           <Wallet className="w-4 h-4" /> Ajustar Saldo
+                         </Button>
+
                          {u.status === 'pending' && (
                            <Button 
                              onClick={() => handleUpdateStatus(u.id, 'approved')}
-                             className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-white shadow-lg"
+                             className="bg-green-600 hover:bg-green-700 h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-white shadow-lg"
                            >
                              <UserCheck className="w-4 h-4" /> Aprovar
                            </Button>
@@ -278,7 +333,7 @@ export default function GestaoUsuariosPage() {
                            <Button 
                              onClick={() => handleUpdateStatus(u.id, 'blocked')}
                              variant="outline"
-                             className="flex-1 md:flex-none h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10"
+                             className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10"
                            >
                              <Ban className="w-4 h-4" /> Bloquear
                            </Button>
@@ -288,7 +343,7 @@ export default function GestaoUsuariosPage() {
                            <Button 
                              onClick={() => handleUpdateStatus(u.id, 'approved')}
                              variant="outline"
-                             className="flex-1 md:flex-none h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-green-600/20 text-green-600 hover:bg-green-600/10"
+                             className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-green-600/20 text-green-600 hover:bg-green-600/10"
                            >
                              <CheckCircle2 className="w-4 h-4" /> Desbloquear
                            </Button>
@@ -309,6 +364,44 @@ export default function GestaoUsuariosPage() {
             ))}
           </div>
         </div>
+
+        {/* MODAL AJUSTE DE SALDO */}
+        <Dialog open={openBalance} onOpenChange={setOpenBalance}>
+          <DialogContent className="bg-white rounded-[2.5rem] border-none max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="font-black uppercase text-primary text-center">Ajustar Saldo de {selectedUser?.nome}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+               <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase opacity-60">Tipo de Saldo</Label>
+                  <div className="flex gap-2">
+                     <Button 
+                       variant={balanceType === 'balance' ? 'default' : 'outline'} 
+                       className="flex-1 h-10 font-black uppercase text-[10px]"
+                       onClick={() => setBalanceType('balance')}
+                     >Apostas</Button>
+                     <Button 
+                       variant={balanceType === 'commission_balance' ? 'default' : 'outline'} 
+                       className="flex-1 h-10 font-black uppercase text-[10px]"
+                       onClick={() => setBalanceType('commission_balance')}
+                     >Comissões</Button>
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase opacity-60">Valor R$</Label>
+                  <Input type="number" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)} className="h-14 text-center font-black text-2xl rounded-2xl" placeholder="0.00" />
+               </div>
+               <div className="flex gap-3">
+                  <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-14 font-black uppercase rounded-xl gap-2">
+                    <Minus className="w-4 h-4" /> Retirar
+                  </Button>
+                  <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-14 bg-green-600 hover:bg-green-700 font-black uppercase rounded-xl gap-2 text-white">
+                    <Plus className="w-4 h-4" /> Adicionar
+                  </Button>
+               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

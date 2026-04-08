@@ -6,11 +6,14 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Youtube, Wallet, Globe, Save, RefreshCcw } from 'lucide-react';
+import { Youtube, Wallet, Globe, Save, RefreshCcw, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/store/use-auth-store';
+import { supabase } from '@/supabase/client';
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -20,33 +23,45 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('leobet_settings');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setYoutubeUrl(parsed.youtubeUrl || '');
-        setCompanyPix(parsed.companyPix || '');
-        setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
-      } catch (e) {
-        console.error("Erro ao carregar settings", e);
+    const loadSettings = async () => {
+      // CARREGA A CHAVE PIX DO ADMIN MASTER
+      const { data } = await supabase.from('users').select('pix_key').eq('role', 'admin').limit(1).single();
+      if (data?.pix_key) setCompanyPix(data.pix_key);
+
+      const saved = localStorage.getItem('leobet_settings');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setYoutubeUrl(parsed.youtubeUrl || '');
+          setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
+        } catch (e) {}
       }
-    }
+    };
+    loadSettings();
   }, []);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const newSettings = { youtubeUrl, companyPix, systemUrl };
-    localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
-    
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // SALVA A CHAVE PIX NO PERFIL DO ADMIN PARA SER GLOBAL
+      if (user?.role === 'admin') {
+        await supabase.from('users').update({ pix_key: companyPix }).eq('id', user.id);
+      }
+
+      const newSettings = { youtubeUrl, systemUrl };
+      localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
+      
       toast({ 
         title: "CONFIGURAÇÕES SALVAS!", 
-        description: "O sistema foi atualizado no Supabase Cloud." 
+        description: "Os dados foram sincronizados em toda a rede." 
       });
-    }, 800);
+    } catch (err) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR NO BANCO" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!mounted) return (
@@ -62,7 +77,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-none">Configurações Gerais</h1>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Sincronização em Tempo Real via Vercel</p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Sincronização Cloud Supabase <Database className="inline w-3 h-3 text-green-600" /></p>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-6">
@@ -74,7 +89,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Canal YouTube (Live)</Label>
+                  <Label className="text-[10px] font-black uppercase opacity-60">Canal YouTube (Sorteios Live)</Label>
                   <div className="flex gap-2">
                     <div className="bg-red-100 p-3 rounded-xl flex items-center justify-center shrink-0">
                       <Youtube className="w-5 h-5 text-red-600" />
@@ -103,20 +118,20 @@ export default function SettingsPage() {
             <Card className="border-t-4 border-t-accent shadow-xl rounded-[2rem] overflow-hidden">
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-accent">
-                  <Wallet className="w-4 h-4" /> Dados Financeiros
+                  <Wallet className="w-4 h-4" /> Gestão de Recebimentos
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Master (Recebimentos)</Label>
+                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Master (Global)</Label>
                   <input 
                     value={companyPix} 
                     onChange={e => setCompanyPix(e.target.value)}
-                    placeholder="CHAVE PIX PARA DEPÓSITOS" 
+                    placeholder="ESTA CHAVE É EXIBIDA PARA TODOS OS DEPÓSITOS" 
                     className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary"
                   />
-                  <p className="text-[9px] font-bold text-orange-600 uppercase">
-                    Esta chave aparecerá para todos os clientes ao solicitarem crédito.
+                  <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
+                    Atenção: Todos os depósitos da rede serão feitos para esta chave.
                   </p>
                 </div>
               </CardContent>
@@ -124,7 +139,7 @@ export default function SettingsPage() {
 
             <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
               {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-              {loading ? 'SINCRONIZANDO...' : 'SALVAR NO SISTEMA'}
+              {loading ? 'SINCRONIZANDO...' : 'SALVAR E ATUALIZAR REDE'}
             </Button>
           </form>
         </div>
