@@ -24,7 +24,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     const loadSettings = async () => {
-      // CARREGA A CHAVE PIX DO ADMIN MASTER
+      // BUSCA A CHAVE PIX DO ADMIN MASTER NO BANCO PARA PERSISTÊNCIA REAL
       const { data } = await supabase.from('users').select('pix_key').eq('role', 'admin').limit(1).single();
       if (data?.pix_key) setCompanyPix(data.pix_key);
 
@@ -45,9 +45,10 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      // SALVA A CHAVE PIX NO PERFIL DO ADMIN PARA SER GLOBAL
+      // SALVA A CHAVE PIX NO PERFIL DO ADMIN PARA SER GLOBAL E PERSISTENTE
       if (user?.role === 'admin') {
-        await supabase.from('users').update({ pix_key: companyPix }).eq('id', user.id);
+        const { error } = await supabase.from('users').update({ pix_key: companyPix }).eq('id', user.id);
+        if (error) throw error;
       }
 
       const newSettings = { youtubeUrl, systemUrl };
@@ -55,7 +56,7 @@ export default function SettingsPage() {
       
       toast({ 
         title: "CONFIGURAÇÕES SALVAS!", 
-        description: "Os dados foram sincronizados em toda a rede." 
+        description: "Os dados foram sincronizados em toda a rede e no banco." 
       });
     } catch (err) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR NO BANCO" });
@@ -131,7 +132,7 @@ export default function SettingsPage() {
                     className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary"
                   />
                   <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                    Atenção: Todos os depósitos da rede serão feitos para esta chave.
+                    Atenção: Esta chave é salva permanentemente no banco de dados e aparecerá para todos os usuários.
                   </p>
                 </div>
               </CardContent>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -49,7 +50,7 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
-  // RESGATE UNIFICADO: Soma todos os prêmios do bilhete
+  // RESGATE UNIFICADO: Soma todos os prêmios do bilhete de uma única vez
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
@@ -68,12 +69,13 @@ function ResultadosContent() {
     if (!receipt || statsGanhos.total <= 0) return;
     setClaiming(true);
     try {
+      // ATUALIZA O STATUS DO BILHEITE INTEIRO PARA PENDENTE RESGATE
       const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
       if (error) throw error;
       
       toast({ 
         title: "RESGATE SOLICITADO!", 
-        description: `R$ ${statsGanhos.total.toFixed(2)} em análise.` 
+        description: `O valor total de R$ ${statsGanhos.total.toFixed(2)} foi enviado para auditoria do Admin.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {
@@ -114,7 +116,7 @@ function ResultadosContent() {
                   statsGanhos.isPaid ? "bg-blue-600" : (receipt.status === 'pendente-resgate' ? "bg-orange-500" : "bg-green-600 animate-pulse")
                 )}>
                   <div>
-                    <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados ({statsGanhos.count})</p>
+                    <p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados ({statsGanhos.count} Cartelas)</p>
                     <p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p>
                   </div>
                   
@@ -126,7 +128,7 @@ function ResultadosContent() {
                   ) : (
                     <div className="bg-white/10 px-6 py-4 rounded-2xl flex items-center gap-2">
                        {statsGanhos.isPaid ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                       <p className="font-black uppercase text-xs">{statsGanhos.isPaid ? "PAGO" : "EM ANÁLISE"}</p>
+                       <p className="font-black uppercase text-xs">{statsGanhos.isPaid ? "PRÊMIO PAGO" : "EM ANÁLISE"}</p>
                     </div>
                   )}
                 </div>

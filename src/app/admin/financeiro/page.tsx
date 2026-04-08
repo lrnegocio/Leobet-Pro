@@ -56,9 +56,8 @@ function FinanceiroContent() {
 
       // 2. COMPUTA COMISSÕES (CAMBISTA E GERENTE)
       const totalVenda = Number(receipt.valor_total);
-      
-      // Busca dados do vendedor
       const { data: vData } = await supabase.from('users').select('*').eq('id', receipt.vendedor_id).single();
+      
       if (vData && vData.role === 'cambista') {
         const comCambista = totalVenda * 0.10;
         await supabase.from('users').update({ commission_balance: Number(vData.commission_balance || 0) + comCambista }).eq('id', vData.id);
@@ -96,8 +95,24 @@ function FinanceiroContent() {
         const { data: userData } = await supabase.from('users').select('*').eq('id', trans.user_id).single();
         if (userData) {
           const currentBalance = Number(userData.balance || 0);
+          const currentComm = Number(userData.commission_balance || 0);
+          
           if (trans.type === 'deposito') {
             await supabase.from('users').update({ balance: currentBalance + Number(trans.amount) }).eq('id', trans.user_id);
+          } else if (trans.type === 'saque') {
+            // DEDUZ DO SALDO TOTAL (COMISSÃO PRIMEIRO)
+            let remaining = Number(trans.amount);
+            let newComm = currentComm;
+            let newBal = currentBalance;
+
+            if (newComm >= remaining) {
+              newComm -= remaining;
+            } else {
+              remaining -= newComm;
+              newComm = 0;
+              newBal -= remaining;
+            }
+            await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', trans.user_id);
           }
         }
         await supabase.from('transactions').update({ status: 'aprovado' }).eq('id', trans.id);
@@ -208,16 +223,17 @@ function FinanceiroContent() {
                  <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates de prêmios pendentes</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
                  const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
-                    .reduce((acc: number, item: any) => acc + (Number(item.v || item.valor_premio || 0)), 0);
+                    .reduce((acc: number, item: any) => acc + (Number(item.v || item.valor_premio || item.valorPremio || 0)), 0);
                  
                  return (
                    <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                      <div className="flex-1 w-full">
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
-                       <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
-                       <div className="mt-4"><p className="text-3xl font-black text-green-600">R$ {totalAcumulado?.toFixed(2)}</p></div>
+                       <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX PARA PAGAMENTO: {t.pix_resgate || "NÃO INFORMADO"}</p>
+                       <div className="mt-4"><p className="text-3xl font-black text-green-600">VALOR TOTAL: R$ {totalAcumulado?.toFixed(2)}</p></div>
+                       <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Este valor é a soma de todas as cartelas premiadas deste bilhete.</p>
                      </div>
-                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Pagar Prêmio</Button>
+                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Dar Baixa no Pagamento</Button>
                    </Card>
                  );
                })}
@@ -241,7 +257,7 @@ function FinanceiroContent() {
                                 <td className="p-4 text-primary">{t.cliente}</td>
                                 <td className="p-4">{t.vendedor_nome || 'Admin'}</td>
                                 <td className="p-4">R$ {Number(t.valor_total).toFixed(2)}</td>
-                                <td className="p-4"><Badge className={cn("text-[7px]", t.status === 'pago' ? 'bg-green-600' : 'bg-orange-600')}>{t.status}</Badge></td>
+                                <td className="p-4"><Badge className={cn("text-[7px]", t.status === 'pago' || t.status === 'premio_pago' ? 'bg-green-600' : 'bg-orange-600')}>{t.status}</Badge></td>
                              </tr>
                            ))}
                         </tbody>

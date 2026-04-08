@@ -29,14 +29,15 @@ export function BalanceCard() {
   const [mounted, setMounted] = useState(false);
   const [openWithdraw, setOpenWithdraw] = useState(false);
   const [openDeposit, setOpenDeposit] = useState(false);
-  const [masterPix, setMasterPix] = useState('LEOBET-PIX-OFICIAL');
+  const [masterPix, setMasterPix] = useState('CARREGANDO...');
 
   useEffect(() => {
     setMounted(true);
     const fetchMasterPix = async () => {
-      // BUSCA A CHAVE PIX DO ADMIN MASTER NO BANCO
+      // BUSCA A CHAVE PIX DO ADMIN MASTER NO BANCO PARA GARANTIR PERSISTÊNCIA
       const { data } = await supabase.from('users').select('pix_key').eq('role', 'admin').limit(1).single();
       if (data?.pix_key) setMasterPix(data.pix_key);
+      else setMasterPix('CONTATE O ADMIN');
     };
     fetchMasterPix();
   }, []);
@@ -80,6 +81,7 @@ export function BalanceCard() {
 
     setLoading(true);
     try {
+      // SOLICITA O SAQUE NO BANCO
       const { error } = await supabase
         .from('transactions')
         .insert([{
@@ -95,7 +97,7 @@ export function BalanceCard() {
 
       setOpenWithdraw(false);
       setWithdrawAmount('');
-      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a conferência administrativa." });
+      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a conferência administrativa. O saldo será deduzido após aprovação." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SACAR" });
     } finally { setLoading(false); }

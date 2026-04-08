@@ -76,15 +76,27 @@ export default function VendaPage() {
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       
       const now = new Date();
-      // REGRA: 1 MINUTO ANTES DO INÍCIO
-      const filterActive = (list: any[]) => (list || []).filter(item => {
-        const eventTime = new Date(item.data_sorteio || item.data_fim);
+      
+      const validBingos = (bingos || []).filter(item => {
+        const eventTime = new Date(item.data_sorteio);
         const limitTime = new Date(eventTime.getTime() - 60000);
         return now < limitTime;
-      });
+      }).map(b => ({ ...b, tipo: 'bingo' }));
 
-      const validBingos = filterActive(bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
-      const validBoloes = filterActive(boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
+      const validBoloes = (boloes || []).filter(item => {
+        // REGRA BOLÃO: ENCERRA 1 MINUTO ANTES DA PRIMEIRA PARTIDA
+        const matches = item.partidas || [];
+        if (matches.length === 0) return false;
+        const sortedDates = matches
+          .map((m: any) => new Date(m.data).getTime())
+          .filter((d: number) => !isNaN(d))
+          .sort((a: number, b: number) => a - b);
+        
+        if (sortedDates.length === 0) return false;
+        const firstMatchTime = new Date(sortedDates[0]);
+        const limitTime = new Date(firstMatchTime.getTime() - 60000);
+        return now < limitTime;
+      }).map(b => ({ ...b, tipo: 'bolao' }));
       
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err: any) {
@@ -94,7 +106,6 @@ export default function VendaPage() {
 
   const updatePrizes = async (eventId: string, type: string) => {
     try {
-      // REGRA: SÓ CONTA PARA O PRÊMIO SE ESTIVER PAGO/GANHOU (PENDENTES NÃO ENTRAM AINDA)
       const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
       const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
       const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
@@ -191,12 +202,14 @@ export default function VendaPage() {
   const handleVenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
+    if (!formData.cliente || !formData.whatsapp || !formData.pixKey) {
+      return toast({ variant: "destructive", title: "DADOS INCOMPLETOS", description: "Nome, WhatsApp e PIX são obrigatórios." });
+    }
     if (formData.tipo === 'bolao' && palpites.some(p => p === '')) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES" });
 
     const totalVenda = formData.unitario * quantity;
     const finalStatus = isPendente ? 'pendente' : 'pago';
 
-    // Se for cliente comprando, verifica saldo e obriga 'pago'
     if (user?.role === 'cliente') {
       if ((user.balance || 0) < totalVenda) {
         return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue via PIX para continuar." });
@@ -244,7 +257,7 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
 
-      // ATUALIZAÇÃO DE SALDOS E COMISSÕES (SÓ SE FOR 'PAGO' NO MOMENTO)
+      // ATUALIZAÇÃO DE SALDOS E COMISSÕES APENAS SE FOR 'PAGO'
       if (finalStatus === 'pago' && user) {
         if (user.role === 'cliente') {
           await supabase.from('users').update({ balance: user.balance - totalVenda }).eq('id', user.id);
@@ -328,7 +341,7 @@ export default function VendaPage() {
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
                   </div>
-                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE OBRIGATÓRIA" className="h-12 font-black border-accent/30" required /></div>
+                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate (Obrigatório)</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PARA RECEBER PRÊMIO" className="h-12 font-black border-accent/30" required /></div>
                   
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60 flex justify-between items-center">
