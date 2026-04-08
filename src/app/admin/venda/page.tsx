@@ -10,15 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { 
   ShoppingCart, 
   Bluetooth,
-  RefreshCcw,
   Smartphone,
   Printer,
   Plus,
   Minus,
-  Database,
   MessageCircle,
   Trophy,
-  Loader2
+  Loader2,
+  Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -189,7 +188,6 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR "FAILED TO FETCH"
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -210,7 +208,7 @@ export default function VendaPage() {
     const totalVenda = formData.unitario * quantity;
     const receipt = {
       id: receiptId,
-      evento_id: formData.eventoId,
+      evento_id: String(formData.eventoId),
       evento_nome: formData.eventoNome,
       tipo: formData.tipo,
       cliente: formData.cliente.toUpperCase(),
