@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Trophy, Plus, Calendar, FileText, Save } from 'lucide-react';
+import { ArrowLeft, Trophy, Plus, Calendar, FileText, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/supabase/client';
 
 export default function EditarBolaoPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = React.use(paramsPromise);
@@ -24,24 +25,43 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
   const [drawDate, setDrawDate] = useState('');
   const [regras, setRegras] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [bolaoOriginal, setBolaoOriginal] = useState<any>(null);
   const [partidas, setPartidas] = useState<any[]>([]);
 
   useEffect(() => {
-    const all = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
-    const current = all.find((b: any) => String(b.id) === String(params.id));
-    
-    if (current) {
-      setBolaoOriginal(current);
-      setTitle(current.nome);
-      setPrice(current.preco);
-      setDrawDate(current.dataFim);
-      setRegras(current.regras || '');
-      setPartidas(current.partidas || Array(10).fill(null).map(() => ({ time1: '', time2: '', data: '' })));
-    } else {
-      router.push('/admin/bolao');
-    }
-  }, [params.id, router]);
+    const loadBolao = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('boloes')
+          .select('*')
+          .eq('id', params.id)
+          .single();
+
+        if (error || !data) {
+          toast({ variant: "destructive", title: "BOLÃO NÃO ENCONTRADO" });
+          router.push('/admin/bolao');
+          return;
+        }
+
+        setBolaoOriginal(data);
+        setTitle(data.nome);
+        setPrice(data.preco);
+        setRegras(data.regras || '');
+        setPartidas(data.partidas || []);
+        
+        if (data.data_fim) {
+          const date = new Date(data.data_fim);
+          setDrawDate(date.toISOString().slice(0, 16));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadBolao();
+  }, [params.id, router, toast]);
 
   const handleUpdatePartida = (index: number, field: string, value: string) => {
     const newPartidas = [...partidas];
@@ -49,7 +69,7 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
     setPartidas(newPartidas);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (partidas.some(p => !p.time1?.trim() || !p.time2?.trim())) {
       toast({ variant: "destructive", title: "GRADE INCOMPLETA", description: "Preencha todos os nomes dos times." });
@@ -58,40 +78,30 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
 
     setSaving(true);
     
-    const allBoloes = JSON.parse(localStorage.getItem('leobet_boloes') || '[]');
-    const updatedBoloes = allBoloes.map((b: any) => {
-      if (String(b.id) === String(params.id)) {
-        return {
-          ...b,
+    try {
+      const { error } = await supabase
+        .from('boloes')
+        .update({
           nome: title.toUpperCase(),
           preco: price,
-          dataFim: drawDate,
+          data_fim: new Date(drawDate).toISOString(),
           partidas: partidas,
           regras: regras
-        };
-      }
-      return b;
-    });
+        })
+        .eq('id', params.id);
 
-    localStorage.setItem('leobet_boloes', JSON.stringify(updatedBoloes));
+      if (error) throw error;
 
-    // SINCRONIZAÇÃO AUTOMÁTICA DE RECIBOS EXISTENTES
-    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    const updatedTickets = allTickets.map((t: any) => {
-      if (String(t.eventoId) === String(params.id)) {
-        return { ...t, eventoNome: title.toUpperCase() };
-      }
-      return t;
-    });
-    localStorage.setItem('leobet_tickets', JSON.stringify(updatedTickets));
-
-    setTimeout(() => {
-      toast({ title: "BOLÃO ATUALIZADO!", description: "Informações sincronizadas com apostas existentes." });
+      toast({ title: "BOLÃO ATUALIZADO!", description: "Informações sincronizadas no Cloud." });
       router.push('/admin/bolao');
-    }, 500);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (!bolaoOriginal) return null;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black uppercase text-xs text-primary"><Loader2 className="animate-spin mr-2" /> Carregando Bolão...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -109,10 +119,10 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
               </div>
               <div>
                 <h1 className="text-3xl font-black uppercase tracking-tighter text-primary leading-none">Editar Bolão</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">ID Interno: {bolaoOriginal.id}</p>
+                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-widest mt-1">ID: {params.id}</p>
               </div>
             </div>
-            {bolaoOriginal.status === 'finalizado' && (
+            {bolaoOriginal?.status === 'finalizado' && (
               <Badge variant="secondary" className="bg-green-100 text-green-700 font-black h-8 px-4 uppercase">Sorteio Auditado</Badge>
             )}
           </div>
@@ -160,7 +170,7 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                    <FileText className="w-3 h-3" /> Regras e Premiação (Dite aqui)
+                    <FileText className="w-3 h-3" /> Regras e Premiação
                   </Label>
                   <Textarea 
                     value={regras}
@@ -223,7 +233,7 @@ export default function EditarBolaoPage({ params: paramsPromise }: { params: Pro
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-lg px-4 z-50">
                <div className="bg-white p-4 rounded-[2rem] shadow-2xl border-4 border-primary flex gap-4">
                  <Button type="submit" className="flex-1 bg-primary h-14 font-black uppercase text-lg rounded-2xl shadow-xl transition-all active:scale-95" disabled={saving}>
-                   <Save className="w-5 h-5 mr-2" /> {saving ? 'Salvando...' : 'Salvar Alterações'}
+                   {saving ? 'Salvando...' : 'Salvar Alterações'}
                  </Button>
                  <Link href="/admin/bolao" className="flex-1">
                    <Button type="button" variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl">Cancelar</Button>

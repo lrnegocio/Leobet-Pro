@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ShoppingCart, 
@@ -37,7 +36,6 @@ export default function VendaPage() {
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
-  const [isPendente, setIsPendente] = useState(false);
   
   const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
   const [btDevice, setBtDevice] = useState<any>(null);
@@ -88,7 +86,7 @@ export default function VendaPage() {
       const validBoloes = (boloes || []).filter(item => {
         const matches = item.partidas || [];
         if (matches.length === 0) return false;
-        const sortedDates = matches.map((m: any) => new Date(m.data).getTime()).filter((d: number) => !isNaN(d)).sort((a: number, b: number) => a - b);
+        const sortedDates = matches.map((m: any) => m.data ? new Date(m.data).getTime() : 0).filter((d: number) => d > 0).sort((a: number, b: number) => a - b);
         if (sortedDates.length === 0) return false;
         const limitTime = new Date(sortedDates[0] - 60000);
         return now < limitTime;
@@ -121,15 +119,11 @@ export default function VendaPage() {
 
     setLoading(true);
     try {
-      // 1. DEDUZ SALDO
       const newBal = myBalance - val;
       await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
       setUser({ ...user, balance: newBal });
-
-      // 2. VALIDA TICKET
       await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
 
-      // 3. GERA COMISSÕES SE CAMBISTA
       if (user.role === 'cambista') {
         const comCambista = val * 0.10;
         await supabase.from('users').update({ commission_balance: Number(user.commission_balance || 0) + comCambista }).eq('id', user.id);
@@ -176,16 +170,22 @@ export default function VendaPage() {
     }
   };
 
-  const handleVenda = async (e: React.FormEvent) => {
+  const handleSetPalpite = (idx: number, val: string) => {
+    const newP = [...palpites];
+    newP[idx] = val;
+    setPalpites(newP);
+  };
+
+  const handleVenda = async (e: React.FormEvent, payWithBalance: boolean = false) => {
     e.preventDefault();
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
     
     const totalVenda = formData.unitario * quantity;
-    const finalStatus = isPendente ? 'pendente' : 'pago';
+    const finalStatus = payWithBalance ? 'pago' : 'pendente';
 
-    if (!isPendente && (user?.balance || 0) < totalVenda) {
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Use o modo 'Venda Pendente' ou recarregue seu saldo." });
+    if (payWithBalance && (user?.balance || 0) < totalVenda) {
+      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Use o modo 'Reserva' ou recarregue seu saldo." });
     }
 
     setLoading(true);
@@ -228,7 +228,7 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
 
-      if (finalStatus === 'pago' && user) {
+      if (payWithBalance && user) {
         const newBal = user.balance - totalVenda;
         await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
         
@@ -240,14 +240,14 @@ export default function VendaPage() {
             const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
             if (gerente) await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comGerente }).eq('id', user.gerenteId);
           }
-          setUser({ ...user, balance: newBal, commission_balance: (user.commission_balance || 0) + comCambista });
+          setUser({ ...user, balance: newBal, commissionBalance: (user.commissionBalance || 0) + comCambista });
         } else {
           setUser({ ...user, balance: newBal });
         }
       }
 
       setVendaRealizada(receipt);
-      toast({ title: finalStatus === 'pendente' ? "RESERVA REALIZADA!" : "COMPRA CONCLUÍDA!" });
+      toast({ title: !payWithBalance ? "RESERVA REALIZADA!" : "COMPRA CONCLUÍDA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       if (user?.role !== 'cliente') setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       loadMinhasReservas();
@@ -343,7 +343,7 @@ export default function VendaPage() {
                     <CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Novo Bilhete</CardTitle>
                   </CardHeader>
                   <CardContent className="p-8 space-y-4">
-                    <form onSubmit={handleVenda} className="space-y-4">
+                    <form onSubmit={(e) => handleVenda(e)} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
@@ -356,10 +356,7 @@ export default function VendaPage() {
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                         </select>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-dashed">
-                         <div className="space-y-0.5"><p className="text-[10px] font-black uppercase">Venda Pendente</p><p className="text-[8px] font-bold text-muted-foreground uppercase">Aguardando Pagamento Externo</p></div>
-                         <Switch checked={isPendente} onCheckedChange={setIsPendente} />
-                      </div>
+
                       {formData.tipo === 'bolao' && (
                         <div className="space-y-2 pt-4 border-t max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                            {partidasBolao.map((p, idx) => (
@@ -383,7 +380,17 @@ export default function VendaPage() {
                         </div>
                       </div>
                       <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
-                      <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>{loading ? "PROCESSANDO..." : (isPendente ? "RESERVAR BILHETE" : "CONCLUIR COM SALDO")}</Button>
+                      
+                      <div className="flex flex-col gap-2">
+                        {user?.balance >= (formData.unitario * quantity) && (
+                          <Button type="button" onClick={(e) => handleVenda(e, true)} className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>
+                            {loading ? "PROCESSANDO..." : "CONCLUIR COM SALDO"}
+                          </Button>
+                        )}
+                        <Button type="button" onClick={(e) => handleVenda(e, false)} variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl" disabled={loading}>
+                          {loading ? "PROCESSANDO..." : "GERAR RESERVA (PENDENTE)"}
+                        </Button>
+                      </div>
                     </form>
                   </CardContent>
                 </Card>

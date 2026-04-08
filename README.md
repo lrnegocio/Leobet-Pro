@@ -12,7 +12,7 @@ Toda vez que você quiser enviar as novas funções do terminal para o seu site,
 git add .
 
 # 2. Criar um registro do que mudou
-git commit -m "🚀 Atualização de performance e filtros"
+QUANDO
 
 # 3. Enviar para a nuvem (Use seu Token do GitHub como senha)
 git push

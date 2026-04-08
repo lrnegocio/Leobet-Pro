@@ -10,6 +10,7 @@ import { Plus, Trophy, Settings2, Trash2, Calendar, Users, History, Clock, Edit2
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
+import { cn } from '@/lib/utils';
 
 export default function BolaoPage() {
   const [boloes, setBoloes] = useState<any[]>([]);
@@ -72,14 +73,18 @@ export default function BolaoPage() {
               <div className="py-20 text-center animate-pulse font-black uppercase text-xs">Conectando...</div>
             ) : boloes.map((bolao) => {
               const now = new Date();
-              const startDate = new Date(bolao.data_fim); 
+              const startDate = bolao.data_fim ? new Date(bolao.data_fim) : new Date(0); 
+              
               // REGRA: 1 MINUTO ANTES
-              const isSalesClosedTime = now >= new Date(startDate.getTime() - 60000);
+              const isSalesClosedTime = bolao.data_fim ? now >= new Date(startDate.getTime() - 60000) : true;
               const isFinished = bolao.status === 'finalizado';
               const isSalesClosed = bolao.status === 'encerrado' || isFinished || isSalesClosedTime;
               
               return (
-                <Card key={bolao.id} className={`hover:shadow-md transition-all border-l-4 overflow-hidden ${isFinished ? 'border-l-green-600' : 'border-l-accent'}`}>
+                <Card key={bolao.id} className={cn(
+                  "hover:shadow-md transition-all border-l-4 overflow-hidden",
+                  isFinished ? 'border-l-green-600' : 'border-l-accent'
+                )}>
                   <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                       <div className="space-y-3 flex-1">
