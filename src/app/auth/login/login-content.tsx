@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -34,12 +33,12 @@ export default function LoginContent() {
     setLoading(true);
 
     try {
-      // 1. BYPASS DE EMERGÊNCIA PARA ADMIN MASTER
-      if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
+      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS SOLICITADAS
+      if (identifier.toLowerCase() === 'lrnegocio0' && password === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
           nome: 'ADMIN MASTER',
-          email: 'admin@leobet.pro',
+          email: 'lrnegocio0@leobet.pro',
           role: 'admin' as any,
           balance: 999999,
           commissionBalance: 0,

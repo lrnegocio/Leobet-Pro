@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -60,7 +59,8 @@ export default function GestaoUsuariosPage() {
     role: 'gerente',
     phone: '',
     pix_key: '',
-    cpf: ''
+    cpf: '',
+    birth_date: ''
   });
 
   const loadUsers = async () => {
@@ -188,6 +188,7 @@ export default function GestaoUsuariosPage() {
       phone: formData.phone.replace(/\D/g, ''),
       pix_key: formData.pix_key,
       cpf: formData.cpf,
+      birth_date: formData.birth_date,
       status: 'approved',
       balance: 0,
       commission_balance: 0,
@@ -199,7 +200,7 @@ export default function GestaoUsuariosPage() {
       if (error) throw error;
       toast({ title: "USUÁRIO CRIADO!" });
       setOpenCreate(false);
-      setFormData({ nome: '', email: '', password: '', role: 'gerente', phone: '', pix_key: '', cpf: '' });
+      setFormData({ nome: '', email: '', password: '', role: 'gerente', phone: '', pix_key: '', cpf: '', birth_date: '' });
       loadUsers();
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO CRIAR" });
@@ -234,7 +235,7 @@ export default function GestaoUsuariosPage() {
                 </DialogTrigger>
                 <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
                   <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Cadastrar Novo Usuário</DialogTitle></DialogHeader>
-                  <form onSubmit={handleCreateUser} className="space-y-4 py-4">
+                  <form onSubmit={handleCreateUser} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-black uppercase opacity-60">Cargo</Label>
                       <select className="w-full h-12 border-2 rounded-xl px-3 font-bold" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
@@ -244,14 +245,22 @@ export default function GestaoUsuariosPage() {
                       </select>
                     </div>
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold" /></div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">CPF</Label><Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} required className="h-11 font-bold" /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Data Nascimento</Label><Input type="date" value={formData.birth_date} onChange={e => setFormData({...formData, birth_date: e.target.value})} required className="h-11 font-bold" /></div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" /></div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Usuário/Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
                       <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Senha</Label><Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" /></div>
-                    </div>
+
                     <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4" disabled={syncing}>CADASTRAR E ATIVAR</Button>
                   </form>
                 </DialogContent>
