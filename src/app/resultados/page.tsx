@@ -89,13 +89,22 @@ function ResultadosContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-2 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-4xl w-full space-y-6">
-        <Button onClick={() => router.push('/')} variant="outline" className="h-11 px-5 rounded-xl border-2 font-black uppercase text-[10px]"><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+        <Button onClick={() => router.push('/')} variant="outline" className="h-11 px-5 rounded-xl border-2 font-black uppercase text-[10px]">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+        </Button>
         <h1 className="text-4xl md:text-6xl font-black uppercase text-primary text-center">Auditoria Digital</h1>
         
         <Card className="rounded-[2.5rem] shadow-2xl bg-white p-6 md:p-12">
           <div className="flex gap-2 mb-8">
-            <input placeholder="CÓDIGO DO BILHETE" className="w-full h-16 font-black text-center text-2xl border-2 rounded-3xl uppercase" value={code} onChange={e => setCode(e.target.value.toUpperCase())} />
-            <Button onClick={() => handleSearch()} className="h-16 bg-primary px-8 rounded-3xl shadow-xl">{loading ? <Loader2 className="animate-spin" /> : <Search />}</Button>
+            <input 
+              placeholder="CÓDIGO DO BILHETE" 
+              className="w-full h-16 font-black text-center text-2xl border-2 rounded-3xl uppercase" 
+              value={code} 
+              onChange={e => setCode(e.target.value.toUpperCase())} 
+            />
+            <Button onClick={() => handleSearch()} className="h-16 bg-primary px-8 rounded-3xl shadow-xl">
+              {loading ? <Loader2 className="animate-spin" /> : <Search />}
+            </Button>
           </div>
 
           {receipt && (
@@ -133,6 +142,8 @@ function ResultadosContent() {
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                   {receipt.tickets_data?.map((t: any, idx: number) => {
                     const isWinner = (t.s || t.status) === 'ganhou';
+                    const nums = t.n || t.numeros;
+                    const pals = t.p || t.palpites;
                     return (
                       <div key={idx} className={cn(
                         "p-4 rounded-2xl border-2 flex justify-between items-center", 
@@ -140,8 +151,8 @@ function ResultadosContent() {
                       )}>
                         <div>
                           <p className="text-[10px] font-black text-muted-foreground uppercase">Cartela #{idx+1}</p>
-                          {(t.n || t.numeros) && <p className="font-black text-sm tracking-widest">{(t.n || t.numeros).join(' ')}</p>}
-                          {(t.p || t.palpites) && <p className="font-black text-sm uppercase">PALPITE: {t.p || t.palpites}</p>}
+                          {nums && <p className="font-black text-sm tracking-widest">{nums.join(' ')}</p>}
+                          {pals && <p className="font-black text-sm uppercase">PALPITE: {pals}</p>}
                         </div>
                         {isWinner && (
                           <div className="text-right">

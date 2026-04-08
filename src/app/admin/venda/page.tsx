@@ -189,7 +189,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD ULTRA-OTIMIZADO
+    // PAYLOAD ULTRA-OTIMIZADO (Chaves curtas para evitar erro de Payload too Large)
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -202,7 +202,8 @@ export default function VendaPage() {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: numsArr, // n = numeros
         p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
-        s: 'pago' // s = status
+        s: 'pago', // s = status individual
+        vp: 0 // vp = valor premio
       });
     }
 
@@ -235,7 +236,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "FALHA NA VENDA", 
-        description: "Payload muito grande ou erro de rede. Tente reduzir a quantidade por venda." 
+        description: "Payload muito grande ou erro de rede. Verifique o banco de dados." 
       });
     } finally {
       setLoading(false);
@@ -280,7 +281,11 @@ export default function VendaPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary">
-              <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Terminal de Vendas</CardTitle></CardHeader>
+              <CardHeader className="p-8 pb-0">
+                <CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2">
+                  <ShoppingCart className="w-6 h-6" /> Terminal de Vendas
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-8 space-y-4">
                 <form onSubmit={handleVenda} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
