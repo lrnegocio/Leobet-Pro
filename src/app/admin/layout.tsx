@@ -18,42 +18,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!mounted) return;
 
     const checkAuth = () => {
-      const isMaster = localStorage.getItem('is_master_admin') === 'true';
       const storedUser = localStorage.getItem('logged_user');
       
-      if (isMaster) {
-        if (!user) {
-          setUser({
-            id: 'admin-master',
-            nome: 'Administrador LEOBET',
-            email: 'admin@leobet.pro',
-            role: 'admin',
-            balance: 1000000,
-            commissionBalance: 0,
-            pendingBalance: 0,
-            status: 'approved',
-            createdAt: new Date().toISOString(),
-          });
-        }
-        setLoading(false);
-        return;
-      }
-
+      // Bypass master removido por segurança. 
+      // O admin deve ser um usuário real no banco com role 'admin'.
       if (!user && storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          setLoading(false);
-          return;
-        } catch (e) {
-          console.error("Auth sync error");
-        }
+          if (parsedUser.role === 'admin') {
+            setUser(parsedUser);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {}
       }
 
-      if (!user && !isMaster && !storedUser) {
-        router.push('/auth/login');
-      } else if (user && !['admin', 'cambista', 'gerente'].includes(user.role)) {
-        router.push('/');
+      if (!user || user.role !== 'admin') {
+        router.push('/auth/login?role=admin');
       } else {
         setLoading(false);
       }

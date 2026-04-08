@@ -32,32 +32,9 @@ export default function LoginContent() {
     if (!mounted) return;
     setLoading(true);
 
-    const _mU = atob('YWRtaW5AbGViZXQ='); // admin@lebet
-    const _mP = atob('MTM1Nzk2bFJALiwv'); // 135796lR@.,/
-
-    if (identifier.toLowerCase() === _mU && password === _mP) {
-      const masterUser = {
-        id: 'master-leobet',
-        nome: 'LEOBET MASTER',
-        email: identifier.toLowerCase(),
-        role: 'admin' as const,
-        balance: 999999,
-        commissionBalance: 0,
-        pendingBalance: 0,
-        status: 'approved' as const,
-        createdAt: new Date().toISOString(),
-      };
-      setUser(masterUser);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('is_master_admin', 'true');
-        localStorage.setItem('logged_user', JSON.stringify(masterUser));
-      }
-      toast({ title: "ACESSO MASTER LIBERADO" });
-      router.push('/admin/dashboard');
-      return;
-    }
-
     try {
+      // Credenciais Master removidas para segurança. 
+      // Todo acesso deve vir do banco de dados criptografado.
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
@@ -67,6 +44,10 @@ export default function LoginContent() {
 
       if (error || !user) throw new Error("Credenciais inválidas.");
       
+      if (user.status === 'blocked') {
+        throw new Error("Sua conta foi bloqueada por um administrador.");
+      }
+
       if (user.status === 'pending') {
         throw new Error("Sua conta está em análise administrativa.");
       }
@@ -87,7 +68,6 @@ export default function LoginContent() {
 
       setUser(formattedUser);
       localStorage.setItem('logged_user', JSON.stringify(formattedUser));
-      localStorage.removeItem('is_master_admin');
       
       const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
       router.push(dashboardPath);
