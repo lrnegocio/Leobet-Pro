@@ -53,9 +53,9 @@ function ResultadosContent() {
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
-    // SOMA TODOS OS PRÊMIOS DO MESMO BILHETE (RESGATE UNIFICADO)
+    // RESGATE UNIFICADO: Soma todos os prêmios do mesmo código
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
-    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.vp || t.valor_premio || t.valorPremio || 0)), 0);
+    const total = winners.reduce((acc: number, t: any) => acc + (Number(t.v || t.vp || t.valor_premio || 0)), 0);
     
     return { 
       total, 
@@ -157,7 +157,7 @@ function ResultadosContent() {
                         {isWinner && (
                           <div className="text-right">
                              <Badge className="bg-green-600 text-white font-black text-[9px] uppercase">PREMIADA</Badge>
-                             <p className="font-black text-green-600">R$ {(t.vp || t.valor_premio || t.valorPremio || 0).toFixed(2)}</p>
+                             <p className="font-black text-green-600">R$ {(t.v || t.vp || t.valor_premio || 0).toFixed(2)}</p>
                           </div>
                         )}
                       </div>

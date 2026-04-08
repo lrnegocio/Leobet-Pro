@@ -61,7 +61,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
-    // CORREÇÃO: Validar se os campos estão vazios, aceitando '0'
+    // FIX PLACAR 0: Aceita '0' como valor preenchido
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
@@ -104,7 +104,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
-            t.id === winner.ticketId ? { ...t, s: 'ganhou', vp: individualPrize } : t
+            t.id === winner.ticketId ? { ...t, s: 'ganhou', v: individualPrize } : t
           );
           await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
         }

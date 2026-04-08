@@ -189,7 +189,7 @@ export default function VendaPage() {
     setLoading(true);
     const receiptId = Math.random().toString(36).substring(7).toUpperCase();
     
-    // PAYLOAD ULTRA-OTIMIZADO (Chaves curtas para evitar erro de Payload too Large)
+    // PAYLOAD ULTRA-OTIMIZADO PARA EVITAR "FAILED TO FETCH"
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let numsArr = null;
@@ -203,7 +203,7 @@ export default function VendaPage() {
         n: numsArr, // n = numeros
         p: formData.tipo === 'bolao' ? palpites.join('-') : null, // p = palpites
         s: 'pago', // s = status individual
-        vp: 0 // vp = valor premio
+        v: 0 // v = valor premio
       });
     }
 
@@ -218,6 +218,8 @@ export default function VendaPage() {
       pix_resgate: formData.pixKey, 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
+      vendedor_nome: user?.nome || 'Admin',
+      gerente_id: user?.gerenteId || null,
       status: 'pago', 
       tickets_data: ticketsGenerated,
       detalhe_premios: prizes,
@@ -236,7 +238,7 @@ export default function VendaPage() {
       toast({ 
         variant: "destructive", 
         title: "FALHA NA VENDA", 
-        description: "Payload muito grande ou erro de rede. Verifique o banco de dados." 
+        description: "Erro de rede ou payload muito grande. Tente vender menos bilhetes por vez." 
       });
     } finally {
       setLoading(false);
