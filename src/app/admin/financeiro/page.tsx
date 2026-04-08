@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, CheckCircle2, TrendingUp, XCircle, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { RefreshCcw, Database, CheckCircle2, TrendingUp, XCircle, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -47,6 +47,40 @@ function FinanceiroContent() {
 
   useEffect(() => { if (mounted) loadData(); }, [mounted]);
 
+  const approvePendingSale = async (receipt: any) => {
+    setSyncing(true);
+    try {
+      // 1. ATUALIZA STATUS DO TICKET PARA PAGO
+      const { error: ticketError } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', receipt.id);
+      if (ticketError) throw ticketError;
+
+      // 2. COMPUTA COMISSÕES (CAMBISTA E GERENTE)
+      const totalVenda = Number(receipt.valor_total);
+      
+      // Busca dados do vendedor
+      const { data: vData } = await supabase.from('users').select('*').eq('id', receipt.vendedor_id).single();
+      if (vData && vData.role === 'cambista') {
+        const comCambista = totalVenda * 0.10;
+        await supabase.from('users').update({ commission_balance: Number(vData.commission_balance || 0) + comCambista }).eq('id', vData.id);
+        
+        if (vData.gerente_id) {
+          const comGerente = totalVenda * 0.05;
+          const { data: gData } = await supabase.from('users').select('*').eq('id', vData.gerente_id).single();
+          if (gData) {
+            await supabase.from('users').update({ commission_balance: Number(gData.commission_balance || 0) + comGerente }).eq('id', gData.id);
+          }
+        }
+      }
+
+      toast({ title: "VENDA VALIDADA!", description: "Comissões creditadas e bilhete em jogo." });
+      loadData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO VALIDAR", description: err.message });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const confirmPayout = async (receiptId: string) => {
     const { error } = await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', receiptId);
     if (!error) { 
@@ -62,13 +96,8 @@ function FinanceiroContent() {
         const { data: userData } = await supabase.from('users').select('*').eq('id', trans.user_id).single();
         if (userData) {
           const currentBalance = Number(userData.balance || 0);
-          const currentComm = Number(userData.commission_balance || 0);
-          
           if (trans.type === 'deposito') {
             await supabase.from('users').update({ balance: currentBalance + Number(trans.amount) }).eq('id', trans.user_id);
-          } else if (trans.type === 'saque') {
-            // Se for saque, o valor já deveria ter sido validado ou debitado.
-            // Para simplificar, o saque retira do saldo total disponível.
           }
         }
         await supabase.from('transactions').update({ status: 'aprovado' }).eq('id', trans.id);
@@ -92,13 +121,9 @@ function FinanceiroContent() {
     });
   }, [tickets, startDate, endDate]);
 
-  const totalPendingPayout = useMemo(() => {
-    return tickets.filter(t => t.status === 'pendente-resgate').length;
-  }, [tickets]);
-
-  const totalPendingTrans = useMemo(() => {
-    return transactions.filter(t => t.status === 'pendente').length;
-  }, [transactions]);
+  const totalPendingPayout = useMemo(() => tickets.filter(t => t.status === 'pendente-resgate').length, [tickets]);
+  const totalPendingTrans = useMemo(() => transactions.filter(t => t.status === 'pendente').length, [transactions]);
+  const totalPendingSales = useMemo(() => tickets.filter(t => t.status === 'pendente').length, [tickets]);
 
   if (!mounted) return null;
 
@@ -121,18 +146,21 @@ function FinanceiroContent() {
 
           <Tabs defaultValue="transacoes">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
-              <TabsTrigger value="transacoes" className="font-black uppercase text-[10px] rounded-xl px-8 relative shrink-0">
+              <TabsTrigger value="transacoes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
                 Créditos & Saques {totalPendingTrans > 0 && <span className="ml-2 bg-accent text-white px-2 py-0.5 rounded-full">{totalPendingTrans}</span>}
               </TabsTrigger>
-              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 relative shrink-0">
-                Prêmios (Auditoria) {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
+              <TabsTrigger value="vendas_pendentes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
+                Vendas Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
               </TabsTrigger>
-              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">Histórico de Vendas</TabsTrigger>
+              <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
+                Prêmios {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">Histórico</TabsTrigger>
             </TabsList>
 
             <TabsContent value="transacoes" className="mt-6 space-y-4">
                {transactions.filter(t => t.status === 'pendente').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem transações pendentes...</div>
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem transações bancárias pendentes</div>
                ) : transactions.filter(t => t.status === 'pendente').map((trans, i) => (
                  <Card key={i} className={cn(
                    "p-6 border-l-8 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6",
@@ -147,12 +175,29 @@ function FinanceiroContent() {
                      <p className="text-3xl font-black text-primary mt-2">R$ {Number(trans.amount).toFixed(2)}</p>
                    </div>
                    <div className="flex gap-2 w-full md:w-auto">
-                      <Button onClick={() => handleTransactionAction(trans, 'reject')} variant="outline" className="flex-1 md:flex-none border-destructive text-destructive h-16 px-8 font-black uppercase rounded-2xl gap-2">
-                         <XCircle className="w-5 h-5" /> Recusar
-                      </Button>
-                      <Button onClick={() => handleTransactionAction(trans, 'approve')} className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg gap-2 text-white">
-                         <CheckCircle2 className="w-5 h-5" /> Aprovar {trans.type === 'deposito' ? 'Crédito' : 'Saque'}
-                      </Button>
+                      <Button onClick={() => handleTransactionAction(trans, 'reject')} variant="outline" className="h-16 px-8 font-black uppercase rounded-2xl">Recusar</Button>
+                      <Button onClick={() => handleTransactionAction(trans, 'approve')} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Aprovar</Button>
+                   </div>
+                 </Card>
+               ))}
+            </TabsContent>
+
+            <TabsContent value="vendas_pendentes" className="mt-6 space-y-4">
+               {tickets.filter(t => t.status === 'pendente').length === 0 ? (
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem apostas pendentes de aprovação</div>
+               ) : tickets.filter(t => t.status === 'pendente').map((t, i) => (
+                 <Card key={i} className="p-6 border-l-8 border-l-orange-600 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
+                   <div className="flex-1 w-full">
+                     <div className="flex items-center gap-2 mb-2">
+                        <ShoppingCart className="text-orange-600" />
+                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
+                     </div>
+                     <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">JOGO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}</p>
+                     <p className="text-3xl font-black text-orange-600 mt-2">R$ {Number(t.valor_total).toFixed(2)}</p>
+                     <p className="text-[8px] font-bold text-muted-foreground uppercase">As comissões e o valor do prêmio só serão computados após sua aprovação.</p>
+                   </div>
+                   <div className="flex gap-2 w-full md:w-auto">
+                      <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Validar e Gerar Comissões</Button>
                    </div>
                  </Card>
                ))}
@@ -160,7 +205,7 @@ function FinanceiroContent() {
 
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates de prêmios pendentes...</div>
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates de prêmios pendentes</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
                  const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
                     .reduce((acc: number, item: any) => acc + (Number(item.v || item.valor_premio || 0)), 0);
@@ -168,17 +213,11 @@ function FinanceiroContent() {
                  return (
                    <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                      <div className="flex-1 w-full">
-                       <p className="text-[10px] font-black opacity-40 uppercase">{t.evento_nome} • COD: {t.id}</p>
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
-                       <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX PARA PRÊMIO: {t.pix_resgate || "NÃO INFORMADO"}</p>
-                       <div className="mt-4">
-                          <p className="text-3xl font-black text-green-600">R$ {totalAcumulado?.toFixed(2)}</p>
-                          <p className="text-[9px] font-black opacity-40 uppercase">Total Premiado no Bilhete</p>
-                       </div>
+                       <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
+                       <div className="mt-4"><p className="text-3xl font-black text-green-600">R$ {totalAcumulado?.toFixed(2)}</p></div>
                      </div>
-                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg gap-2 text-white">
-                        <CheckCircle2 className="w-5 h-5" /> Confirmar Pagamento do Prêmio
-                     </Button>
+                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Pagar Prêmio</Button>
                    </Card>
                  );
                })}
@@ -189,18 +228,11 @@ function FinanceiroContent() {
                   <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Data Início</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
                   <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Data Fim</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
                </div>
-
                <Card className="bg-white rounded-[2rem] overflow-hidden shadow-xl">
                   <div className="overflow-x-auto">
                      <table className="w-full text-left text-[10px] font-black uppercase">
                         <thead className="bg-muted border-b">
-                           <tr>
-                              <th className="p-4">Data</th>
-                              <th className="p-4">Cliente</th>
-                              <th className="p-4">Vendedor</th>
-                              <th className="p-4">Valor</th>
-                              <th className="p-4">Status</th>
-                           </tr>
+                           <tr><th className="p-4">Data</th><th className="p-4">Cliente</th><th className="p-4">Vendedor</th><th className="p-4">Valor</th><th className="p-4">Status</th></tr>
                         </thead>
                         <tbody className="divide-y">
                            {filteredTickets.map((t, i) => (

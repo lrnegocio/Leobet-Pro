@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
   ShoppingCart, 
   Bluetooth,
@@ -18,7 +19,8 @@ import {
   MessageCircle,
   Trophy,
   Loader2,
-  Database
+  Database,
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -32,6 +34,7 @@ export default function VendaPage() {
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const [isPendente, setIsPendente] = useState(false);
   
   const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
   const [btDevice, setBtDevice] = useState<any>(null);
@@ -71,8 +74,18 @@ export default function VendaPage() {
     try {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
-      const validBingos = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
-      const validBoloes = (boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
+      
+      const now = new Date();
+      // REGRA: 1 MINUTO ANTES DO INÍCIO
+      const filterActive = (list: any[]) => (list || []).filter(item => {
+        const eventTime = new Date(item.data_sorteio || item.data_fim);
+        const limitTime = new Date(eventTime.getTime() - 60000);
+        return now < limitTime;
+      });
+
+      const validBingos = filterActive(bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
+      const validBoloes = filterActive(boloes || []).map(b => ({ ...b, tipo: 'bolao' }));
+      
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err: any) {
       console.warn("Erro ao carregar concursos:", err.message);
@@ -81,6 +94,7 @@ export default function VendaPage() {
 
   const updatePrizes = async (eventId: string, type: string) => {
     try {
+      // REGRA: SÓ CONTA PARA O PRÊMIO SE ESTIVER PAGO/GANHOU (PENDENTES NÃO ENTRAM AINDA)
       const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', eventId).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
       const totalPaid = (data || []).reduce((acc, t) => acc + Number(t.valor_total || 0), 0);
       const pool = Math.floor(totalPaid * 0.65 * 100) / 100;
@@ -180,10 +194,13 @@ export default function VendaPage() {
     if (formData.tipo === 'bolao' && palpites.some(p => p === '')) return toast({ variant: "destructive", title: "PREENCHA TODOS OS PALPITES" });
 
     const totalVenda = formData.unitario * quantity;
+    const finalStatus = isPendente ? 'pendente' : 'pago';
 
-    // Se for cliente comprando, verifica saldo
-    if (user?.role === 'cliente' && (user.balance || 0) < totalVenda) {
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue via PIX para continuar." });
+    // Se for cliente comprando, verifica saldo e obriga 'pago'
+    if (user?.role === 'cliente') {
+      if ((user.balance || 0) < totalVenda) {
+        return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue via PIX para continuar." });
+      }
     }
 
     setLoading(true);
@@ -201,7 +218,7 @@ export default function VendaPage() {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: numsArr,
         p: formData.tipo === 'bolao' ? palpites.join('-') : null,
-        s: 'pago',
+        s: finalStatus,
         v: 0
       });
     }
@@ -218,7 +235,7 @@ export default function VendaPage() {
       vendedor_id: user?.id || 'admin-master',
       vendedor_nome: user?.nome || 'Admin',
       gerente_id: user?.gerenteId || null,
-      status: 'pago', 
+      status: finalStatus, 
       tickets_data: ticketsGenerated,
       created_at: new Date().toISOString()
     };
@@ -227,19 +244,16 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
 
-      // ATUALIZAÇÃO DE SALDOS E COMISSÕES
-      if (user) {
-        // Se for cliente comprando sozinho
+      // ATUALIZAÇÃO DE SALDOS E COMISSÕES (SÓ SE FOR 'PAGO' NO MOMENTO)
+      if (finalStatus === 'pago' && user) {
         if (user.role === 'cliente') {
           await supabase.from('users').update({ balance: user.balance - totalVenda }).eq('id', user.id);
           setUser({ ...user, balance: user.balance - totalVenda });
         } 
-        // Se for cambista vendendo
         else if (user.role === 'cambista') {
           const comissaoCambista = totalVenda * 0.10;
           await supabase.from('users').update({ commission_balance: (user.commission_balance || 0) + comissaoCambista }).eq('id', user.id);
           
-          // Se o cambista tiver um gerente
           if (user.gerenteId) {
             const comissaoGerente = totalVenda * 0.05;
             const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
@@ -252,7 +266,10 @@ export default function VendaPage() {
       }
 
       setVendaRealizada(receipt);
-      toast({ title: "COMPRA CONCLUÍDA!", description: user?.role === 'cliente' ? "Seu bilhete já está na auditoria." : "Venda registrada no banco de dados." });
+      toast({ 
+        title: finalStatus === 'pendente' ? "RESERVA REALIZADA!" : "COMPRA CONCLUÍDA!", 
+        description: finalStatus === 'pendente' ? "Aguarde a aprovação do Admin." : "Bilhete pronto para o sorteio." 
+      });
       updatePrizes(formData.eventoId, formData.tipo);
       if (user?.role !== 'cliente') setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
     } catch (err: any) {
@@ -314,7 +331,10 @@ export default function VendaPage() {
                   <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE OBRIGATÓRIA" className="h-12 font-black border-accent/30" required /></div>
                   
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Jogo Ativo</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-60 flex justify-between items-center">
+                      <span>Escolha o Jogo Ativo</span>
+                      <span className="text-[8px] text-red-600 font-black"><Clock className="w-2 h-2 inline mb-0.5" /> FECHA 1MIN ANTES</span>
+                    </Label>
                     <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                       <option value="">-- SELECIONE O CONCURSO --</option>
                       {eventosAtivos.map(e => (
@@ -322,6 +342,16 @@ export default function VendaPage() {
                       ))}
                     </select>
                   </div>
+
+                  {user?.role !== 'cliente' && (
+                    <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-dashed">
+                       <div className="space-y-0.5">
+                          <p className="text-[10px] font-black uppercase">Venda Pendente</p>
+                          <p className="text-[8px] font-bold text-muted-foreground uppercase">Aguardando PIX Externo</p>
+                       </div>
+                       <Switch checked={isPendente} onCheckedChange={setIsPendente} />
+                    </div>
+                  )}
 
                   {formData.tipo === 'bolao' && (
                     <div className="space-y-2 pt-4 border-t max-h-60 overflow-y-auto pr-2 custom-scrollbar">
@@ -348,7 +378,7 @@ export default function VendaPage() {
                   </div>
 
                   <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
-                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl hover:bg-accent/90" disabled={loading}>{loading ? "PROCESSANDO..." : user?.role === 'cliente' ? "CONFIRMAR COMPRA" : "CONCLUIR VENDA"}</Button>
+                  <Button type="submit" className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl hover:bg-accent/90" disabled={loading}>{loading ? "PROCESSANDO..." : (isPendente ? "RESERVAR BILHETE" : "CONCLUIR VENDA")}</Button>
                 </form>
               </CardContent>
             </Card>
@@ -358,6 +388,7 @@ export default function VendaPage() {
                 <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center relative">
                    <p className="text-2xl font-black text-primary">LEOBET PRO</p>
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
+                      <p className="flex justify-between"><span>STATUS:</span> <span className={vendaRealizada.status === 'pendente' ? 'text-orange-600' : 'text-green-600'}>{vendaRealizada.status.toUpperCase()}</span></p>
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                       <p className="flex justify-between"><span>VALOR:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
@@ -367,8 +398,9 @@ export default function VendaPage() {
                       <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 text-white"><Printer className="w-5 h-5" /> Imprimir</Button>
                       <Button onClick={() => {
                         const link = `${window.location.origin}/resultados?c=${vendaRealizada.id}`;
-                        const msg = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${Number(vendaRealizada.valor_total).toFixed(2)}%0A%0A*Auditoria:* ${link}`;
-                        window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${msg}`, '_blank');
+                        const statusTag = vendaRealizada.status === 'pendente' ? '⚠️ PENDENTE' : '✅ PAGO';
+                        const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A🚩 *STATUS:* ${statusTag}%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${Number(vendaRealizada.valor_total).toFixed(2)}%0A%0A*Auditoria:* ${link}`;
+                        window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
                       }} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
                    </div>
                    <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Fazer Outra Venda</Button>
