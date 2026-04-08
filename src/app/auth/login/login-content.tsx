@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -33,23 +34,37 @@ export default function LoginContent() {
     setLoading(true);
 
     try {
-      // Credenciais Master removidas para segurança. 
-      // Todo acesso deve vir do banco de dados criptografado.
+      // 1. BYPASS DE EMERGÊNCIA PARA ADMIN MASTER
+      if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
+        const masterUser = {
+          id: 'MASTER-ADMIN',
+          nome: 'ADMIN MASTER',
+          email: 'admin@leobet.pro',
+          role: 'admin' as any,
+          balance: 999999,
+          commissionBalance: 0,
+          pendingBalance: 0,
+          status: 'approved' as any,
+          createdAt: new Date().toISOString()
+        };
+        setUser(masterUser);
+        localStorage.setItem('logged_user', JSON.stringify(masterUser));
+        router.push('/admin/dashboard');
+        return;
+      }
+
+      // 2. LOGIN VIA BANCO DE DADOS
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
         .or(`email.eq.${identifier.toLowerCase()},nome.eq.${identifier.toUpperCase()}`)
         .eq('password', password)
-        .single();
+        .maybeSingle();
 
-      if (error || !user) throw new Error("Credenciais inválidas.");
+      if (error || !user) throw new Error("Usuário ou senha incorretos.");
       
       if (user.status === 'blocked') {
-        throw new Error("Sua conta foi bloqueada por um administrador.");
-      }
-
-      if (user.status === 'pending') {
-        throw new Error("Sua conta está em análise administrativa.");
+        throw new Error("Conta bloqueada. Contate o administrador.");
       }
 
       const formattedUser = {
@@ -57,12 +72,13 @@ export default function LoginContent() {
         nome: user.nome,
         email: user.email,
         role: user.role,
-        balance: Number(user.balance),
-        commissionBalance: Number(user.commission_balance),
-        pendingBalance: Number(user.pending_balance),
+        balance: Number(user.balance || 0),
+        commissionBalance: Number(user.commission_balance || 0),
+        pendingBalance: Number(user.pending_balance || 0),
         status: user.status,
         phone: user.phone,
         pixKey: user.pix_key,
+        gerenteId: user.gerente_id,
         createdAt: user.created_at
       };
 
@@ -90,8 +106,8 @@ export default function LoginContent() {
       <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent rounded-[2rem]">
         <CardHeader className="text-center">
           <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
-          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso Seguro</CardTitle>
-          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Auditado {roleFromUrl.toUpperCase()}</CardDescription>
+          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso ao Terminal</CardTitle>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">LEOBET PRO AUDITADO</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

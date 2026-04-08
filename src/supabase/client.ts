@@ -1,8 +1,10 @@
+
 'use client';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Fallbacks para evitar crash se as envs demorarem a carregar
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
 export const supabase = createClient(
   supabaseUrl,
@@ -15,8 +17,9 @@ export const supabase = createClient(
     },
     global: {
       fetch: (...args) => fetch(...args).catch(err => {
-        // Erro silencioso em produção para não vazar informações
-        return new Response(JSON.stringify({ error: "Network error" }), { status: 500 });
+        // Erro silencioso em produção para não derrubar a UI
+        console.warn("Supabase Fetch Warning:", err.message);
+        return new Response(JSON.stringify({ error: "Network/Sync issue" }), { status: 500 });
       })
     }
   }

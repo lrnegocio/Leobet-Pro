@@ -113,7 +113,7 @@ export default function VendaPage() {
     const myBalance = (user.balance || 0);
 
     if (myBalance < val) {
-      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue via PIX para quitar esta reserva." });
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue para quitar esta reserva." });
       return;
     }
 
@@ -121,21 +121,25 @@ export default function VendaPage() {
     try {
       const newBal = myBalance - val;
       await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
-      setUser({ ...user, balance: newBal });
+      
       await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
 
       if (user.role === 'cambista') {
         const comCambista = val * 0.10;
-        await supabase.from('users').update({ commission_balance: Number(user.commission_balance || 0) + comCambista }).eq('id', user.id);
+        const updatedComm = Number(user.commissionBalance || 0) + comCambista;
+        await supabase.from('users').update({ commission_balance: updatedComm }).eq('id', user.id);
+        
         if (user.gerenteId) {
           const comGerente = val * 0.05;
           const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
           if (gerente) await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comGerente }).eq('id', user.gerenteId);
         }
-        setUser({ ...user, balance: newBal, commission_balance: Number(user.commission_balance || 0) + comCambista });
+        setUser({ ...user, balance: newBal, commissionBalance: updatedComm });
+      } else {
+        setUser({ ...user, balance: newBal });
       }
 
-      toast({ title: "RESERVA QUITADA!", description: "O bilhete agora está em jogo." });
+      toast({ title: "RESERVA QUITADA!" });
       loadMinhasReservas();
     } catch (err: any) {
       toast({ variant: "destructive", title: "FALHA NO PAGAMENTO" });
@@ -185,7 +189,7 @@ export default function VendaPage() {
     const finalStatus = payWithBalance ? 'pago' : 'pendente';
 
     if (payWithBalance && (user?.balance || 0) < totalVenda) {
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Use o modo 'Reserva' ou recarregue seu saldo." });
+      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Use o modo 'Reserva' ou recarregue." });
     }
 
     setLoading(true);
@@ -234,13 +238,14 @@ export default function VendaPage() {
         
         if (user.role === 'cambista') {
           const comCambista = totalVenda * 0.10;
-          await supabase.from('users').update({ commission_balance: (user.commission_balance || 0) + comCambista }).eq('id', user.id);
+          const updatedComm = (user.commissionBalance || 0) + comCambista;
+          await supabase.from('users').update({ commission_balance: updatedComm }).eq('id', user.id);
           if (user.gerenteId) {
             const comGerente = totalVenda * 0.05;
             const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
             if (gerente) await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comGerente }).eq('id', user.gerenteId);
           }
-          setUser({ ...user, balance: newBal, commissionBalance: (user.commissionBalance || 0) + comCambista });
+          setUser({ ...user, balance: newBal, commissionBalance: updatedComm });
         } else {
           setUser({ ...user, balance: newBal });
         }
