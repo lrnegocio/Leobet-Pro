@@ -85,7 +85,7 @@ function FinanceiroContent() {
             <div>
               <h1 className="text-4xl font-black uppercase text-primary">Financeiro Master</h1>
               <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria Cloud Supabase
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Live
               </p>
             </div>
             <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl">
@@ -103,19 +103,16 @@ function FinanceiroContent() {
 
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates pendentes no momento...</div>
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem resgates pendentes...</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
-                 // SOMA O TOTAL ACUMULADO DO BILHETE (RESGATE UNIFICADO)
+                 // SOMA O TOTAL ACUMULADO DO BILHETE
                  const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
-                    .reduce((acc: number, item: any) => acc + (Number(item.vp || item.valor_premio || item.valorPremio || 0)), 0);
+                    .reduce((acc: number, item: any) => acc + (Number(item.v || item.vp || item.valor_premio || item.valorPremio || 0)), 0);
                  
                  return (
                    <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                      <div className="flex-1 w-full">
-                       <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-[8px] font-black uppercase">{t.tipo}</Badge>
-                          <p className="text-[10px] font-black opacity-40">CÓDIGO: {t.id}</p>
-                       </div>
+                       <p className="text-[10px] font-black opacity-40 uppercase">{t.evento_nome} • COD: {t.id}</p>
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
                        <div className="mt-4">

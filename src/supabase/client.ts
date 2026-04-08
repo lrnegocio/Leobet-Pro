@@ -1,18 +1,18 @@
 'use client';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const isConfigured = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const isConfigured = supabaseUrl && supabaseAnonKey;
 
-if (!isConfigured) {
-  console.warn("ATENÇÃO: Chaves do Supabase não configuradas na Vercel. O sistema funcionará de forma limitada até a configuração das Environment Variables.");
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn("Chaves do Supabase ausentes. Configure as variáveis de ambiente na Vercel.");
 }
 
 export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder',
   {
     auth: {
       persistSession: true,
@@ -21,8 +21,8 @@ export const supabase = createClient(
     },
     global: {
       fetch: (...args) => fetch(...args).catch(err => {
-        console.error("Erro de Conexão Supabase (Failed to Fetch):", err.message);
-        return new Response(JSON.stringify({ error: "Failed to fetch" }), { status: 500 });
+        console.error("Erro de Rede Supabase:", err.message);
+        throw err;
       })
     }
   }

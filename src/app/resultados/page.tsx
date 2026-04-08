@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, ArrowLeft, Loader2, Trophy, Clock, CheckCircle2 } from 'lucide-react';
+import { Search, ArrowLeft, Loader2, Trophy, Clock, CheckCircle2, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,6 @@ function ResultadosContent() {
         toast({ variant: "destructive", title: "BILHETE NÃO ENCONTRADO" });
       }
     } catch (err: any) {
-      console.error(err);
       toast({ variant: "destructive", title: "ERRO DE CONEXÃO" });
     } finally {
       setLoading(false);
@@ -50,6 +49,7 @@ function ResultadosContent() {
     }
   }, [searchParams, mounted]);
 
+  // RESGATE UNIFICADO: Soma todos os prêmios do bilhete
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0, hasPending: false, isPaid: false };
     
@@ -73,11 +73,11 @@ function ResultadosContent() {
       
       toast({ 
         title: "RESGATE SOLICITADO!", 
-        description: `Prêmio total de R$ ${statsGanhos.total.toFixed(2)} enviado para análise.` 
+        description: `R$ ${statsGanhos.total.toFixed(2)} em análise.` 
       });
       handleSearch(receipt.id);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO RESGATAR", description: err.message });
+      toast({ variant: "destructive", title: "FALHA NO RESGATE" });
     } finally {
       setClaiming(false);
     }
@@ -120,8 +120,8 @@ function ResultadosContent() {
                   
                   {statsGanhos.hasPending ? (
                     <Button onClick={handleClaimAll} disabled={claiming} className="bg-white text-green-700 hover:bg-white/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg">
-                      {claiming ? <Loader2 className="animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />}
-                      {claiming ? "Enviando..." : "RESGATAR TODOS"}
+                      {claiming ? "..." : <Trophy className="w-5 h-5 mr-2" />}
+                      {claiming ? "Enviando" : "RESGATAR TODOS"}
                     </Button>
                   ) : (
                     <div className="bg-white/10 px-6 py-4 rounded-2xl flex items-center gap-2">
@@ -173,5 +173,5 @@ function ResultadosContent() {
 }
 
 export default function ResultadosPage() {
-  return <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-xs">Acessando Auditoria...</div>}><ResultadosContent /></Suspense>;
+  return <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-xs">Carregando Auditoria...</div>}><ResultadosContent /></Suspense>;
 }

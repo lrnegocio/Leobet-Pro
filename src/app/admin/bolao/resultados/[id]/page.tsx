@@ -56,18 +56,19 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       await supabase.from('boloes').update({ scores }).eq('id', resolved.id);
       toast({ title: "PROGRESSO SALVO!" });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: e.message });
+      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
     } finally { setSaving(false); }
   };
 
   const calculateWinners = async () => {
+    // FIX: Aceita o placar "0" como válido
     const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
 
     if (incomplete) {
       return toast({ 
         variant: "destructive", 
         title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os placares (use 0 se for o caso)." 
+        description: "Preencha todos os campos." 
       });
     }
 
@@ -114,7 +115,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       toast({ title: "RODADA FINALIZADA!" });
       loadData();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "ERRO NA AUDITORIA", description: e.message });
+      toast({ variant: "destructive", title: "ERRO NA AUDITORIA" });
     } finally { setSaving(false); }
   };
 
@@ -184,7 +185,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                  <div className="pt-8 flex flex-col md:flex-row gap-4">
                    <button onClick={handleSaveProgress} disabled={saving} className="flex-1 h-16 font-black uppercase rounded-2xl border-2 hover:bg-muted transition-all">Salvar Parcial</button>
                    <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-16 bg-accent text-white font-black uppercase rounded-2xl shadow-xl gap-2">
-                      {saving ? <Loader2 className="animate-spin" /> : <Calculator className="w-6 h-6" />}
+                      {saving ? "..." : <Calculator className="w-6 h-6" />}
                       Finalizar Auditoria
                    </Button>
                  </div>
