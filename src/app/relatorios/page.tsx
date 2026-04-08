@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,8 @@ import {
   TrendingUp, 
   Printer,
   RefreshCcw,
-  Trophy
+  Trash2,
+  Database
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
@@ -88,6 +89,19 @@ export default function RelatoriosPage() {
     window.open(`https://api.whatsapp.com/send?phone=55${ticket.whatsapp}&text=${message}`, '_blank');
   };
 
+  const handleDeleteTicket = async (id: string) => {
+    if (!confirm("TEM CERTEZA? Esta aposta será excluída permanentemente do Supabase.")) return;
+    
+    try {
+      const { error } = await supabase.from('tickets').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "APOSTA EXCLUÍDA!" });
+      loadData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO EXCLUIR", description: err.message });
+    }
+  };
+
   if (!mounted || !user) return null;
 
   return (
@@ -155,6 +169,11 @@ export default function RelatoriosPage() {
                           <div className="flex items-center gap-3 shrink-0">
                              <p className="text-xl font-black text-primary mr-4">R$ {Number(t.valor_total).toFixed(2)}</p>
                              <div className="flex gap-2">
+                               {user?.role === 'admin' && (
+                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteTicket(t.id)} className="h-12 w-12 text-destructive hover:bg-destructive/10 rounded-xl border border-destructive/20">
+                                   <Trash2 className="w-5 h-5" />
+                                 </Button>
+                               )}
                                <Button variant="outline" size="icon" className="h-12 w-12 border-2 rounded-xl" onClick={() => window.print()}>
                                  <Printer className="w-5 h-5 text-primary" />
                                </Button>

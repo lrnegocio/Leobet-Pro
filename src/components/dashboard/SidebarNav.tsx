@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings as SettingsIcon,
-  Grid3X3
+  Grid3X3,
+  Users
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { label: 'Terminal Vendas', href: '/admin/venda', icon: ShoppingCart, roles: ['admin', 'cambista', 'gerente'] },
   { label: 'Relatórios', href: '/relatorios', icon: FileText, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: Search, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
+  { label: 'Gestão Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
   { label: 'Gestão Bingos', href: '/admin/bingo', icon: Grid3X3, roles: ['admin'] },
   { label: 'Gestão Bolões', href: '/admin/bolao', icon: Trophy, roles: ['admin'] },
   { label: 'Financeiro Master', href: '/admin/financeiro', icon: Wallet, roles: ['admin'] },
@@ -162,8 +164,7 @@ export function SidebarNav() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-none">
             <SheetHeader className="px-6 py-4">
-              <SheetTitle className="sr-only">Menu Principal</SheetTitle>
-              <h3 className="text-primary font-black uppercase text-lg">LEOBET PRO</h3>
+              <SheetTitle className="font-black uppercase text-primary">LEOBET PRO</SheetTitle>
             </SheetHeader>
             <NavContent />
           </SheetContent>
