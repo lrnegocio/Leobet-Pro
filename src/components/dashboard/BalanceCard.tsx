@@ -31,14 +31,30 @@ export function BalanceCard() {
   const [openDeposit, setOpenDeposit] = useState(false);
   const [masterPix, setMasterPix] = useState('CARREGANDO...');
 
+  const fetchMasterPix = async () => {
+    try {
+      // BUSCA A CHAVE PIX DE QUALQUER USUÁRIO ADMIN (ORDENADO PELO MAIS RECENTE)
+      // O USO DE .maybeSingle() OU .limit(1) EVITA ERROS SE HOUVER MAIS DE UM ADMIN
+      const { data, error } = await supabase
+        .from('users')
+        .select('pix_key')
+        .eq('role', 'admin')
+        .not('pix_key', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (data && data.length > 0) {
+        setMasterPix(data[0].pix_key);
+      } else {
+        setMasterPix('CONTATE O ADMIN');
+      }
+    } catch (err) {
+      setMasterPix('ERRO AO CARREGAR');
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
-    const fetchMasterPix = async () => {
-      // BUSCA A CHAVE PIX DO ADMIN MASTER NO BANCO PARA GARANTIR PERSISTÊNCIA
-      const { data } = await supabase.from('users').select('pix_key').eq('role', 'admin').limit(1).single();
-      if (data?.pix_key) setMasterPix(data.pix_key);
-      else setMasterPix('CONTATE O ADMIN');
-    };
     fetchMasterPix();
   }, []);
 
@@ -75,13 +91,12 @@ export function BalanceCard() {
 
   const handleWithdrawRequest = async () => {
     const amount = Number(withdrawAmount);
-    const totalBalance = (user.balance || 0) + (user.commission_balance || 0);
+    const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
 
     if (amount > totalBalance) return toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
 
     setLoading(true);
     try {
-      // SOLICITA O SAQUE NO BANCO
       const { error } = await supabase
         .from('transactions')
         .insert([{
@@ -97,18 +112,19 @@ export function BalanceCard() {
 
       setOpenWithdraw(false);
       setWithdrawAmount('');
-      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a conferência administrativa. O saldo será deduzido após aprovação." });
+      toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a conferência administrativa." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SACAR" });
     } finally { setLoading(false); }
   };
 
   const copyPix = () => {
+    if (masterPix === 'CARREGANDO...' || masterPix === 'ERRO AO CARREGAR') return;
     navigator.clipboard.writeText(masterPix);
     toast({ title: "PIX COPIADO COM SUCESSO!" });
   };
 
-  const totalDisplay = (user.balance || 0) + (user.commission_balance || 0);
+  const totalDisplay = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
 
   return (
     <Card className="bg-primary text-white overflow-hidden relative border-none shadow-2xl rounded-[2.5rem]">
@@ -131,7 +147,7 @@ export function BalanceCard() {
           <div className="flex gap-3">
             <Dialog open={openDeposit} onOpenChange={setOpenDeposit}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="flex-1 border-white/20 hover:bg-white/10 text-white gap-2 uppercase font-black text-[10px] h-14 rounded-2xl">
+                <Button variant="outline" onClick={() => fetchMasterPix()} className="flex-1 border-white/20 hover:bg-white/10 text-white gap-2 uppercase font-black text-[10px] h-14 rounded-2xl">
                   <ArrowUpCircle className="w-4 h-4" /> Depósito
                 </Button>
               </DialogTrigger>

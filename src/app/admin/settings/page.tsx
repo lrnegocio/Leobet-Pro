@@ -24,10 +24,20 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     const loadSettings = async () => {
-      // BUSCA A CHAVE PIX DO ADMIN MASTER NO BANCO PARA PERSISTÊNCIA REAL
-      const { data } = await supabase.from('users').select('pix_key').eq('role', 'admin').limit(1).single();
-      if (data?.pix_key) setCompanyPix(data.pix_key);
+      // BUSCA A CHAVE PIX DE QUALQUER ADMIN NO BANCO (FONTE DA VERDADE)
+      const { data } = await supabase
+        .from('users')
+        .select('pix_key')
+        .eq('role', 'admin')
+        .not('pix_key', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
+      if (data && data.length > 0) {
+        setCompanyPix(data[0].pix_key);
+      }
+
+      // CARREGA OUTROS LINKS DO LOCALSTORAGE (OU PODERIA SER DE UMA TABELA SETTINGS)
       const saved = localStorage.getItem('leobet_settings');
       if (saved) {
         try {
@@ -45,21 +55,23 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      // SALVA A CHAVE PIX NO PERFIL DO ADMIN PARA SER GLOBAL E PERSISTENTE
-      if (user?.role === 'admin') {
-        const { error } = await supabase.from('users').update({ pix_key: companyPix }).eq('id', user.id);
-        if (error) throw error;
-      }
+      // SALVA A CHAVE PIX EM TODOS OS USUÁRIOS ADMIN PARA GARANTIR CONSISTÊNCIA GLOBAL
+      const { error } = await supabase
+        .from('users')
+        .update({ pix_key: companyPix })
+        .eq('role', 'admin');
+
+      if (error) throw error;
 
       const newSettings = { youtubeUrl, systemUrl };
       localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
       
       toast({ 
         title: "CONFIGURAÇÕES SALVAS!", 
-        description: "Os dados foram sincronizados em toda a rede e no banco." 
+        description: "A chave PIX foi atualizada permanentemente no banco de dados." 
       });
-    } catch (err) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR NO BANCO" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -128,11 +140,11 @@ export default function SettingsPage() {
                   <input 
                     value={companyPix} 
                     onChange={e => setCompanyPix(e.target.value)}
-                    placeholder="ESTA CHAVE É EXIBIDA PARA TODOS OS DEPÓSITOS" 
+                    placeholder="DIGITE A CHAVE PIX OFICIAL" 
                     className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary"
                   />
                   <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                    Atenção: Esta chave é salva permanentemente no banco de dados e aparecerá para todos os usuários.
+                    Atenção: Esta chave aparecerá para todos os usuários no botão de "Depósito".
                   </p>
                 </div>
               </CardContent>
