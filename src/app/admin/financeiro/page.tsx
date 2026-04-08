@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, CheckCircle2, TrendingUp, XCircle, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart } from 'lucide-react';
+import { RefreshCcw, Database, Search, TrendingUp, XCircle, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ function FinanceiroContent() {
   const [syncing, setSyncing] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [searchPending, setSearchPending] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -100,7 +101,6 @@ function FinanceiroContent() {
           if (trans.type === 'deposito') {
             await supabase.from('users').update({ balance: currentBalance + Number(trans.amount) }).eq('id', trans.user_id);
           } else if (trans.type === 'saque') {
-            // DEDUZ DO SALDO TOTAL (COMISSÃO PRIMEIRO)
             let remaining = Number(trans.amount);
             let newComm = currentComm;
             let newBal = currentBalance;
@@ -136,6 +136,17 @@ function FinanceiroContent() {
     });
   }, [tickets, startDate, endDate]);
 
+  const filteredPending = useMemo(() => {
+    return tickets.filter(t => {
+      if (t.status !== 'pendente') return false;
+      const term = searchPending.toLowerCase();
+      return (
+        t.cliente.toLowerCase().includes(term) || 
+        t.id.toLowerCase().includes(term)
+      );
+    });
+  }, [tickets, searchPending]);
+
   const totalPendingPayout = useMemo(() => tickets.filter(t => t.status === 'pendente-resgate').length, [tickets]);
   const totalPendingTrans = useMemo(() => transactions.filter(t => t.status === 'pendente').length, [transactions]);
   const totalPendingSales = useMemo(() => tickets.filter(t => t.status === 'pendente').length, [tickets]);
@@ -159,19 +170,61 @@ function FinanceiroContent() {
             </Button>
           </div>
 
-          <Tabs defaultValue="transacoes">
+          <Tabs defaultValue="vendas_pendentes">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
-              <TabsTrigger value="transacoes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
-                Créditos & Saques {totalPendingTrans > 0 && <span className="ml-2 bg-accent text-white px-2 py-0.5 rounded-full">{totalPendingTrans}</span>}
-              </TabsTrigger>
               <TabsTrigger value="vendas_pendentes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
                 Vendas Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="transacoes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
+                Créditos & Saques {totalPendingTrans > 0 && <span className="ml-2 bg-accent text-white px-2 py-0.5 rounded-full">{totalPendingTrans}</span>}
               </TabsTrigger>
               <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
                 Prêmios {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
               </TabsTrigger>
               <TabsTrigger value="history" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">Histórico</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="vendas_pendentes" className="mt-6 space-y-4">
+               <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-3">
+                  <Search className="w-5 h-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Pesquisar por NOME do cliente ou CÓDIGO do bilhete..." 
+                    value={searchPending}
+                    onChange={e => setSearchPending(e.target.value)}
+                    className="border-none shadow-none focus-visible:ring-0 font-bold"
+                  />
+               </div>
+
+               {filteredPending.length === 0 ? (
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">
+                   {searchPending ? "Nenhum resultado para esta busca" : "Sem apostas pendentes de aprovação"}
+                 </div>
+               ) : filteredPending.map((t, i) => (
+                 <Card key={i} className="p-6 border-l-8 border-l-orange-600 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
+                   <div className="flex-1 w-full">
+                     <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                           <ShoppingCart className="text-orange-600" />
+                           <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
+                        </div>
+                        <Badge variant="outline" className="font-mono text-xs font-black">#{t.id}</Badge>
+                     </div>
+                     <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">
+                       JOGO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}
+                     </p>
+                     <p className="text-3xl font-black text-orange-600 mt-2">R$ {Number(t.valor_total).toFixed(2)}</p>
+                     <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">
+                       As comissões e o valor do prêmio só serão computados após sua aprovação manual.
+                     </p>
+                   </div>
+                   <div className="flex gap-2 w-full md:w-auto">
+                      <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">
+                        Validar e Gerar Comissões
+                      </Button>
+                   </div>
+                 </Card>
+               ))}
+            </TabsContent>
 
             <TabsContent value="transacoes" className="mt-6 space-y-4">
                {transactions.filter(t => t.status === 'pendente').length === 0 ? (
@@ -192,27 +245,6 @@ function FinanceiroContent() {
                    <div className="flex gap-2 w-full md:w-auto">
                       <Button onClick={() => handleTransactionAction(trans, 'reject')} variant="outline" className="h-16 px-8 font-black uppercase rounded-2xl">Recusar</Button>
                       <Button onClick={() => handleTransactionAction(trans, 'approve')} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Aprovar</Button>
-                   </div>
-                 </Card>
-               ))}
-            </TabsContent>
-
-            <TabsContent value="vendas_pendentes" className="mt-6 space-y-4">
-               {tickets.filter(t => t.status === 'pendente').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem apostas pendentes de aprovação</div>
-               ) : tickets.filter(t => t.status === 'pendente').map((t, i) => (
-                 <Card key={i} className="p-6 border-l-8 border-l-orange-600 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
-                   <div className="flex-1 w-full">
-                     <div className="flex items-center gap-2 mb-2">
-                        <ShoppingCart className="text-orange-600" />
-                        <p className="font-black uppercase text-xl text-primary">{t.cliente}</p>
-                     </div>
-                     <p className="text-[10px] font-black opacity-60 bg-muted inline-block px-2 py-1 rounded">JOGO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}</p>
-                     <p className="text-3xl font-black text-orange-600 mt-2">R$ {Number(t.valor_total).toFixed(2)}</p>
-                     <p className="text-[8px] font-bold text-muted-foreground uppercase">As comissões e o valor do prêmio só serão computados após sua aprovação.</p>
-                   </div>
-                   <div className="flex gap-2 w-full md:w-auto">
-                      <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Validar e Gerar Comissões</Button>
                    </div>
                  </Card>
                ))}
