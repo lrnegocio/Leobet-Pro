@@ -22,7 +22,8 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Plus,
-  Minus
+  Minus,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -47,13 +48,11 @@ export default function GestaoUsuariosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
   
-  // MODAL AJUSTE DE SALDO
   const [openBalance, setOpenBalance] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [balanceAmount, setBalanceAmount] = useState('');
   const [balanceType, setBalanceType] = useState<'balance' | 'commission_balance'>('balance');
 
-  // FORM NOVO USUÁRIO
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -99,7 +98,7 @@ export default function GestaoUsuariosPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!confirm("CUIDADO! Esta ação removerá permanentemente o usuário e todos os registros associados.")) return;
+    if (!confirm("CUIDADO! Esta ação removerá permanentemente o usuário.")) return;
     try {
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) throw error;
@@ -114,11 +113,51 @@ export default function GestaoUsuariosPage() {
     if (!selectedUser || !balanceAmount) return;
     setSyncing(true);
     
-    const amount = Number(balanceAmount);
+    const amountToAdd = Number(balanceAmount);
     const currentVal = Number(selectedUser[balanceType] || 0);
-    const newVal = op === 'add' ? currentVal + amount : Math.max(0, currentVal - amount);
+    let newVal = op === 'add' ? currentVal + amountToAdd : Math.max(0, currentVal - amountToAdd);
 
     try {
+      // SE FOR ADIÇÃO DE SALDO DE APOSTAS, TENTA ABATIMENTO AUTOMÁTICO
+      if (op === 'add' && balanceType === 'balance') {
+        const { data: pendingTickets } = await supabase
+          .from('tickets')
+          .select('*')
+          .eq('status', 'pendente')
+          .or(`vendedor_id.eq.${selectedUser.id},cliente.eq.${selectedUser.nome}`);
+
+        const totalPending = pendingTickets?.reduce((acc, t) => acc + Number(t.valor_total), 0) || 0;
+
+        if (totalPending > 0 && newVal >= totalPending) {
+          // ABATE TUDO AUTOMATICAMENTE
+          for (const ticket of pendingTickets!) {
+            const val = Number(ticket.valor_total);
+            // MARCA COMO PAGO
+            await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
+            
+            // GERA COMISSÕES SE VENDEDOR FOR CAMBISTA
+            const { data: vData } = await supabase.from('users').select('*').eq('id', ticket.vendedor_id).single();
+            if (vData && vData.role === 'cambista') {
+              const comCambista = val * 0.10;
+              await supabase.from('users').update({ commission_balance: Number(vData.commission_balance || 0) + comCambista }).eq('id', vData.id);
+              if (vData.gerente_id) {
+                const comGerente = val * 0.05;
+                const { data: gData } = await supabase.from('users').select('*').eq('id', vData.gerente_id).single();
+                if (gData) await supabase.from('users').update({ commission_balance: Number(gData.commission_balance || 0) + comGerente }).eq('id', gData.id);
+              }
+            }
+          }
+          newVal -= totalPending;
+          toast({ title: "ABATIMENTO AUTOMÁTICO!", description: `R$ ${totalPending.toFixed(2)} em pendências foram quitados.` });
+        } else if (totalPending > 0) {
+          toast({ 
+            variant: "destructive", 
+            title: "SALDO INSUFICIENTE PARA ABATIMENTO", 
+            description: `O usuário possui R$ ${totalPending.toFixed(2)} em dívidas. O saldo foi adicionado mas ele deve quitar manualmente.` 
+          });
+        }
+      }
+
       const { error } = await supabase
         .from('users')
         .update({ [balanceType]: newVal })
@@ -140,7 +179,6 @@ export default function GestaoUsuariosPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSyncing(true);
-    
     const newUser = {
       id: Math.random().toString(36).substring(7).toUpperCase(),
       nome: formData.nome.toUpperCase(),
@@ -156,26 +194,21 @@ export default function GestaoUsuariosPage() {
       pending_balance: 0,
       created_at: new Date().toISOString()
     };
-
     try {
       const { error } = await supabase.from('users').insert([newUser]);
       if (error) throw error;
-      
-      toast({ title: "USUÁRIO CRIADO COM SUCESSO!" });
+      toast({ title: "USUÁRIO CRIADO!" });
       setOpenCreate(false);
       setFormData({ nome: '', email: '', password: '', role: 'gerente', phone: '', pix_key: '', cpf: '' });
       loadUsers();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO CRIAR", description: err.message });
-    } finally {
-      setSyncing(false);
-    }
+      toast({ variant: "destructive", title: "ERRO AO CRIAR" });
+    } finally { setSyncing(false); }
   };
 
   const filteredUsers = users.filter(u => 
     u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.phone?.includes(searchTerm)
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!mounted) return null;
@@ -190,87 +223,51 @@ export default function GestaoUsuariosPage() {
               <h1 className="text-3xl font-black uppercase text-primary leading-none flex items-center gap-3">
                 Gestão de Usuários <Database className="w-6 h-6 text-green-600" />
               </h1>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Aprovação, Cadastro de Gerentes e Auditoria de Saldo</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Controle Financeiro e de Acesso Master</p>
             </div>
             <div className="flex gap-2">
               <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogTrigger asChild>
-                  <Button className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg text-white">
-                    <UserPlus className="w-4 h-4" /> Novo Usuário Master
+                  <Button className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg">
+                    <UserPlus className="w-4 h-4" /> Novo Gerente/Membro
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle className="font-black uppercase text-primary text-center">Cadastrar Novo Usuário</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Cadastrar Novo Usuário</DialogTitle></DialogHeader>
                   <form onSubmit={handleCreateUser} className="space-y-4 py-4">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-black uppercase opacity-60">Cargo</Label>
-                      <select 
-                        className="w-full h-12 border-2 rounded-xl px-3 font-bold"
-                        value={formData.role}
-                        onChange={e => setFormData({...formData, role: e.target.value})}
-                      >
+                      <select className="w-full h-12 border-2 rounded-xl px-3 font-bold" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                         <option value="gerente">GERENTE (Diretoria)</option>
                         <option value="cambista">CAMBISTA (Vendedor)</option>
                         <option value="cliente">CLIENTE (Apostador)</option>
                       </select>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label>
-                      <Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold" />
+                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold" /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Usuário/Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Senha</Label><Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">E-mail / Usuário</Label>
-                        <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Senha Inicial</Label>
-                        <Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" />
-                      </div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">WhatsApp (DDD)</Label>
-                        <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label>
-                        <Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" />
-                      </div>
-                    </div>
-                    <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4" disabled={syncing}>
-                      {syncing ? 'CRIANDO...' : 'CADASTRAR E ATIVAR'}
-                    </Button>
+                    <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4" disabled={syncing}>CADASTRAR E ATIVAR</Button>
                   </form>
                 </DialogContent>
               </Dialog>
-
-              <Button onClick={loadUsers} variant="outline" className="h-12 w-12 rounded-xl" disabled={syncing}>
-                <RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} />
-              </Button>
+              <Button onClick={loadUsers} variant="outline" className="h-12 w-12 rounded-xl"><RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} /></Button>
             </div>
           </div>
 
           <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border items-center">
             <Search className="w-5 h-5 text-muted-foreground ml-3" />
-            <Input 
-              placeholder="Pesquisar por nome, email ou telefone..." 
-              value={searchTerm} 
-              onChange={e => setSearchTerm(e.target.value)}
-              className="border-none shadow-none focus-visible:ring-0 font-bold"
-            />
+            <Input placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="border-none focus-visible:ring-0 font-bold" />
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4 pb-20">
             {loading ? (
-              <div className="py-20 text-center animate-pulse font-black uppercase text-xs opacity-40">Consultando Supabase...</div>
-            ) : filteredUsers.length === 0 ? (
-              <Card className="py-20 text-center opacity-30 border-dashed rounded-[3rem]">
-                <Users className="w-12 h-12 mx-auto mb-4" />
-                <p className="font-black uppercase text-xs">Nenhum usuário encontrado</p>
-              </Card>
+              <div className="py-20 text-center animate-pulse font-black uppercase text-xs">Consultando Supabase...</div>
             ) : filteredUsers.map((u) => (
               <Card key={u.id} className={cn(
                 "border-l-8 rounded-3xl overflow-hidden transition-all hover:shadow-md bg-white",
@@ -279,84 +276,35 @@ export default function GestaoUsuariosPage() {
                 <CardContent className="p-6">
                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                       <div className="flex items-center gap-4 flex-1">
-                         <div className="bg-primary/10 p-4 rounded-2xl">
-                            <Users className="w-8 h-8 text-primary" />
-                         </div>
+                         <div className="bg-primary/10 p-4 rounded-2xl"><Users className="w-8 h-8 text-primary" /></div>
                          <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                <h3 className="text-lg font-black uppercase text-primary leading-none">{u.nome}</h3>
-                               <Badge className={cn(
-                                 "text-[8px] font-black uppercase h-5 text-white",
-                                 u.role === 'admin' ? 'bg-primary' : (u.role === 'gerente' ? 'bg-blue-700' : (u.role === 'cambista' ? 'bg-accent' : 'bg-green-600'))
-                               )}>
-                                 {u.role}
-                               </Badge>
-                               <Badge variant="outline" className={cn(
-                                 "text-[8px] font-black uppercase h-5",
-                                 u.status === 'approved' ? 'text-green-600' : (u.status === 'pending' ? 'text-orange-600' : 'text-destructive')
-                               )}>
-                                 {u.status}
-                               </Badge>
+                               <Badge className={cn("text-[8px] h-5 uppercase", u.role === 'admin' ? 'bg-primary' : (u.role === 'gerente' ? 'bg-blue-700' : 'bg-accent'))}>{u.role}</Badge>
                             </div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Telefone'}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Zap'}</p>
                             <div className="flex gap-4 mt-2">
-                               <div className="bg-muted p-2 rounded-xl border border-primary/10">
-                                  <p className="text-[7px] font-black uppercase text-muted-foreground">Saldo Disponível</p>
-                                  <p className="text-sm font-black text-primary leading-none">R$ {Number(u.balance || 0).toFixed(2)}</p>
+                               <div className="bg-muted p-2 rounded-xl border">
+                                  <p className="text-[7px] font-black uppercase opacity-60">Apostas</p>
+                                  <p className="text-sm font-black text-primary">R$ {Number(u.balance || 0).toFixed(2)}</p>
                                </div>
-                               <div className="bg-muted p-2 rounded-xl border border-accent/10">
-                                  <p className="text-[7px] font-black uppercase text-muted-foreground">Saldo Comissões</p>
-                                  <p className="text-sm font-black text-accent leading-none">R$ {Number(u.commission_balance || 0).toFixed(2)}</p>
+                               <div className="bg-muted p-2 rounded-xl border">
+                                  <p className="text-[7px] font-black uppercase opacity-60">Comissões</p>
+                                  <p className="text-sm font-black text-accent">R$ {Number(u.commission_balance || 0).toFixed(2)}</p>
                                </div>
                             </div>
                          </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
-                         <Button 
-                           onClick={() => { setSelectedUser(u); setOpenBalance(true); }}
-                           className="bg-primary hover:bg-primary/90 h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-white shadow-md"
-                         >
-                           <Wallet className="w-4 h-4" /> Ajustar Saldo
-                         </Button>
-
-                         {u.status === 'pending' && (
-                           <Button 
-                             onClick={() => handleUpdateStatus(u.id, 'approved')}
-                             className="bg-green-600 hover:bg-green-700 h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-white shadow-lg"
-                           >
-                             <UserCheck className="w-4 h-4" /> Aprovar
-                           </Button>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                         <Button onClick={() => { setSelectedUser(u); setOpenBalance(true); }} className="bg-primary h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><Wallet className="w-4 h-4" /> Ajustar Saldo</Button>
+                         {u.status === 'pending' && <Button onClick={() => handleUpdateStatus(u.id, 'approved')} className="bg-green-600 h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><UserCheck className="w-4 h-4" /> Aprovar</Button>}
+                         {u.status === 'approved' ? (
+                           <Button onClick={() => handleUpdateStatus(u.id, 'blocked')} variant="outline" className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-destructive"><Ban className="w-4 h-4" /> Bloquear</Button>
+                         ) : (
+                           u.status !== 'pending' && <Button onClick={() => handleUpdateStatus(u.id, 'approved')} variant="outline" className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-green-600"><CheckCircle2 className="w-4 h-4" /> Desbloquear</Button>
                          )}
-
-                         {u.status === 'approved' && (
-                           <Button 
-                             onClick={() => handleUpdateStatus(u.id, 'blocked')}
-                             variant="outline"
-                             className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10"
-                           >
-                             <Ban className="w-4 h-4" /> Bloquear
-                           </Button>
-                         )}
-
-                         {u.status === 'blocked' && (
-                           <Button 
-                             onClick={() => handleUpdateStatus(u.id, 'approved')}
-                             variant="outline"
-                             className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl border-green-600/20 text-green-600 hover:bg-green-600/10"
-                           >
-                             <CheckCircle2 className="w-4 h-4" /> Desbloquear
-                           </Button>
-                         )}
-
-                         <Button 
-                           onClick={() => handleDeleteUser(u.id)}
-                           variant="ghost" 
-                           size="icon" 
-                           className="h-12 w-12 text-destructive hover:bg-destructive/10 border rounded-xl"
-                         >
-                           <Trash2 className="w-5 h-5" />
-                         </Button>
+                         <Button onClick={() => handleDeleteUser(u.id)} variant="ghost" size="icon" className="h-12 w-12 text-destructive border rounded-xl"><Trash2 className="w-5 h-5" /></Button>
                       </div>
                    </div>
                 </CardContent>
@@ -365,39 +313,30 @@ export default function GestaoUsuariosPage() {
           </div>
         </div>
 
-        {/* MODAL AJUSTE DE SALDO */}
         <Dialog open={openBalance} onOpenChange={setOpenBalance}>
           <DialogContent className="bg-white rounded-[2.5rem] border-none max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="font-black uppercase text-primary text-center">Ajustar Saldo de {selectedUser?.nome}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Ajustar Saldo de {selectedUser?.nome}</DialogTitle></DialogHeader>
             <div className="space-y-6 py-4">
                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">Tipo de Saldo</Label>
                   <div className="flex gap-2">
-                     <Button 
-                       variant={balanceType === 'balance' ? 'default' : 'outline'} 
-                       className="flex-1 h-10 font-black uppercase text-[10px]"
-                       onClick={() => setBalanceType('balance')}
-                     >Apostas</Button>
-                     <Button 
-                       variant={balanceType === 'commission_balance' ? 'default' : 'outline'} 
-                       className="flex-1 h-10 font-black uppercase text-[10px]"
-                       onClick={() => setBalanceType('commission_balance')}
-                     >Comissões</Button>
+                     <Button variant={balanceType === 'balance' ? 'default' : 'outline'} className="flex-1 h-10 font-black text-[10px]" onClick={() => setBalanceType('balance')}>APOSTAS</Button>
+                     <Button variant={balanceType === 'commission_balance' ? 'default' : 'outline'} className="flex-1 h-10 font-black text-[10px]" onClick={() => setBalanceType('commission_balance')}>COMISSÕES</Button>
                   </div>
                </div>
                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">Valor R$</Label>
                   <Input type="number" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)} className="h-14 text-center font-black text-2xl rounded-2xl" placeholder="0.00" />
                </div>
+               {balanceType === 'balance' && (
+                 <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl text-[9px] font-bold text-blue-700 uppercase">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    O sistema verificará dívidas pendentes para abatimento automático após a adição.
+                 </div>
+               )}
                <div className="flex gap-3">
-                  <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-14 font-black uppercase rounded-xl gap-2">
-                    <Minus className="w-4 h-4" /> Retirar
-                  </Button>
-                  <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-14 bg-green-600 hover:bg-green-700 font-black uppercase rounded-xl gap-2 text-white">
-                    <Plus className="w-4 h-4" /> Adicionar
-                  </Button>
+                  <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-14 font-black uppercase rounded-xl"><Minus className="w-4 h-4" /> Retirar</Button>
+                  <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-14 bg-green-600 font-black uppercase rounded-xl text-white"><Plus className="w-4 h-4" /> Adicionar</Button>
                </div>
             </div>
           </DialogContent>
