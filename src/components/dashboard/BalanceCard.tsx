@@ -33,9 +33,7 @@ export function BalanceCard() {
 
   const fetchMasterPix = async () => {
     try {
-      // BUSCA A CHAVE PIX DE QUALQUER USUÁRIO ADMIN (ORDENADO PELO MAIS RECENTE)
-      // O USO DE .maybeSingle() OU .limit(1) EVITA ERROS SE HOUVER MAIS DE UM ADMIN
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('pix_key')
         .eq('role', 'admin')
@@ -78,12 +76,12 @@ export function BalanceCard() {
 
       if (error) throw error;
 
-      const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A%0A*Seguindo o comprovante abaixo para liberação:*`;
+      const message = `*SOLICITAÇÃO DE SALDO - LEOBET PRO*%0A%0A👤 *CLIENTE:* ${user.nome}%0A💰 *VALOR:* R$ ${amount.toFixed(2)}%0A%0A*Segue o comprovante para liberação:*`;
       window.open(`https://api.whatsapp.com/send?phone=5582993343941&text=${message}`, '_blank');
 
       setOpenDeposit(false);
       setDepositAmount('');
-      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Envie o comprovante no WhatsApp." });
+      toast({ title: "SOLICITAÇÃO ENVIADA!", description: "Envie o comprovante agora." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "FALHA NA SOLICITAÇÃO" });
     } finally { setLoading(false); }
@@ -97,7 +95,7 @@ export function BalanceCard() {
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      await supabase
         .from('transactions')
         .insert([{
           user_id: user.id,
@@ -108,8 +106,6 @@ export function BalanceCard() {
           status: 'pendente'
         }]);
 
-      if (error) throw error;
-
       setOpenWithdraw(false);
       setWithdrawAmount('');
       toast({ title: "SAQUE SOLICITADO!", description: "Aguarde a conferência administrativa." });
@@ -119,9 +115,9 @@ export function BalanceCard() {
   };
 
   const copyPix = () => {
-    if (masterPix === 'CARREGANDO...' || masterPix === 'ERRO AO CARREGAR') return;
+    if (masterPix.includes('...')) return;
     navigator.clipboard.writeText(masterPix);
-    toast({ title: "PIX COPIADO COM SUCESSO!" });
+    toast({ title: "PIX COPIADO!" });
   };
 
   const totalDisplay = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
@@ -132,7 +128,7 @@ export function BalanceCard() {
         <Wallet className="w-24 h-24" />
       </div>
       <CardHeader>
-        <CardTitle className="text-[10px] font-black uppercase text-white/60 tracking-widest">Saldo Disponível na Banca</CardTitle>
+        <CardTitle className="text-[10px] font-black uppercase text-white/60 tracking-widest">Saldo Total em Conta</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="text-4xl font-black tracking-tighter">R$ {totalDisplay.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
@@ -140,7 +136,7 @@ export function BalanceCard() {
         {user.role === 'admin' ? (
           <Link href="/admin/financeiro" className="block">
             <Button variant="outline" className="w-full border-white/20 hover:bg-white/10 text-white gap-2 uppercase font-black text-xs h-14 rounded-2xl">
-              <ExternalLink className="w-4 h-4" /> Gestão de Fluxo Master
+              <ExternalLink className="w-4 h-4" /> Gestão Master
             </Button>
           </Link>
         ) : (
@@ -153,26 +149,26 @@ export function BalanceCard() {
               </DialogTrigger>
               <DialogContent className="bg-white rounded-[2.5rem] border-none">
                 <DialogHeader>
-                  <DialogTitle className="font-black uppercase text-primary text-center">Recarregar Saldo via PIX</DialogTitle>
+                  <DialogTitle className="font-black uppercase text-primary text-center">Recarregar via PIX</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                    <div className="bg-primary/5 p-6 rounded-3xl border-2 border-primary/10 space-y-4">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Chave PIX Oficial para Depósito</p>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Chave PIX para Depósito</p>
                       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-primary/20">
-                        <span className="font-black text-primary truncate mr-2">{masterPix}</span>
+                        <span className="font-black text-primary truncate mr-2 uppercase">{masterPix}</span>
                         <Button onClick={copyPix} size="icon" variant="ghost" className="shrink-0 text-primary h-10 w-10">
                           <Copy className="w-5 h-5" />
                         </Button>
                       </div>
                    </div>
                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase block text-center">Quanto deseja recarregar? (R$)</Label>
-                      <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="font-black text-2xl h-16 text-center rounded-2xl" />
+                      <Label className="text-[10px] font-black uppercase block text-center">Valor R$</Label>
+                      <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} className="font-black text-2xl h-16 text-center rounded-2xl" placeholder="0.00" />
                    </div>
                 </div>
                 <DialogFooter>
                   <Button onClick={handleDepositRequest} disabled={loading} className="w-full h-16 font-black uppercase bg-primary rounded-2xl text-white hover:bg-primary/90">
-                    {loading ? 'PROCESSANDO...' : 'ENVIAR COMPROVANTE'}
+                    {loading ? '...' : 'ENVIAR COMPROVANTE'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -187,17 +183,17 @@ export function BalanceCard() {
                 <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Solicitar Saque</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                    <div className="bg-muted/50 p-4 rounded-2xl">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground">Minha Chave PIX:</p>
-                      <p className="font-black text-primary">{user.pixKey || 'NÃO CADASTRADA NO PERFIL'}</p>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground">Sua Chave PIX:</p>
+                      <p className="font-black text-primary uppercase">{user.pixKey || 'CADASTRE NO PERFIL'}</p>
                    </div>
                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase">Valor do Saque (R$)</Label>
-                      <Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="font-black text-xl h-14 rounded-xl" />
+                      <Label className="text-[10px] font-black uppercase">Valor R$</Label>
+                      <Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="font-black text-xl h-14 rounded-xl" placeholder="0.00" />
                    </div>
                 </div>
                 <DialogFooter>
                   <Button onClick={handleWithdrawRequest} disabled={loading || !user.pixKey} className="w-full h-16 font-black uppercase bg-primary rounded-2xl text-white">
-                    {user.pixKey ? 'CONFIRMAR SOLICITAÇÃO' : 'CADASTRE SEU PIX NO PERFIL'}
+                    {user.pixKey ? 'CONFIRMAR' : 'ATUALIZE SEU PERFIL'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

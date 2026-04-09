@@ -20,8 +20,7 @@ import {
   Database,
   Clock,
   History,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -113,7 +112,7 @@ export default function VendaPage() {
     const myBalance = (user.balance || 0);
 
     if (myBalance < val) {
-      toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Recarregue para quitar esta reserva." });
+      toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
       return;
     }
 
@@ -137,7 +136,7 @@ export default function VendaPage() {
         setUser({ ...user, balance: newBal });
       }
 
-      toast({ title: "RESERVA QUITADA!" });
+      toast({ title: "PAGAMENTO REALIZADO!" });
       loadMinhasReservas();
     } catch (err: any) {
       toast({ variant: "destructive", title: "FALHA NO PAGAMENTO" });
@@ -182,13 +181,13 @@ export default function VendaPage() {
     e.preventDefault();
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
-    if (formData.tipo === 'bolao' && palpites.some(p => !p)) return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Marque todos os jogos do Bolão." });
+    if (formData.tipo === 'bolao' && palpites.some(p => !p)) return toast({ variant: "destructive", title: "MARQUE TODOS OS JOGOS" });
     
     const totalVenda = formData.unitario * quantity;
     const finalStatus = payWithBalance ? 'pago' : 'pendente';
 
     if (payWithBalance && (user?.balance || 0) < totalVenda) {
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Use o modo 'Reserva' ou recarregue." });
+      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
     }
 
     setLoading(true);
@@ -217,7 +216,7 @@ export default function VendaPage() {
       tipo: formData.tipo,
       cliente: formData.cliente.toUpperCase(),
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
-      pix_resgate: formData.pixKey, 
+      pix_resgate: formData.pixKey.toUpperCase(), 
       valor_total: totalVenda,
       vendedor_id: user?.id || 'admin-master',
       vendedor_nome: user?.nome || 'Admin',
@@ -251,7 +250,7 @@ export default function VendaPage() {
       }
 
       setVendaRealizada(receipt);
-      toast({ title: !payWithBalance ? "RESERVA REALIZADA!" : "COMPRA CONCLUÍDA!" });
+      toast({ title: !payWithBalance ? "RESERVA GERADA!" : "VENDA CONCLUÍDA!" });
       updatePrizes(formData.eventoId, formData.tipo);
       if (user?.role !== 'cliente') setFormData(prev => ({ ...prev, cliente: '', whatsapp: '', pixKey: '' }));
       loadMinhasReservas();
@@ -273,8 +272,8 @@ export default function VendaPage() {
       });
       const characteristics = await service.getCharacteristics();
       const writeChar = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
-      if (writeChar) { setBtDevice(device); setBtCharacteristic(writeChar); toast({ title: "IMPRESSORA CONECTADA!" }); }
-    } catch (err: any) { toast({ variant: "destructive", title: "FALHA DE CONEXÃO" }); }
+      if (writeChar) { setBtDevice(device); setBtCharacteristic(writeChar); toast({ title: "CONECTADO!" }); }
+    } catch (err: any) { toast({ variant: "destructive", title: "FALHA BT" }); }
     finally { setBtConnecting(false); }
   };
 
@@ -282,21 +281,17 @@ export default function VendaPage() {
     if (!btCharacteristic) return;
     try {
       const encoder = new TextEncoder();
-      let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\nCUPOM OFICIAL AUDITADO\n--------------------------------\n";
+      let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\nCUPOM OFICIAL\n--------------------------------\n";
       text += `CLIENTE: ${receipt.cliente}\nJOGO: ${receipt.evento_nome}\n--------------------------------\n`;
       
-      receipt.tickets_data.slice(0, 3).forEach((t: any, i: number) => {
+      receipt.tickets_data.forEach((t: any, i: number) => {
         text += `BILHETE #${i+1}\n`;
-        if (t.n) {
-          text += `DEZ: ${t.n.join(' ')}\n`;
-        }
+        if (t.n) text += `DEZ: ${t.n.join(' ')}\n`;
         if (t.p) {
-          const matchGuesses = t.p.split('-');
-          matchGuesses.forEach((guess: string, gIdx: number) => {
-            const partida = selectedEventData?.partidas?.[gIdx];
-            if (partida) {
-              text += `${partida.time1} x ${partida.time2} = ${guess}\n`;
-            }
+          const guesses = t.p.split('-');
+          guesses.forEach((g: string, idx: number) => {
+            const p = selectedEventData?.partidas?.[idx];
+            if (p) text += `${p.time1} x ${p.time2} = ${g}\n`;
           });
         }
         text += '\n';
@@ -305,8 +300,8 @@ export default function VendaPage() {
       text += `--------------------------------\nVALOR: R$ ${Number(receipt.valor_total).toFixed(2)}\nCOD: ${receipt.id}\n\x1B\x61\x01BOA SORTE!\n\n\n\n`;
       const data = encoder.encode(text);
       for (let i = 0; i < data.length; i += 20) await btCharacteristic.writeValue(data.slice(i, i + 20));
-      toast({ title: "CUPOM IMPRESSO!" });
-    } catch (e) { toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO" }); }
+      toast({ title: "IMPRESSO!" });
+    } catch (e) { toast({ variant: "destructive", title: "ERRO IMPRESSÃO" }); }
   }, [btCharacteristic, toast, selectedEventData]);
 
   if (!mounted) return null;
@@ -318,7 +313,7 @@ export default function VendaPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           <Tabs defaultValue="venda">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
-              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Terminal de Venda</TabsTrigger>
+              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Vendas</TabsTrigger>
               <TabsTrigger value="reservas" className="font-black uppercase text-[10px] rounded-xl px-8">
                 Minhas Reservas {minhasReservas.length > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{minhasReservas.length}</span>}
               </TabsTrigger>
@@ -331,17 +326,17 @@ export default function VendaPage() {
                       <div className={cn("p-3 rounded-2xl", btCharacteristic ? "bg-green-100" : "bg-muted")}>
                         <Bluetooth className={cn("w-6 h-6", btCharacteristic ? "text-green-600" : "text-muted-foreground")} />
                       </div>
-                      <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora BT</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "OFFLINE"}</p></div>
+                      <div><p className="text-[10px] font-black uppercase text-muted-foreground">Impressora</p><p className="text-sm font-black text-primary">{btDevice ? btDevice.name : "DESCONECTADA"}</p></div>
                     </div>
                     <Button onClick={connectPrinter} disabled={btConnecting} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl text-white bg-primary">
-                      {btConnecting ? "..." : (btCharacteristic ? "CONECTADA" : "CONECTAR")}
+                      {btConnecting ? "..." : (btCharacteristic ? "OK" : "CONECTAR")}
                     </Button>
                 </Card>
 
                 {formData.eventoId && (
                   <Card className="bg-primary text-white p-4 rounded-3xl shadow-xl border-none">
                      <div className="flex justify-between items-center h-full">
-                        <div><p className="text-[10px] font-black uppercase opacity-60">Prêmios Live (65%)</p><p className="text-2xl font-black">R$ {prizes.totalNet.toFixed(2)}</p></div>
+                        <div><p className="text-[10px] font-black uppercase opacity-60">Prêmios Acumulados</p><p className="text-2xl font-black">R$ {prizes.totalNet.toFixed(2)}</p></div>
                         {formData.tipo === 'bingo' ? (
                           <div className="flex gap-2">
                              <div className="bg-white/10 p-2 rounded-xl text-center"><p className="text-[7px] uppercase">Bingo</p><p className="text-[9px] font-black">R$ {prizes.bingo.toFixed(2)}</p></div>
@@ -362,14 +357,14 @@ export default function VendaPage() {
                   <CardContent className="p-8 space-y-4">
                     <form onSubmit={(e) => handleVenda(e)} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
+                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold uppercase" required disabled={user?.role === 'cliente'} /></div>
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
                       </div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PARA RECEBER" className="h-12 font-black border-accent/30" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60 flex justify-between items-center"><span>Escolha o Jogo Ativo</span><span className="text-[8px] text-red-600 font-black"><Clock className="w-2 h-2 inline mb-0.5" /> FECHA 1MIN ANTES</span></Label>
+                        <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
                         <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                          <option value="">-- SELECIONE O CONCURSO --</option>
+                          <option value="">-- SELECIONE --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} (R$ {Number(e.preco).toFixed(2)})</option>)}
                         </select>
                       </div>
@@ -392,7 +387,7 @@ export default function VendaPage() {
                         </div>
                       )}
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
+                        <Label className="text-[10px] font-black uppercase opacity-60">Quantidade</Label>
                         <div className="flex items-center gap-4">
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
                           <Input 
@@ -404,16 +399,16 @@ export default function VendaPage() {
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                         </div>
                       </div>
-                      <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
+                      <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
                       
                       <div className="flex flex-col gap-2">
                         {(user?.balance || 0) >= (formData.unitario * quantity) && (
                           <Button type="button" onClick={(e) => handleVenda(e, true)} className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>
-                            {loading ? "PROCESSANDO..." : "CONCLUIR COM SALDO"}
+                            CONCLUIR COM SALDO
                           </Button>
                         )}
                         <Button type="button" onClick={(e) => handleVenda(e, false)} variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl" disabled={loading}>
-                          {loading ? "PROCESSANDO..." : "GERAR RESERVA (PENDENTE)"}
+                          GERAR RESERVA (PENDENTE)
                         </Button>
                       </div>
                     </form>
@@ -447,12 +442,12 @@ export default function VendaPage() {
                             window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
                           }} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
                        </div>
-                       <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Fazer Outra Venda</Button>
+                       <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px] mt-2">Nova Venda</Button>
                     </div>
                   ) : (
                     <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                       <ShoppingCart className="w-20 h-20 text-primary mb-4" />
-                      <h3 className="text-xl font-black uppercase text-primary">Aguardando Venda...</h3>
+                      <h3 className="text-xl font-black uppercase text-primary">Aguardando...</h3>
                     </div>
                   )}
                 </div>
@@ -463,8 +458,7 @@ export default function VendaPage() {
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {minhasReservas.length === 0 ? (
                     <Card className="col-span-full py-20 text-center border-dashed opacity-30 rounded-[3rem]">
-                       <History className="w-12 h-12 mx-auto mb-4" />
-                       <p className="font-black uppercase text-xs">Nenhuma reserva pendente encontrada</p>
+                       <p className="font-black uppercase text-xs">Sem reservas pendentes</p>
                     </Card>
                   ) : minhasReservas.map((r, i) => (
                     <Card key={i} className="p-6 rounded-[2rem] border-l-8 border-l-orange-500 shadow-md bg-white">
@@ -476,11 +470,11 @@ export default function VendaPage() {
                           <Badge variant="outline" className="text-[8px] font-black uppercase">PENDENTE</Badge>
                        </div>
                        <div className="bg-muted/30 p-4 rounded-2xl mb-4 text-center">
-                          <p className="text-[10px] font-black uppercase opacity-60">Valor da Reserva</p>
+                          <p className="text-[10px] font-black uppercase opacity-60">Valor</p>
                           <p className="text-2xl font-black text-primary">R$ {Number(r.valor_total).toFixed(2)}</p>
                        </div>
                        <Button onClick={() => handlePayReservation(r)} className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-black uppercase text-[10px] rounded-xl gap-2 shadow-lg transition-all active:scale-95" disabled={loading}>
-                          <CheckCircle2 className="w-4 h-4" /> Pagar com Saldo (Abater)
+                          <CheckCircle2 className="w-4 h-4" /> Pagar com Saldo
                        </Button>
                     </Card>
                   ))}

@@ -13,7 +13,6 @@ import { supabase } from '@/supabase/client';
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -24,7 +23,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     const loadSettings = async () => {
-      // BUSCA A CHAVE PIX DE QUALQUER ADMIN NO BANCO (FONTE DA VERDADE)
+      // BUSCA A CHAVE PIX DE QUALQUER ADMIN NO BANCO
       const { data } = await supabase
         .from('users')
         .select('pix_key')
@@ -37,7 +36,6 @@ export default function SettingsPage() {
         setCompanyPix(data[0].pix_key);
       }
 
-      // CARREGA OUTROS LINKS DO LOCALSTORAGE (OU PODERIA SER DE UMA TABELA SETTINGS)
       const saved = localStorage.getItem('leobet_settings');
       if (saved) {
         try {
@@ -55,20 +53,36 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      // SALVA A CHAVE PIX EM TODOS OS USUÁRIOS ADMIN PARA GARANTIR CONSISTÊNCIA GLOBAL
-      const { error } = await supabase
-        .from('users')
-        .update({ pix_key: companyPix })
-        .eq('role', 'admin');
-
-      if (error) throw error;
+      // GARANTE QUE EXISTE PELO MENOS UM REGISTRO ADMIN NO BANCO PARA SEGURAR A CHAVE
+      const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
+      
+      if (!admins || admins.length === 0) {
+        // Cria um registro de sistema caso não exista nenhum admin real no DB
+        await supabase.from('users').insert([{
+          id: 'SYSTEM-CONFIG',
+          nome: 'CONFIGURAÇÃO SISTEMA',
+          email: 'sistema@leobet.pro',
+          role: 'admin',
+          pix_key: companyPix,
+          status: 'approved',
+          balance: 0,
+          commission_balance: 0,
+          pending_balance: 0
+        }]);
+      } else {
+        // Atualiza todos os admins para consistência
+        await supabase
+          .from('users')
+          .update({ pix_key: companyPix })
+          .eq('role', 'admin');
+      }
 
       const newSettings = { youtubeUrl, systemUrl };
       localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
       
       toast({ 
         title: "CONFIGURAÇÕES SALVAS!", 
-        description: "A chave PIX foi atualizada permanentemente no banco de dados." 
+        description: "A chave PIX foi gravada permanentemente no banco de dados." 
       });
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
@@ -90,7 +104,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-none">Configurações Gerais</h1>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Sincronização Cloud Supabase <Database className="inline w-3 h-3 text-green-600" /></p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Dados Master <Database className="inline w-3 h-3 text-green-600" /></p>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-6">
@@ -103,21 +117,15 @@ export default function SettingsPage() {
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase opacity-60">Canal YouTube (Sorteios Live)</Label>
-                  <div className="flex gap-2">
-                    <div className="bg-red-100 p-3 rounded-xl flex items-center justify-center shrink-0">
-                      <Youtube className="w-5 h-5 text-red-600" />
-                    </div>
-                    <input 
-                      value={youtubeUrl} 
-                      onChange={e => setYoutubeUrl(e.target.value)}
-                      placeholder="https://youtube.com/live/..." 
-                      className="w-full h-12 font-bold border-2 rounded-xl px-4 outline-none focus:border-primary bg-white"
-                    />
-                  </div>
+                  <input 
+                    value={youtubeUrl} 
+                    onChange={e => setYoutubeUrl(e.target.value)}
+                    placeholder="https://youtube.com/live/..." 
+                    className="w-full h-12 font-bold border-2 rounded-xl px-4 outline-none focus:border-primary bg-white"
+                  />
                 </div>
-
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Domínio Oficial do Sistema</Label>
+                  <Label className="text-[10px] font-black uppercase opacity-60">Domínio Oficial</Label>
                   <input 
                     value={systemUrl} 
                     onChange={e => setSystemUrl(e.target.value)}
@@ -131,20 +139,20 @@ export default function SettingsPage() {
             <Card className="border-t-4 border-t-accent shadow-xl rounded-[2rem] overflow-hidden">
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-accent">
-                  <Wallet className="w-4 h-4" /> Gestão de Recebimentos
+                  <Wallet className="w-4 h-4" /> Gestão Financeira
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Master (Global)</Label>
+                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX para Recebimentos (Global)</Label>
                   <input 
                     value={companyPix} 
                     onChange={e => setCompanyPix(e.target.value)}
-                    placeholder="DIGITE A CHAVE PIX OFICIAL" 
-                    className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary"
+                    placeholder="CHAVE PIX PARA DEPÓSITOS" 
+                    className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary uppercase"
                   />
                   <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                    Atenção: Esta chave aparecerá para todos os usuários no botão de "Depósito".
+                    Esta chave será exibida para todos os usuários no botão de "Depósito".
                   </p>
                 </div>
               </CardContent>
@@ -152,7 +160,7 @@ export default function SettingsPage() {
 
             <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
               {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-              {loading ? 'SINCRONIZANDO...' : 'SALVAR E ATUALIZAR REDE'}
+              {loading ? 'SINCRONIZANDO...' : 'SALVAR NO BANCO DE DADOS'}
             </Button>
           </form>
         </div>
