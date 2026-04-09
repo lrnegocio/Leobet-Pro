@@ -66,6 +66,10 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   };
 
   const calculateWinners = async () => {
+    if (bolao.tipo === 'quina' && lotteryResults.length !== 5) {
+      return toast({ variant: "destructive", title: "ATENÇÃO", description: "Selecione exatamente 5 dezenas para o sorteio da Quina." });
+    }
+
     setSaving(true);
     try {
       let maxHits = 0;
@@ -157,7 +161,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                ) : (
                  <div className="space-y-6">
                     <div className="text-center bg-primary/5 p-6 rounded-3xl border-2 border-primary/10">
-                       <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">Selecione as dezenas sorteadas oficiais</p>
+                       <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">Selecione as dezenas sorteadas oficiais (Clique para marcar/desmarcar)</p>
                        <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
                           {Array.from({ length: bolao.tipo === 'mega' ? 60 : 80 }).map((_, i) => {
                             const n = i + 1;
@@ -165,11 +169,14 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                             return (
                               <button key={n} onClick={() => handleLotteryToggle(n)} className={cn(
                                 "h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all",
-                                isDrawn ? "bg-green-600 text-white shadow-lg" : "bg-white border text-muted-foreground/40"
+                                isDrawn ? "bg-green-600 text-white shadow-lg scale-110" : "bg-white border text-muted-foreground/40"
                               )}>{n < 10 ? `0${n}` : n}</button>
                             );
                           })}
                        </div>
+                       {bolao.tipo === 'quina' && (
+                         <p className="mt-4 text-[9px] font-black text-orange-600 uppercase">Atenção: Marque apenas 05 dezenas para a Quina.</p>
+                       )}
                     </div>
                  </div>
                )}

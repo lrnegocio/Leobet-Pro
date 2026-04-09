@@ -83,6 +83,18 @@ function ResultadosContent() {
     return null;
   };
 
+  const handleRequestPayout = async () => {
+    if (!receipt) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('tickets').update({ status: 'pendente-resgate' }).eq('id', receipt.id);
+      if (error) throw error;
+      toast({ title: "RESGATE SOLICITADO!", description: "O Admin validará seu PIX em instantes." });
+      handleSearch(receipt.id);
+    } catch (e) { toast({ variant: "destructive", title: "ERRO AO SOLICITAR" }); }
+    finally { setLoading(false); }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -104,7 +116,14 @@ function ResultadosContent() {
               {statsGanhos.total > 0 && (
                 <div className="p-8 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl bg-green-600">
                   <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado</p><p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p></div>
-                  <Badge className="bg-white text-green-700 h-14 px-8 font-black uppercase text-sm rounded-2xl">BILHETE PREMIADO</Badge>
+                  <div className="flex flex-col gap-2 w-full md:w-auto">
+                    <Badge className="bg-white text-green-700 h-10 px-8 font-black uppercase text-[10px] rounded-xl flex items-center justify-center">BILHETE PREMIADO</Badge>
+                    {receipt.status === 'ganhou' ? (
+                      <Button onClick={handleRequestPayout} className="bg-accent text-white h-14 px-8 font-black uppercase text-sm rounded-xl shadow-lg border-2 border-white/20">RESGATAR PRÊMIO VIA PIX</Button>
+                    ) : (
+                      <Badge className="bg-white/20 text-white h-10 px-8 font-black uppercase text-[10px] rounded-xl flex items-center justify-center">AGUARDANDO PAGAMENTO</Badge>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -129,14 +148,37 @@ function ResultadosContent() {
                         {t.n && (
                           <div className="grid grid-cols-5 sm:grid-cols-10 gap-1">
                             {t.n.map((n: number) => {
-                              const drawn = eventData?.tipo === 'bingo' ? eventData.bolas_sorteadas : eventData?.drawn_numbers;
+                              const isDrawn = eventData?.tipo === 'bingo' 
+                                ? eventData.bolas_sorteadas?.includes(n)
+                                : eventData?.drawn_numbers?.includes(n);
                               return (
                                 <div key={n} className={cn(
                                   "h-8 flex items-center justify-center rounded-lg text-xs font-black border",
-                                  drawn?.includes(n) ? "bg-green-600 text-white" : "bg-muted/30 text-muted-foreground/40"
+                                  isDrawn ? "bg-green-600 text-white shadow-sm" : "bg-muted/30 text-muted-foreground/40"
                                 )}>{n < 10 ? `0${n}` : n}</div>
                               );
                             })}
+                          </div>
+                        )}
+
+                        {t.p && eventData?.tipo === 'esportivo' && (
+                          <div className="mt-4 space-y-1">
+                             {t.p.split('-').map((palpite: string, pIdx: number) => {
+                               const match = eventData.partidas?.[pIdx];
+                               const score = eventData.scores?.[pIdx];
+                               let result = null;
+                               if (score && score.p1 !== '' && score.p2 !== '') {
+                                 const p1 = parseInt(score.p1); const p2 = parseInt(score.p2);
+                                 if (p1 > p2) result = match.time1; else if (p1 < p2) result = match.time2; else result = 'X';
+                               }
+                               const isCorrect = palpite === result;
+                               return (
+                                 <div key={pIdx} className="flex justify-between items-center text-[10px] border-b pb-1">
+                                    <span className="font-bold uppercase">{match.time1} x {match.time2}</span>
+                                    <Badge variant={isCorrect ? 'default' : 'outline'} className={cn("text-[8px] h-4", isCorrect && "bg-green-600")}>{palpite === 'X' ? 'EMPATE' : palpite}</Badge>
+                                 </div>
+                               );
+                             })}
                           </div>
                         )}
                       </div>
