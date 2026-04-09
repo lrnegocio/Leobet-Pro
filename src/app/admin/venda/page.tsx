@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -120,14 +121,12 @@ export default function VendaPage() {
     try {
       const newBal = myBalance - val;
       await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
-      
       await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
 
       if (user.role === 'cambista') {
         const comCambista = val * 0.10;
         const updatedComm = Number(user.commissionBalance || 0) + comCambista;
         await supabase.from('users').update({ commission_balance: updatedComm }).eq('id', user.id);
-        
         if (user.gerenteId) {
           const comGerente = val * 0.05;
           const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
@@ -296,8 +295,7 @@ export default function VendaPage() {
           matchGuesses.forEach((guess: string, gIdx: number) => {
             const partida = selectedEventData?.partidas?.[gIdx];
             if (partida) {
-              const result = guess === 'X' ? 'EMPATE' : guess;
-              text += `${partida.time1} x ${partida.time2} -> ${result}\n`;
+              text += `${partida.time1} x ${partida.time2} = ${guess}\n`;
             }
           });
         }
@@ -382,9 +380,12 @@ export default function VendaPage() {
                              <div key={idx} className="bg-muted/30 p-2 rounded-xl border flex justify-between items-center gap-2">
                                 <p className="text-[8px] font-black uppercase w-20 truncate">{p.time1} vs {p.time2}</p>
                                 <div className="flex gap-1">
-                                   {['1', 'X', '2'].map(c => (
-                                     <Button key={c} type="button" variant={palpites[idx] === (c === '1' ? p.time1 : c === '2' ? p.time2 : 'X') ? 'default' : 'outline'} className="h-8 w-8 p-0 text-[10px] font-black" onClick={() => handleSetPalpite(idx, c === '1' ? p.time1 : c === '2' ? p.time2 : 'X')}>{c}</Button>
-                                   ))}
+                                   {['1', 'X', '2'].map(c => {
+                                     const result = c === '1' ? p.time1 : c === '2' ? p.time2 : 'X';
+                                     return (
+                                       <Button key={c} type="button" variant={palpites[idx] === result ? 'default' : 'outline'} className="h-8 w-8 p-0 text-[10px] font-black" onClick={() => handleSetPalpite(idx, result)}>{c}</Button>
+                                     );
+                                   })}
                                 </div>
                              </div>
                            ))}
@@ -438,8 +439,7 @@ export default function VendaPage() {
                               const guesses = vendaRealizada.tickets_data[0].p.split('-');
                               guesses.forEach((g: string, idx: number) => {
                                 const p = selectedEventData.partidas[idx];
-                                const res = g === 'X' ? 'EMPATE' : g;
-                                palpiteText += `\n⚽ ${p.time1} x ${p.time2} -> *${res}*`;
+                                palpiteText += `\n⚽ ${p.time1} x ${p.time2} = *${g}*`;
                               });
                             }
                             
