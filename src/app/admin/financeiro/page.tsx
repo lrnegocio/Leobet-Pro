@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, Search, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Key, MessageCircle } from 'lucide-react';
+import { RefreshCcw, Database, Search, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Key, MessageCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -20,15 +20,10 @@ function FinanceiroContent() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [searchPending, setSearchPending] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const d = new Date();
-    setStartDate(d.toISOString().split('T')[0]);
-    setEndDate(d.toISOString().split('T')[0]);
     setMounted(true);
   }, []);
 
@@ -74,6 +69,21 @@ function FinanceiroContent() {
       loadData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO VALIDAR", description: err.message });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const rejectPendingSale = async (id: string) => {
+    if (!confirm("Deseja realmente REJEITAR e EXCLUIR esta reserva pendente?")) return;
+    setSyncing(true);
+    try {
+      const { error } = await supabase.from('tickets').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "VENDA REJEITADA E EXCLUÍDA!", variant: "destructive" });
+      loadData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERRO AO REJEITAR" });
     } finally {
       setSyncing(false);
     }
@@ -207,7 +217,10 @@ function FinanceiroContent() {
                      <p className="text-3xl font-black text-orange-600">R$ {Number(t.valor_total).toFixed(2)}</p>
                    </div>
                    <div className="flex gap-2 w-full md:w-auto">
-                      <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Validar Venda</Button>
+                      <Button onClick={() => rejectPendingSale(t.id)} variant="outline" className="h-16 px-6 font-black uppercase rounded-2xl text-destructive border-destructive hover:bg-destructive/10">
+                        <Trash2 className="w-5 h-5 mr-2" /> Rejeitar
+                      </Button>
+                      <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white flex-1 md:flex-none">Validar Venda</Button>
                    </div>
                  </Card>
                ))}

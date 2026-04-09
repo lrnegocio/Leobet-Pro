@@ -109,31 +109,44 @@ export default function VendaPage() {
   const handlePayReservation = async (ticket: any) => {
     if (!user) return;
     const val = Number(ticket.valor_total);
-    const myBalance = (user.balance || 0);
+    const totalMyBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
 
-    if (myBalance < val) {
+    if (totalMyBalance < val) {
       toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
       return;
     }
 
     setLoading(true);
     try {
-      const newBal = myBalance - val;
-      await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
+      let remaining = val;
+      let newComm = Number(user.commissionBalance || 0);
+      let newBal = Number(user.balance || 0);
+
+      if (newComm >= remaining) {
+        newComm -= remaining;
+        remaining = 0;
+      } else {
+        remaining -= newComm;
+        newComm = 0;
+        newBal -= remaining;
+      }
+
+      await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
       await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
 
       if (user.role === 'cambista') {
         const comCambista = val * 0.10;
-        const updatedComm = Number(user.commissionBalance || 0) + comCambista;
-        await supabase.from('users').update({ commission_balance: updatedComm }).eq('id', user.id);
+        const updatedCommAfterWin = newComm + comCambista;
+        await supabase.from('users').update({ commission_balance: updatedCommAfterWin }).eq('id', user.id);
+        
         if (user.gerenteId) {
           const comGerente = val * 0.05;
           const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
           if (gerente) await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comGerente }).eq('id', user.gerenteId);
         }
-        setUser({ ...user, balance: newBal, commissionBalance: updatedComm });
+        setUser({ ...user, balance: newBal, commissionBalance: updatedCommAfterWin });
       } else {
-        setUser({ ...user, balance: newBal });
+        setUser({ ...user, balance: newBal, commissionBalance: newComm });
       }
 
       toast({ title: "PAGAMENTO REALIZADO!" });
@@ -184,9 +197,10 @@ export default function VendaPage() {
     if (formData.tipo === 'bolao' && palpites.some(p => !p)) return toast({ variant: "destructive", title: "MARQUE TODOS OS JOGOS" });
     
     const totalVenda = formData.unitario * quantity;
+    const totalUserBalance = (Number(user?.balance) || 0) + (Number(user?.commissionBalance) || 0);
     const finalStatus = payWithBalance ? 'pago' : 'pendente';
 
-    if (payWithBalance && (user?.balance || 0) < totalVenda) {
+    if (payWithBalance && totalUserBalance < totalVenda) {
       return toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
     }
 
@@ -231,21 +245,33 @@ export default function VendaPage() {
       if (error) throw error;
 
       if (payWithBalance && user) {
-        const newBal = user.balance - totalVenda;
-        await supabase.from('users').update({ balance: newBal }).eq('id', user.id);
+        let remaining = totalVenda;
+        let newComm = Number(user.commissionBalance || 0);
+        let newBal = Number(user.balance || 0);
+
+        if (newComm >= remaining) {
+          newComm -= remaining;
+          remaining = 0;
+        } else {
+          remaining -= newComm;
+          newComm = 0;
+          newBal -= remaining;
+        }
+
+        await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
         
         if (user.role === 'cambista') {
           const comCambista = totalVenda * 0.10;
-          const updatedComm = (user.commissionBalance || 0) + comCambista;
-          await supabase.from('users').update({ commission_balance: updatedComm }).eq('id', user.id);
+          const updatedCommAfterCommission = newComm + comCambista;
+          await supabase.from('users').update({ commission_balance: updatedCommAfterCommission }).eq('id', user.id);
           if (user.gerenteId) {
             const comGerente = totalVenda * 0.05;
             const { data: gerente } = await supabase.from('users').select('commission_balance').eq('id', user.gerenteId).single();
             if (gerente) await supabase.from('users').update({ commission_balance: Number(gerente.commission_balance || 0) + comGerente }).eq('id', user.gerenteId);
           }
-          setUser({ ...user, balance: newBal, commissionBalance: updatedComm });
+          setUser({ ...user, balance: newBal, commissionBalance: updatedCommAfterCommission });
         } else {
-          setUser({ ...user, balance: newBal });
+          setUser({ ...user, balance: newBal, commissionBalance: newComm });
         }
       }
 
@@ -305,6 +331,10 @@ export default function VendaPage() {
   }, [btCharacteristic, toast, selectedEventData]);
 
   if (!mounted) return null;
+
+  const totalVendaAtual = formData.unitario * quantity;
+  const hasBalance = ((Number(user?.balance) || 0) + (Number(user?.commissionBalance) || 0)) >= totalVendaAtual;
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="flex h-screen bg-muted/30 font-body overflow-hidden">
@@ -402,14 +432,18 @@ export default function VendaPage() {
                       <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
                       
                       <div className="flex flex-col gap-2">
-                        {(user?.balance || 0) >= (formData.unitario * quantity) && (
+                        {hasBalance && (
                           <Button type="button" onClick={(e) => handleVenda(e, true)} className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>
                             CONCLUIR COM SALDO
                           </Button>
                         )}
-                        <Button type="button" onClick={(e) => handleVenda(e, false)} variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl" disabled={loading}>
-                          GERAR RESERVA (PENDENTE)
-                        </Button>
+                        
+                        {/* REGRA: SÓ MOSTRA RESERVA SE NÃO TIVER SALDO OU SE FOR ADMIN */}
+                        {(!hasBalance || isAdmin) && (
+                          <Button type="button" onClick={(e) => handleVenda(e, false)} variant="outline" className="w-full h-14 font-black uppercase border-2 rounded-2xl" disabled={loading}>
+                            GERAR RESERVA (PENDENTE)
+                          </Button>
+                        )}
                       </div>
                     </form>
                   </CardContent>
