@@ -37,11 +37,6 @@ export default function VendaPage() {
   const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
   
-  const [btCharacteristic, setBtCharacteristic] = useState<any>(null);
-  const [btDevice, setBtDevice] = useState<any>(null);
-  const [btConnecting, setBtConnecting] = useState(false);
-
-  const [prizes, setPrizes] = useState({ totalNet: 0, quadra: 0, quina: 0, bingo: 0, bolao: 0 });
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   
   const [formData, setFormData] = useState({ 
@@ -80,22 +75,19 @@ export default function VendaPage() {
       const now = new Date();
       
       const validBingos = (bingos || []).filter(item => {
-        const limitTime = new Date(new Date(item.data_sorteio).getTime() - 60000);
+        if (!item.data_sorteio) return true;
+        const limitTime = new Date(new Date(item.data_sorteio).getTime());
         return now < limitTime;
       }).map(b => ({ ...b, tipo: 'bingo' }));
 
       const validBoloes = (boloes || []).filter(item => {
         if (item.tipo === 'mega' || item.tipo === 'quina') {
-          const limitTime = new Date(new Date(item.data_fim).getTime() - 60000);
+          if (!item.data_fim) return true;
+          const limitTime = new Date(new Date(item.data_fim).getTime());
           return now < limitTime;
         }
-        const matches = item.partidas || [];
-        if (matches.length === 0) return false;
-        const sortedDates = matches.map((m: any) => m.data ? new Date(m.data).getTime() : 0).filter((d: number) => d > 0).sort((a: number, b: number) => a - b);
-        if (sortedDates.length === 0) return false;
-        const limitTime = new Date(sortedDates[0] - 60000);
-        return now < limitTime;
-      }).map(b => ({ ...b, tipo: item.tipo || 'bolao' }));
+        return true; // Mostra esportivos abertos
+      }).map(b => ({ ...b, tipo: b.tipo || 'bolao' }));
       
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err) { console.warn(err); }
@@ -118,9 +110,10 @@ export default function VendaPage() {
       setSelectedEventData(ev);
       setFormData({ ...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo });
       setNumerosLoteria([]);
-      if (ev.tipo === 'bolao') {
-        setPartidasBolao(ev.partidas || []);
-        setPalpites(Array(ev.partidas?.length || 10).fill(''));
+      if (ev.tipo === 'bolao' || ev.tipo === 'esportivo') {
+        const matches = ev.partidas || [];
+        setPartidasBolao(matches);
+        setPalpites(Array(matches.length).fill(''));
       }
     }
   };
@@ -149,7 +142,9 @@ export default function VendaPage() {
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
     
-    if (formData.tipo === 'bolao' && palpites.some(p => !p)) return toast({ variant: "destructive", title: "MARQUE TODOS OS JOGOS" });
+    if ((formData.tipo === 'bolao' || formData.tipo === 'esportivo') && palpites.some(p => !p)) {
+      return toast({ variant: "destructive", title: "MARQUE TODOS OS JOGOS" });
+    }
     const lotLimit = formData.tipo === 'mega' ? 15 : 20;
     if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length < lotLimit) {
       return toast({ variant: "destructive", title: `ESCOLHA OS ${lotLimit} NÚMEROS` });
@@ -172,7 +167,7 @@ export default function VendaPage() {
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: lotNums,
-        p: formData.tipo === 'bolao' ? palpites.join('-') : null,
+        p: (formData.tipo === 'bolao' || formData.tipo === 'esportivo') ? palpites.join('-') : null,
         s: finalStatus,
         v: 0
       });
@@ -233,11 +228,15 @@ export default function VendaPage() {
   const shareReceipt = (receipt: any) => {
     let msg = `*LEOBET PRO - RECIBO*%0A%0A*CLIENTE:* ${receipt.cliente}%0A*CÓDIGO:* ${receipt.id}%0A*VALOR:* R$ ${Number(receipt.valor_total).toFixed(2)}%0A%0A`;
     
-    if (receipt.tipo === 'bolao') {
+    if (receipt.tipo === 'bolao' || receipt.tipo === 'esportivo') {
       const p = receipt.tickets_data[0].p.split('-');
+      msg += `*PALPITES DO BOLÃO:*%0A`;
       partidasBolao.forEach((match, i) => {
         msg += `⚽ ${match.time1} x ${match.time2} = ${p[i]}%0A`;
       });
+    } else if (receipt.tipo === 'mega' || receipt.tipo === 'quina') {
+      msg += `*NÚMEROS ESCOLHIDOS:*%0A`;
+      msg += `🔢 ${receipt.tickets_data[0].n.join(', ')}%0A`;
     } else {
       msg += `🎟️ ${receipt.evento_nome}%0A`;
       if (receipt.tickets_data[0].n) {
@@ -311,7 +310,7 @@ export default function VendaPage() {
                         </div>
                       )}
 
-                      {formData.tipo === 'bolao' && (
+                      {(formData.tipo === 'bolao' || formData.tipo === 'esportivo') && (
                         <div className="space-y-2 pt-4 border-t max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                            {partidasBolao.map((p, idx) => (
                              <div key={idx} className="bg-muted/30 p-2 rounded-xl border flex justify-between items-center gap-2">
@@ -336,7 +335,12 @@ export default function VendaPage() {
                         <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
                         <div className="flex items-center gap-4">
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
-                          <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className="h-12 text-center font-black text-xl" />
+                          <Input 
+                            type="number" 
+                            value={quantity} 
+                            onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} 
+                            className="h-12 text-center font-black text-xl border-2" 
+                          />
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                         </div>
                       </div>
@@ -373,6 +377,21 @@ export default function VendaPage() {
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between"><span>TIPO:</span> <span>{vendaRealizada.tipo.toUpperCase()}</span></p>
+                          
+                          <div className="pt-2 mt-2 border-t border-dashed">
+                             {vendaRealizada.tickets_data[0].p && (
+                                <div className="space-y-1">
+                                   <p className="font-black text-[8px]">PALPITES:</p>
+                                   {vendaRealizada.tickets_data[0].p.split('-').map((pal: string, pi: number) => (
+                                      <p key={pi} className="text-[9px]">{partidasBolao[pi]?.time1} x {partidasBolao[pi]?.time2} = {pal}</p>
+                                   ))}
+                                </div>
+                             )}
+                             {vendaRealizada.tickets_data[0].n && (
+                                <p className="text-[9px]">NÚMEROS: {vendaRealizada.tickets_data[0].n.join(', ')}</p>
+                             )}
+                          </div>
+
                           <p className="text-center pt-2 border-t font-black">CÓDIGO: {vendaRealizada.id}</p>
                        </div>
                        <Button onClick={() => shareReceipt(vendaRealizada)} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl mb-2 gap-2"><MessageCircle /> Enviar WhatsApp</Button>
@@ -401,11 +420,8 @@ export default function VendaPage() {
                       <Button onClick={async () => {
                         setLoading(true);
                         try {
-                          const total = Number(res.valor_total);
                           const { error } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', res.id);
                           if (error) throw error;
-                          
-                          // Lógica de abatimento igual ao handleVenda omitida por brevidade...
                           toast({ title: "BILHETE PAGO COM SALDO!" });
                           loadMinhasReservas();
                         } catch (e) {} finally { setLoading(false); }
