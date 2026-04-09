@@ -39,52 +39,42 @@
       "required": ["nome", "preco", "status", "dataSorteio"]
     },
     "Bolao": {
-      "title": "Bolão Esportivo",
-      "description": "A soccer pool with multiple matches",
+      "title": "Bolão Esportivo / Numérico",
+      "description": "A pool game (soccer or lottery numbers)",
       "type": "object",
       "properties": {
         "nome": { "type": "string" },
-        "valor": { "type": "number" },
-        "status": { "type": "string", "enum": ["aberto", "encerrado"] },
-        "partidas": { 
-          "type": "array", 
-          "items": { 
-            "type": "object",
-            "properties": {
-              "time1": { "type": "string" },
-              "time2": { "type": "string" },
-              "data": { "type": "string" },
-              "placar1": { "type": "number" },
-              "placar2": { "type": "number" },
-              "status": { "type": "string" }
-            }
-          }
-        },
+        "preco": { "type": "number" },
+        "status": { "type": "string", "enum": ["aberto", "encerrado", "finalizado"] },
+        "tipo": { "type": "string", "enum": ["esportivo", "mega", "quina"] },
+        "data_fim": { "type": "string", "format": "date-time" },
+        "partidas": { "type": "array" },
+        "drawn_numbers": { "type": "array" },
+        "scores": { "type": "array" },
+        "max_hits": { "type": "number" },
         "regras": { "type": "string" },
-        "whatsapp": { "type": "string" },
         "vendidas": { "type": "number" },
-        "vendidasCambista": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["nome", "valor", "status"]
+      "required": ["nome", "preco", "status", "tipo"]
     },
     "Ticket": {
       "title": "Bingo/Bolao Ticket",
       "description": "A ticket sold for an event",
       "type": "object",
       "properties": {
-        "eventId": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userCpf": { "type": "string" },
-        "cambistaId": { "type": "string" },
-        "codigoIdentificacao": { "type": "string" },
-        "tipo": { "type": "string", "enum": ["bingo", "bolao"] },
-        "status": { "type": "string", "enum": ["pendente", "ganhou", "perdeu", "pago"] },
-        "valorPremio": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["eventId", "codigoIdentificacao", "status"]
+        "evento_id": { "type": "string" },
+        "evento_nome": { "type": "string" },
+        "tipo": { "type": "string" },
+        "cliente": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "pix_resgate": { "type": "string" },
+        "valor_total": { "type": "number" },
+        "vendedor_id": { "type": "string" },
+        "status": { "type": "string" },
+        "tickets_data": { "type": "array" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -94,7 +84,6 @@
     "/users/{userId}": { "schema": "UserProfile", "description": "User profiles" },
     "/bingos/{bingoId}": { "schema": "Bingo", "description": "Bingo games" },
     "/boloes/{bolaoId}": { "schema": "Bolao", "description": "Bolão games" },
-    "/tickets/{ticketId}": { "schema": "Ticket", "description": "Sold tickets" },
-    "/transactions/{transactionId}": { "schema": "Transaction", "description": "Financial records" }
+    "/tickets/{ticketId}": { "schema": "Ticket", "description": "Sold tickets" }
   }
 }

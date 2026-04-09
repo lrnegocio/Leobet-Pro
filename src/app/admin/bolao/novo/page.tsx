@@ -59,7 +59,12 @@ export default function NovoBolaoPage() {
           tipo: tipo
         }]);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('column "tipo"')) {
+          throw new Error("A coluna 'tipo' não foi encontrada no banco. Vá em SQL EDITOR no Supabase e rode o comando ALTER TABLE boloes ADD COLUMN tipo TEXT;");
+        }
+        throw error;
+      }
 
       toast({ title: "BOLÃO PUBLICADO!", description: "A rodada já está disponível para toda a rede." });
       router.push('/admin/bolao');
