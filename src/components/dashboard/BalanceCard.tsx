@@ -38,8 +38,7 @@ export function BalanceCard() {
         .select('pix_key')
         .eq('role', 'admin')
         .not('pix_key', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .order('created_at', { ascending: false });
 
       if (data && data.length > 0) {
         setMasterPix(data[0].pix_key);

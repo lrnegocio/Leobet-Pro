@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +23,10 @@ import {
   ArrowDownCircle,
   Plus,
   Minus,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
@@ -46,6 +50,8 @@ export default function GestaoUsuariosPage() {
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   
   const [openBalance, setOpenBalance] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -118,7 +124,6 @@ export default function GestaoUsuariosPage() {
     let newVal = op === 'add' ? currentVal + amountToAdd : Math.max(0, currentVal - amountToAdd);
 
     try {
-      // SE FOR ADIÇÃO DE SALDO DE APOSTAS, TENTA ABATIMENTO AUTOMÁTICO
       if (op === 'add' && balanceType === 'balance') {
         const { data: pendingTickets } = await supabase
           .from('tickets')
@@ -129,13 +134,9 @@ export default function GestaoUsuariosPage() {
         const totalPending = pendingTickets?.reduce((acc, t) => acc + Number(t.valor_total), 0) || 0;
 
         if (totalPending > 0 && newVal >= totalPending) {
-          // ABATE TUDO AUTOMATICAMENTE
           for (const ticket of pendingTickets!) {
             const val = Number(ticket.valor_total);
-            // MARCA COMO PAGO
             await supabase.from('tickets').update({ status: 'pago' }).eq('id', ticket.id);
-            
-            // GERA COMISSÕES SE VENDEDOR FOR CAMBISTA
             const { data: vData } = await supabase.from('users').select('*').eq('id', ticket.vendedor_id).single();
             if (vData && vData.role === 'cambista') {
               const comCambista = val * 0.10;
@@ -149,12 +150,6 @@ export default function GestaoUsuariosPage() {
           }
           newVal -= totalPending;
           toast({ title: "ABATIMENTO AUTOMÁTICO!", description: `R$ ${totalPending.toFixed(2)} em pendências foram quitados.` });
-        } else if (totalPending > 0) {
-          toast({ 
-            variant: "destructive", 
-            title: "SALDO INSUFICIENTE PARA ABATIMENTO", 
-            description: `O usuário possui R$ ${totalPending.toFixed(2)} em dívidas. O saldo foi adicionado mas ele deve quitar manualmente.` 
-          });
         }
       }
 
@@ -165,7 +160,7 @@ export default function GestaoUsuariosPage() {
 
       if (error) throw error;
       
-      toast({ title: "SALDO ATUALIZADO!", description: `Novo saldo: R$ ${newVal.toFixed(2)}` });
+      toast({ title: "SALDO ATUALIZADO!" });
       setOpenBalance(false);
       setBalanceAmount('');
       loadUsers();
@@ -176,11 +171,11 @@ export default function GestaoUsuariosPage() {
     }
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleCreateOrUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSyncing(true);
-    const newUser = {
-      id: Math.random().toString(36).substring(7).toUpperCase(),
+    
+    const userData = {
       nome: formData.nome.toUpperCase(),
       email: formData.email.toLowerCase(),
       password: formData.password,
@@ -189,22 +184,54 @@ export default function GestaoUsuariosPage() {
       pix_key: formData.pix_key,
       cpf: formData.cpf,
       birth_date: formData.birth_date,
-      status: 'approved',
-      balance: 0,
-      commission_balance: 0,
-      pending_balance: 0,
-      created_at: new Date().toISOString()
     };
+
     try {
-      const { error } = await supabase.from('users').insert([newUser]);
-      if (error) throw error;
-      toast({ title: "USUÁRIO CRIADO!" });
+      if (selectedUser && openEdit) {
+        const { error } = await supabase.from('users').update(userData).eq('id', selectedUser.id);
+        if (error) throw error;
+        toast({ title: "DADOS ATUALIZADOS!" });
+      } else {
+        const newUser = {
+          id: Math.random().toString(36).substring(7).toUpperCase(),
+          ...userData,
+          status: 'approved',
+          balance: 0,
+          commission_balance: 0,
+          pending_balance: 0,
+          created_at: new Date().toISOString()
+        };
+        const { error } = await supabase.from('users').insert([newUser]);
+        if (error) throw error;
+        toast({ title: "USUÁRIO CRIADO!" });
+      }
+      
       setOpenCreate(false);
+      setOpenEdit(false);
       setFormData({ nome: '', email: '', password: '', role: 'gerente', phone: '', pix_key: '', cpf: '', birth_date: '' });
       loadUsers();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "ERRO AO CRIAR" });
+      toast({ variant: "destructive", title: "FALHA NA OPERAÇÃO", description: err.message });
     } finally { setSyncing(false); }
+  };
+
+  const startEdit = (u: any) => {
+    setSelectedUser(u);
+    setFormData({
+      nome: u.nome,
+      email: u.email,
+      password: u.password || '',
+      role: u.role,
+      phone: u.phone || '',
+      pix_key: u.pix_key || '',
+      cpf: u.cpf || '',
+      birth_date: u.birth_date || ''
+    });
+    setOpenEdit(true);
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const filteredUsers = users.filter(u => 
@@ -227,51 +254,16 @@ export default function GestaoUsuariosPage() {
               <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Controle Financeiro e de Acesso Master</p>
             </div>
             <div className="flex gap-2">
-              <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-                <DialogTrigger asChild>
-                  <Button className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg">
-                    <UserPlus className="w-4 h-4" /> Novo Gerente/Membro
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
-                  <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Cadastrar Novo Usuário</DialogTitle></DialogHeader>
-                  <form onSubmit={handleCreateUser} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-black uppercase opacity-60">Cargo</Label>
-                      <select className="w-full h-12 border-2 rounded-xl px-3 font-bold" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                        <option value="gerente">GERENTE (Diretoria)</option>
-                        <option value="cambista">CAMBISTA (Vendedor)</option>
-                        <option value="cliente">CLIENTE (Apostador)</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold" /></div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">CPF</Label><Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} required className="h-11 font-bold" /></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Data Nascimento</Label><Input type="date" value={formData.birth_date} onChange={e => setFormData({...formData, birth_date: e.target.value})} required className="h-11 font-bold" /></div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" /></div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Usuário/Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Senha</Label><Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" /></div>
-                    </div>
-
-                    <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4" disabled={syncing}>CADASTRAR E ATIVAR</Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button onClick={() => { setOpenCreate(true); setSelectedUser(null); setFormData({ nome: '', email: '', password: '', role: 'gerente', phone: '', pix_key: '', cpf: '', birth_date: '' }); }} className="bg-accent hover:bg-accent/90 h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg">
+                <UserPlus className="w-4 h-4" /> Novo Membro
+              </Button>
               <Button onClick={loadUsers} variant="outline" className="h-12 w-12 rounded-xl"><RefreshCcw className={cn("w-5 h-5", syncing && "animate-spin")} /></Button>
             </div>
           </div>
 
           <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border items-center">
             <Search className="w-5 h-5 text-muted-foreground ml-3" />
-            <Input placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="border-none focus-visible:ring-0 font-bold" />
+            <Input placeholder="Pesquisar por nome ou e-mail..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="border-none focus-visible:ring-0 font-bold" />
           </div>
 
           <div className="grid grid-cols-1 gap-4 pb-20">
@@ -291,7 +283,16 @@ export default function GestaoUsuariosPage() {
                                <h3 className="text-lg font-black uppercase text-primary leading-none">{u.nome}</h3>
                                <Badge className={cn("text-[8px] h-5 uppercase", u.role === 'admin' ? 'bg-primary' : (u.role === 'gerente' ? 'bg-blue-700' : 'bg-accent'))}>{u.role}</Badge>
                             </div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Zap'}</p>
+                            <div className="flex flex-col gap-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Zap'}</p>
+                              <div className="flex items-center gap-2 bg-muted/50 w-fit px-2 py-1 rounded-lg">
+                                <span className="text-[9px] font-black uppercase opacity-50">Senha:</span>
+                                <span className="text-[10px] font-black">{visiblePasswords[u.id] ? u.password : '••••••••'}</span>
+                                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => togglePasswordVisibility(u.id)}>
+                                  {visiblePasswords[u.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                </Button>
+                              </div>
+                            </div>
                             <div className="flex gap-4 mt-2">
                                <div className="bg-muted p-2 rounded-xl border">
                                   <p className="text-[7px] font-black uppercase opacity-60">Apostas</p>
@@ -306,7 +307,8 @@ export default function GestaoUsuariosPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
-                         <Button onClick={() => { setSelectedUser(u); setOpenBalance(true); }} className="bg-primary h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><Wallet className="w-4 h-4" /> Ajustar Saldo</Button>
+                         <Button onClick={() => startEdit(u)} variant="outline" className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><Edit2 className="w-4 h-4" /> Editar</Button>
+                         <Button onClick={() => { setSelectedUser(u); setOpenBalance(true); }} className="bg-primary h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><Wallet className="w-4 h-4" /> Saldo</Button>
                          {u.status === 'pending' && <Button onClick={() => handleUpdateStatus(u.id, 'approved')} className="bg-green-600 h-12 gap-2 font-black uppercase text-[10px] rounded-xl"><UserCheck className="w-4 h-4" /> Aprovar</Button>}
                          {u.status === 'approved' ? (
                            <Button onClick={() => handleUpdateStatus(u.id, 'blocked')} variant="outline" className="h-12 gap-2 font-black uppercase text-[10px] rounded-xl text-destructive"><Ban className="w-4 h-4" /> Bloquear</Button>
@@ -322,6 +324,45 @@ export default function GestaoUsuariosPage() {
           </div>
         </div>
 
+        {/* DIALOG DE CRIAÇÃO/EDIÇÃO */}
+        <Dialog open={openCreate || openEdit} onOpenChange={(v) => { setOpenCreate(v); if(!v) setOpenEdit(false); }}>
+          <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
+            <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">{openEdit ? 'Editar Usuário' : 'Cadastrar Membro'}</DialogTitle></DialogHeader>
+            <form onSubmit={handleCreateOrUpdateUser} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase opacity-60">Cargo</Label>
+                <select className="w-full h-12 border-2 rounded-xl px-3 font-bold" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                  <option value="gerente">GERENTE (Diretoria)</option>
+                  <option value="cambista">CAMBISTA (Vendedor)</option>
+                  <option value="cliente">CLIENTE (Apostador)</option>
+                  <option value="admin">ADMIN (Master)</option>
+                </select>
+              </div>
+              <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold" /></div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">CPF</Label><Input value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} className="h-11 font-bold" /></div>
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Data Nascimento</Label><Input type="date" value={formData.birth_date} onChange={e => setFormData({...formData, birth_date: e.target.value})} className="h-11 font-bold" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Usuário (E-mail)</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Senha</Label><Input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" /></div>
+              </div>
+
+              <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4" disabled={syncing}>
+                {openEdit ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR E ATIVAR'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* DIALOG DE SALDO */}
         <Dialog open={openBalance} onOpenChange={setOpenBalance}>
           <DialogContent className="bg-white rounded-[2.5rem] border-none max-w-sm">
             <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Ajustar Saldo de {selectedUser?.nome}</DialogTitle></DialogHeader>
@@ -337,12 +378,6 @@ export default function GestaoUsuariosPage() {
                   <Label className="text-[10px] font-black uppercase opacity-60">Valor R$</Label>
                   <Input type="number" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)} className="h-14 text-center font-black text-2xl rounded-2xl" placeholder="0.00" />
                </div>
-               {balanceType === 'balance' && (
-                 <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl text-[9px] font-bold text-blue-700 uppercase">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    O sistema verificará dívidas pendentes para abatimento automático após a adição.
-                 </div>
-               )}
                <div className="flex gap-3">
                   <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-14 font-black uppercase rounded-xl"><Minus className="w-4 h-4" /> Retirar</Button>
                   <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-14 bg-green-600 font-black uppercase rounded-xl text-white"><Plus className="w-4 h-4" /> Adicionar</Button>

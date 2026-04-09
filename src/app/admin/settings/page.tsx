@@ -6,9 +6,8 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Youtube, Wallet, Globe, Save, RefreshCcw, Database } from 'lucide-react';
+import { Youtube, Globe, Save, RefreshCcw, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
 
 export default function SettingsPage() {
@@ -17,25 +16,11 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
   
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [companyPix, setCompanyPix] = useState('');
   const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
 
   useEffect(() => {
     setMounted(true);
-    const loadSettings = async () => {
-      // BUSCA A CHAVE PIX DE QUALQUER ADMIN NO BANCO
-      const { data } = await supabase
-        .from('users')
-        .select('pix_key')
-        .eq('role', 'admin')
-        .not('pix_key', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (data && data.length > 0) {
-        setCompanyPix(data[0].pix_key);
-      }
-
+    const loadSettings = () => {
       const saved = localStorage.getItem('leobet_settings');
       if (saved) {
         try {
@@ -53,36 +38,12 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      // GARANTE QUE EXISTE PELO MENOS UM REGISTRO ADMIN NO BANCO PARA SEGURAR A CHAVE
-      const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
-      
-      if (!admins || admins.length === 0) {
-        // Cria um registro de sistema caso não exista nenhum admin real no DB
-        await supabase.from('users').insert([{
-          id: 'SYSTEM-CONFIG',
-          nome: 'CONFIGURAÇÃO SISTEMA',
-          email: 'sistema@leobet.pro',
-          role: 'admin',
-          pix_key: companyPix,
-          status: 'approved',
-          balance: 0,
-          commission_balance: 0,
-          pending_balance: 0
-        }]);
-      } else {
-        // Atualiza todos os admins para consistência
-        await supabase
-          .from('users')
-          .update({ pix_key: companyPix })
-          .eq('role', 'admin');
-      }
-
       const newSettings = { youtubeUrl, systemUrl };
       localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
       
       toast({ 
         title: "CONFIGURAÇÕES SALVAS!", 
-        description: "A chave PIX foi gravada permanentemente no banco de dados." 
+        description: "Links externos atualizados." 
       });
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
@@ -104,7 +65,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-none">Configurações Gerais</h1>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Dados Master <Database className="inline w-3 h-3 text-green-600" /></p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Links Master <Database className="inline w-3 h-3 text-green-600" /></p>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-6">
@@ -136,31 +97,9 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-t-4 border-t-accent shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-muted/50 border-b">
-                <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-accent">
-                  <Wallet className="w-4 h-4" /> Gestão Financeira
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX para Recebimentos (Global)</Label>
-                  <input 
-                    value={companyPix} 
-                    onChange={e => setCompanyPix(e.target.value)}
-                    placeholder="CHAVE PIX PARA DEPÓSITOS" 
-                    className="w-full h-12 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary uppercase"
-                  />
-                  <p className="text-[9px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-2">
-                    Esta chave será exibida para todos os usuários no botão de "Depósito".
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
             <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
               {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-              {loading ? 'SINCRONIZANDO...' : 'SALVAR NO BANCO DE DADOS'}
+              SALVAR CONFIGURAÇÕES
             </Button>
           </form>
         </div>

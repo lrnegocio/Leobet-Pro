@@ -5,11 +5,10 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, Search, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Key, MessageCircle, Trash2 } from 'lucide-react';
+import { RefreshCcw, Database, Search, Wallet, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Key, MessageCircle, Trash2, CheckCircle2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -21,6 +20,7 @@ function FinanceiroContent() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchPending, setSearchPending] = useState('');
+  const [searchHistory, setSearchHistory] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -148,6 +148,17 @@ function FinanceiroContent() {
     });
   }, [tickets, searchPending]);
 
+  const filteredHistory = useMemo(() => {
+    return tickets.filter(t => {
+      if (t.status === 'pendente') return false;
+      const term = searchHistory.toLowerCase();
+      return (
+        t.cliente.toLowerCase().includes(term) || 
+        t.id.toLowerCase().includes(term)
+      );
+    });
+  }, [tickets, searchHistory]);
+
   const totalPendingPayout = useMemo(() => tickets.filter(t => t.status === 'pendente-resgate').length, [tickets]);
   const totalPendingTrans = useMemo(() => transactions.filter(t => t.status === 'pendente').length, [transactions]);
   const totalPendingSales = useMemo(() => tickets.filter(t => t.status === 'pendente').length, [tickets]);
@@ -174,13 +185,16 @@ function FinanceiroContent() {
           <Tabs defaultValue="vendas_pendentes">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
               <TabsTrigger value="vendas_pendentes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
-                Apostas Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
+                Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
               </TabsTrigger>
               <TabsTrigger value="transacoes" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
                 Saldos & Saques {totalPendingTrans > 0 && <span className="ml-2 bg-accent text-white px-2 py-0.5 rounded-full">{totalPendingTrans}</span>}
               </TabsTrigger>
               <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
                 Prêmios {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="font-black uppercase text-[10px] rounded-xl px-8 shrink-0">
+                Histórico Total
               </TabsTrigger>
             </TabsList>
 
@@ -208,12 +222,24 @@ function FinanceiroContent() {
                         <Badge variant="outline" className="font-mono text-xs font-black">#{t.id}</Badge>
                      </div>
                      
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/30 p-3 rounded-xl border">
-                        <div className="flex items-center gap-2"><MessageCircle className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] font-black uppercase">{t.whatsapp}</span></div>
-                        <div className="flex items-center gap-2"><Key className="w-3.5 h-3.5 text-accent" /><span className="text-[10px] font-black uppercase truncate">{t.pix_resgate || 'NÃO INFORMADO'}</span></div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-2xl border border-orange-100">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-4 h-4 text-green-600" />
+                          <div>
+                            <p className="text-[8px] font-black uppercase opacity-50">WhatsApp Cliente</p>
+                            <span className="text-[11px] font-black uppercase">{t.whatsapp || 'NÃO INFORMADO'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Key className="w-4 h-4 text-accent" />
+                          <div>
+                            <p className="text-[8px] font-black uppercase opacity-50">PIX para Pagamento</p>
+                            <span className="text-[11px] font-black uppercase truncate">{t.pix_resgate || 'NÃO INFORMADO'}</span>
+                          </div>
+                        </div>
                      </div>
 
-                     <p className="text-[10px] font-black opacity-60">JOGO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}</p>
+                     <p className="text-[10px] font-black opacity-60">CONCURSO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}</p>
                      <p className="text-3xl font-black text-orange-600">R$ {Number(t.valor_total).toFixed(2)}</p>
                    </div>
                    <div className="flex gap-2 w-full md:w-auto">
@@ -268,6 +294,36 @@ function FinanceiroContent() {
                    </Card>
                  );
                })}
+            </TabsContent>
+
+            <TabsContent value="historico" className="mt-6 space-y-4">
+               <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-3">
+                  <Search className="w-5 h-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Filtrar histórico por nome ou código..." 
+                    value={searchHistory}
+                    onChange={e => setSearchHistory(e.target.value)}
+                    className="border-none shadow-none focus-visible:ring-0 font-bold"
+                  />
+               </div>
+
+               {filteredHistory.length === 0 ? (
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Histórico vazio</div>
+               ) : filteredHistory.map((t, i) => (
+                 <Card key={i} className="p-4 border rounded-2xl bg-white hover:bg-muted/10 transition-all flex justify-between items-center">
+                    <div>
+                       <div className="flex items-center gap-2">
+                          <p className="font-black uppercase text-xs text-primary">{t.cliente}</p>
+                          <Badge className="bg-green-100 text-green-700 border-none text-[8px] uppercase">{t.status}</Badge>
+                       </div>
+                       <p className="text-[9px] font-bold text-muted-foreground uppercase">{t.evento_nome} • COD: {t.id}</p>
+                    </div>
+                    <div className="text-right">
+                       <p className="font-black text-sm text-primary">R$ {Number(t.valor_total).toFixed(2)}</p>
+                       <p className="text-[8px] opacity-50 uppercase font-bold">{new Date(t.created_at).toLocaleDateString()}</p>
+                    </div>
+                 </Card>
+               ))}
             </TabsContent>
           </Tabs>
         </div>
