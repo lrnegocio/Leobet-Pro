@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Trophy, Plus, Calendar, FileText, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, Trophy, Plus, Calendar, FileText, RefreshCcw, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabase/client';
@@ -21,8 +21,9 @@ export default function NovoBolaoPage() {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState(10);
   const [drawDate, setDrawDate] = useState('');
-  const [regras, setRegras] = useState('Prêmio de 65% da arrecadação dividido entre quem mais acertar os 10 jogos.');
+  const [regras, setRegras] = useState('Prêmio de 65% da arrecadação dividido entre quem mais acertar.');
   const [saving, setSaving] = useState(false);
+  const [tipo, setTipo] = useState<'esportivo' | 'mega' | 'quina'>('esportivo');
   
   const [partidas, setPartidas] = useState(Array(10).fill(null).map(() => ({ 
     time1: '', 
@@ -38,7 +39,7 @@ export default function NovoBolaoPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (partidas.some(p => !p.time1.trim() || !p.time2.trim())) {
+    if (tipo === 'esportivo' && partidas.some(p => !p.time1.trim() || !p.time2.trim())) {
       toast({ variant: "destructive", title: "GRADE INCOMPLETA", description: "Preencha todos os nomes dos times." });
       return;
     }
@@ -52,14 +53,15 @@ export default function NovoBolaoPage() {
           nome: title.toUpperCase(),
           preco: price,
           data_fim: new Date(drawDate).toISOString(),
-          partidas: partidas,
+          partidas: tipo === 'esportivo' ? partidas : null,
           regras: regras,
-          status: 'aberto'
+          status: 'aberto',
+          tipo: tipo
         }]);
 
       if (error) throw error;
 
-      toast({ title: "BOLÃO PUBLICADO NO SUPABASE!", description: "A rodada já está disponível para toda a rede." });
+      toast({ title: "BOLÃO PUBLICADO!", description: "A rodada já está disponível para toda a rede." });
       router.push('/admin/bolao');
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
@@ -83,8 +85,8 @@ export default function NovoBolaoPage() {
                 <Trophy className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-black uppercase tracking-tighter text-primary leading-none">Novo Bolão Esportivo</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real via Supabase</p>
+                <h1 className="text-3xl font-black uppercase tracking-tighter text-primary leading-none">Novo Bolão</h1>
+                <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real</p>
               </div>
             </div>
             <RefreshCcw className="w-8 h-8 text-green-600 animate-spin-slow" />
@@ -98,17 +100,32 @@ export default function NovoBolaoPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Bolão</Label>
+                    <select 
+                      className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white"
+                      value={tipo}
+                      onChange={(e) => setTipo(e.target.value as any)}
+                    >
+                      <option value="esportivo">ESPORTIVO (10 JOGOS)</option>
+                      <option value="mega">BOLÃO DA MEGA (15/60)</option>
+                      <option value="quina">BOLÃO DA QUINA (20/80)</option>
+                    </select>
+                  </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome da Rodada</Label>
                     <Input 
                       value={title} 
                       onChange={e => setTitle(e.target.value.toUpperCase())} 
-                      placeholder="EX: BRASILEIRÃO SÉRIE A" 
+                      placeholder="EX: MEGA DA VIRADA LEOBET" 
                       required 
                       className="h-12 font-bold border-2 rounded-xl"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Preço por Aposta (R$)</Label>
                     <Input 
@@ -120,7 +137,7 @@ export default function NovoBolaoPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Data Início (Trava Vendas)</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Data e Hora (Trava Vendas)</Label>
                     <Input 
                       type="datetime-local" 
                       value={drawDate} 
@@ -133,7 +150,7 @@ export default function NovoBolaoPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                    <FileText className="w-3 h-3" /> Regras e Premiação (Bloco de Notas)
+                    <FileText className="w-3 h-3" /> Regras e Premiação
                   </Label>
                   <Textarea 
                     value={regras}
@@ -145,53 +162,63 @@ export default function NovoBolaoPage() {
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
-               <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary">
-                 <Plus className="w-5 h-5 text-accent" /> Grade das 10 Partidas
-               </h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {partidas.map((p, i) => (
-                    <Card key={i} className="rounded-2xl border-none shadow-md overflow-hidden bg-white hover:shadow-xl transition-all">
-                       <div className="bg-primary/5 p-3 flex items-center justify-between border-b">
-                          <Badge className="bg-primary text-white font-black text-[9px] uppercase px-3">JOGO #{i+1}</Badge>
-                          <Input 
-                            type="datetime-local" 
-                            value={p.data}
-                            onChange={(e) => handleUpdatePartida(i, 'data', e.target.value)}
-                            className="w-36 h-7 text-[9px] font-bold border-none bg-transparent shadow-none p-0 text-right" 
-                          />
-                       </div>
-                       <CardContent className="p-4 space-y-4">
-                          <div className="grid grid-cols-3 items-center gap-2">
-                             <div className="space-y-1 text-center">
-                               <Label className="text-[8px] font-black uppercase opacity-40">Mandante</Label>
-                               <Input 
-                                 placeholder="CASA" 
-                                 className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
-                                 value={p.time1}
-                                 onChange={(e) => handleUpdatePartida(i, 'time1', e.target.value.toUpperCase())} 
-                                 required
-                               />
-                             </div>
-                             <div className="text-center">
-                               <span className="text-xl font-black text-accent">VS</span>
-                             </div>
-                             <div className="space-y-1 text-center">
-                               <Label className="text-[8px] font-black uppercase opacity-40">Visitante</Label>
-                               <Input 
-                                 placeholder="FORA" 
-                                 className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
-                                 value={p.time2}
-                                 onChange={(e) => handleUpdatePartida(i, 'time2', e.target.value.toUpperCase())} 
-                                 required
-                               />
-                             </div>
-                          </div>
-                       </CardContent>
-                    </Card>
-                  ))}
-               </div>
-            </div>
+            {tipo === 'esportivo' ? (
+              <div className="space-y-4">
+                 <h3 className="text-sm font-black uppercase flex items-center gap-2 text-primary">
+                   <Plus className="w-5 h-5 text-accent" /> Grade das 10 Partidas
+                 </h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {partidas.map((p, i) => (
+                      <Card key={i} className="rounded-2xl border-none shadow-md overflow-hidden bg-white hover:shadow-xl transition-all">
+                         <div className="bg-primary/5 p-3 flex items-center justify-between border-b">
+                            <Badge className="bg-primary text-white font-black text-[9px] uppercase px-3">JOGO #{i+1}</Badge>
+                            <Input 
+                              type="datetime-local" 
+                              value={p.data}
+                              onChange={(e) => handleUpdatePartida(i, 'data', e.target.value)}
+                              className="w-36 h-7 text-[9px] font-bold border-none bg-transparent shadow-none p-0 text-right" 
+                            />
+                         </div>
+                         <CardContent className="p-4 space-y-4">
+                            <div className="grid grid-cols-3 items-center gap-2">
+                               <div className="space-y-1 text-center">
+                                 <Label className="text-[8px] font-black uppercase opacity-40">Mandante</Label>
+                                 <Input 
+                                   placeholder="CASA" 
+                                   className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
+                                   value={p.time1}
+                                   onChange={(e) => handleUpdatePartida(i, 'time1', e.target.value.toUpperCase())} 
+                                   required
+                                 />
+                               </div>
+                               <div className="text-center">
+                                 <span className="text-xl font-black text-accent">VS</span>
+                               </div>
+                               <div className="space-y-1 text-center">
+                                 <Label className="text-[8px] font-black uppercase opacity-40">Visitante</Label>
+                                 <Input 
+                                   placeholder="FORA" 
+                                   className="text-center font-black h-10 border-2 rounded-xl text-xs uppercase" 
+                                   value={p.time2}
+                                   onChange={(e) => handleUpdatePartida(i, 'time2', e.target.value.toUpperCase())} 
+                                   required
+                                 />
+                               </div>
+                            </div>
+                         </CardContent>
+                      </Card>
+                    ))}
+                 </div>
+              </div>
+            ) : (
+              <Card className="rounded-[2rem] p-12 text-center border-dashed border-4 opacity-50 bg-primary/5">
+                 <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-primary" />
+                 <h3 className="text-xl font-black uppercase text-primary">Bolão Numérico ({tipo.toUpperCase()})</h3>
+                 <p className="text-sm font-bold text-muted-foreground uppercase mt-2">
+                   O sistema gerará automaticamente a grade de {tipo === 'mega' ? '60' : '80'} números para os apostadores.
+                 </p>
+              </Card>
+            )}
 
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-lg px-4 z-50">
                <div className="bg-white p-4 rounded-[2rem] shadow-2xl border-4 border-primary flex gap-4">

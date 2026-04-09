@@ -1,14 +1,16 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Save, Loader2, Database, Calculator } from 'lucide-react';
+import { ArrowLeft, Trophy, Save, Loader2, Database, Calculator, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
+import { cn } from '@/lib/utils';
 
 export default function ResultadosBolaoPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = React.use(paramsPromise);
@@ -16,6 +18,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
+  const [lotteryResults, setLotteryResults] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -28,8 +31,12 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const { data: bData } = await supabase.from('boloes').select('*').eq('id', resolvedParams.id).single();
       if (bData) {
         setBolao(bData);
-        if (bData.scores && bData.scores.length > 0) setScores(bData.scores);
-        else setScores(Array(bData.partidas?.length || 10).fill({ p1: '', p2: '' }));
+        if (bData.tipo === 'esportivo') {
+          if (bData.scores && bData.scores.length > 0) setScores(bData.scores);
+          else setScores(Array(bData.partidas?.length || 10).fill({ p1: '', p2: '' }));
+        } else {
+          setLotteryResults(bData.drawn_numbers || []);
+        }
       }
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
       setTickets(tData || []);
@@ -49,49 +56,38 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     setScores(newScores);
   };
 
-  const handleSaveProgress = async () => {
-    setSaving(true);
-    try {
-      const resolved = await params;
-      await supabase.from('boloes').update({ scores }).eq('id', resolved.id);
-      toast({ title: "PROGRESSO SALVO!" });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "ERRO AO SALVAR" });
-    } finally { setSaving(false); }
+  const handleLotteryToggle = (num: number) => {
+    if (bolao.status === 'finalizado') return;
+    if (lotteryResults.includes(num)) {
+      setLotteryResults(lotteryResults.filter(n => n !== num));
+    } else {
+      setLotteryResults([...lotteryResults, num].sort((a,b) => a-b));
+    }
   };
 
   const calculateWinners = async () => {
-    // FIX: Aceita o placar "0" como válido
-    const incomplete = scores.some(s => s.p1 === '' || s.p2 === '');
-
-    if (incomplete) {
-      return toast({ 
-        variant: "destructive", 
-        title: "GRADE INCOMPLETA", 
-        description: "Preencha todos os campos." 
-      });
-    }
-
     setSaving(true);
     try {
-      const results = bolao.partidas.map((p: any, i: number) => {
-        const s = scores[i];
-        const p1 = parseInt(s.p1);
-        const p2 = parseInt(s.p2);
-        if (p1 > p2) return p.time1;
-        if (p1 < p2) return p.time2;
-        return 'X';
-      });
-
       let maxHits = 0;
       const participants: any[] = [];
-      
+      const isLottery = bolao.tipo === 'mega' || bolao.tipo === 'quina';
+
       tickets.forEach(receipt => {
         if (!receipt.tickets_data) return;
         receipt.tickets_data.forEach((t: any) => {
-          const guesses = (t.p || t.palpites)?.split('-') || [];
           let hits = 0;
-          guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
+          if (isLottery) {
+            const chosen = t.n || [];
+            hits = chosen.filter((n: number) => lotteryResults.includes(n)).length;
+          } else {
+            const results = bolao.partidas.map((p: any, i: number) => {
+              const s = scores[i];
+              const p1 = parseInt(s.p1); const p2 = parseInt(s.p2);
+              if (p1 > p2) return p.time1; if (p1 < p2) return p.time2; return 'X';
+            });
+            const guesses = (t.p || t.palpites)?.split('-') || [];
+            guesses.forEach((g: string, i: number) => { if (g === results[i]) hits++; });
+          }
           if (hits > maxHits) maxHits = hits;
           participants.push({ ticketId: t.id, hits, receiptId: receipt.id });
         });
@@ -111,7 +107,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       }
 
       const resolved = await params;
-      await supabase.from('boloes').update({ scores, status: 'finalizado', max_hits: maxHits }).eq('id', resolved.id);
+      await supabase.from('boloes').update({ 
+        scores: isLottery ? null : scores, 
+        drawn_numbers: isLottery ? lotteryResults : null,
+        status: 'finalizado', 
+        max_hits: maxHits 
+      }).eq('id', resolved.id);
+
       toast({ title: "RODADA FINALIZADA!" });
       loadData();
     } catch (e: any) {
@@ -119,7 +121,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     } finally { setSaving(false); }
   };
 
-  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary"><Loader2 className="animate-spin" /> Carregando...</div>;
+  if (!mounted || !bolao) return <div className="h-screen flex items-center justify-center font-black uppercase text-primary">Carregando...</div>;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -131,62 +133,52 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                 <ArrowLeft className="w-4 h-4" /> Voltar
              </Link>
              <Badge variant="outline" className="font-black uppercase text-[10px] flex gap-1 items-center">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria Live
+                <Database className="w-3 h-3 text-green-600" /> Auditoria {bolao.tipo?.toUpperCase()}
              </Badge>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border-none">
-            <h1 className="text-4xl font-black uppercase text-primary leading-none">{bolao.nome}</h1>
-            <div className="flex gap-4 mt-4">
-               <div className="bg-primary/5 p-3 rounded-2xl border">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Prêmio Arrecadado (65%)</p>
-                  <p className="text-xl font-black text-green-600">R$ {pool.toFixed(2)}</p>
-               </div>
-               <div className="bg-primary/5 p-3 rounded-2xl border">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground">Bilhetes em Jogo</p>
-                  <p className="text-xl font-black text-primary">{tickets.length}</p>
-               </div>
-            </div>
-          </div>
-
           <Card className="rounded-[2.5rem] bg-white overflow-hidden shadow-2xl border-none">
-            <CardContent className="p-8 space-y-4">
-               <div className="grid grid-cols-1 gap-3">
-                  {bolao.partidas.map((p: any, i: number) => (
-                    <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-5 rounded-2xl bg-muted/20 border-2 border-transparent">
-                       <div className="flex-1">
-                          <Badge className="bg-primary text-white font-black text-[8px] mb-1 uppercase px-3">JOGO #{i+1}</Badge>
-                          <p className="text-sm font-black uppercase tracking-tight">{p.time1} vs {p.time2}</p>
-                       </div>
-                       <div className="flex items-center gap-3">
-                          <input 
-                            type="number" 
-                            placeholder="0" 
-                            className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2" 
-                            value={scores[i]?.p1 ?? ''} 
-                            onChange={e => handleUpdateScore(i, 'p1', e.target.value)} 
-                            disabled={bolao.status === 'finalizado'} 
-                          />
-                          <span className="font-black text-2xl opacity-20">X</span>
-                          <input 
-                            type="number" 
-                            placeholder="0" 
-                            className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2" 
-                            value={scores[i]?.p2 ?? ''} 
-                            onChange={e => handleUpdateScore(i, 'p2', e.target.value)} 
-                            disabled={bolao.status === 'finalizado'} 
-                          />
+            <CardContent className="p-8 space-y-8">
+               <h1 className="text-4xl font-black uppercase text-primary leading-none text-center">{bolao.nome}</h1>
+               
+               {bolao.tipo === 'esportivo' ? (
+                 <div className="grid grid-cols-1 gap-3">
+                    {bolao.partidas.map((p: any, i: number) => (
+                      <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-5 rounded-2xl bg-muted/20 border-2">
+                         <div className="flex-1"><Badge className="bg-primary text-white font-black text-[8px] mb-1 uppercase px-3">JOGO #{i+1}</Badge><p className="text-sm font-black uppercase">{p.time1} vs {p.time2}</p></div>
+                         <div className="flex items-center gap-3">
+                            <input type="number" placeholder="0" className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2" value={scores[i]?.p1 ?? ''} onChange={e => handleUpdateScore(i, 'p1', e.target.value)} disabled={bolao.status === 'finalizado'} />
+                            <span className="font-black text-2xl opacity-20">X</span>
+                            <input type="number" placeholder="0" className="w-16 h-16 text-center font-black text-3xl rounded-2xl border-2" value={scores[i]?.p2 ?? ''} onChange={e => handleUpdateScore(i, 'p2', e.target.value)} disabled={bolao.status === 'finalizado'} />
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               ) : (
+                 <div className="space-y-6">
+                    <div className="text-center bg-primary/5 p-6 rounded-3xl border-2 border-primary/10">
+                       <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">Selecione as dezenas sorteadas oficiais</p>
+                       <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
+                          {Array.from({ length: bolao.tipo === 'mega' ? 60 : 80 }).map((_, i) => {
+                            const n = i + 1;
+                            const isDrawn = lotteryResults.includes(n);
+                            return (
+                              <button key={n} onClick={() => handleLotteryToggle(n)} className={cn(
+                                "h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all",
+                                isDrawn ? "bg-green-600 text-white shadow-lg" : "bg-white border text-muted-foreground/40"
+                              )}>{n < 10 ? `0${n}` : n}</button>
+                            );
+                          })}
                        </div>
                     </div>
-                  ))}
-               </div>
+                 </div>
+               )}
 
                {bolao.status !== 'finalizado' && (
-                 <div className="pt-8 flex flex-col md:flex-row gap-4">
-                   <button onClick={handleSaveProgress} disabled={saving} className="flex-1 h-16 font-black uppercase rounded-2xl border-2 hover:bg-muted transition-all">Salvar Parcial</button>
-                   <Button onClick={calculateWinners} disabled={saving} className="flex-[2] h-16 bg-accent text-white font-black uppercase rounded-2xl shadow-xl gap-2">
-                      {saving ? "..." : <Calculator className="w-6 h-6" />}
-                      Finalizar Auditoria
+                 <div className="pt-8">
+                   <Button onClick={calculateWinners} disabled={saving} className="w-full h-20 bg-accent text-white font-black uppercase rounded-2xl shadow-xl gap-2 text-xl">
+                      {saving ? "PROCESSANDO..." : <Calculator className="w-8 h-8" />}
+                      FINALIZAR E PAGAR GANHADORES
                    </Button>
                  </div>
                )}
