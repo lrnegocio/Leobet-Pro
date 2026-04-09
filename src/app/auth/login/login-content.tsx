@@ -33,7 +33,7 @@ export default function LoginContent() {
     setLoading(true);
 
     try {
-      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS SOLICITADAS
+      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS MESTRE
       if (identifier.toLowerCase() === 'lrnegocio0' && password === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
@@ -64,6 +64,10 @@ export default function LoginContent() {
       
       if (user.status === 'blocked') {
         throw new Error("Conta bloqueada. Contate o administrador.");
+      }
+
+      if (user.status === 'pending') {
+        throw new Error("Sua conta ainda está em análise pela diretoria. Aguarde a aprovação.");
       }
 
       const formattedUser = {

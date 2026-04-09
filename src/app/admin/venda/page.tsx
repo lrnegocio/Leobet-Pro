@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -184,6 +183,7 @@ export default function VendaPage() {
     e.preventDefault();
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
+    if (formData.tipo === 'bolao' && palpites.some(p => !p)) return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Marque todos os jogos do Bolão." });
     
     const totalVenda = formData.unitario * quantity;
     const finalStatus = payWithBalance ? 'pago' : 'pendente';
@@ -285,17 +285,31 @@ export default function VendaPage() {
       const encoder = new TextEncoder();
       let text = "\x1B\x40\x1B\x61\x01\x1B\x45\x01LEOBET PRO\x1B\x45\x00\nCUPOM OFICIAL AUDITADO\n--------------------------------\n";
       text += `CLIENTE: ${receipt.cliente}\nJOGO: ${receipt.evento_nome}\n--------------------------------\n`;
+      
       receipt.tickets_data.slice(0, 3).forEach((t: any, i: number) => {
-        text += `CARTELA #${i+1}\n`;
-        if (t.n) text += `DEZ: ${t.n.join(' ')}\n`;
-        if (t.p) text += `PALPITE: ${t.p}\n`;
+        text += `BILHETE #${i+1}\n`;
+        if (t.n) {
+          text += `DEZ: ${t.n.join(' ')}\n`;
+        }
+        if (t.p) {
+          const matchGuesses = t.p.split('-');
+          matchGuesses.forEach((guess: string, gIdx: number) => {
+            const partida = selectedEventData?.partidas?.[gIdx];
+            if (partida) {
+              const result = guess === 'X' ? 'EMPATE' : guess;
+              text += `${partida.time1} x ${partida.time2} -> ${result}\n`;
+            }
+          });
+        }
+        text += '\n';
       });
+      
       text += `--------------------------------\nVALOR: R$ ${Number(receipt.valor_total).toFixed(2)}\nCOD: ${receipt.id}\n\x1B\x61\x01BOA SORTE!\n\n\n\n`;
       const data = encoder.encode(text);
       for (let i = 0; i < data.length; i += 20) await btCharacteristic.writeValue(data.slice(i, i + 20));
       toast({ title: "CUPOM IMPRESSO!" });
     } catch (e) { toast({ variant: "destructive", title: "ERRO DE IMPRESSÃO" }); }
-  }, [btCharacteristic, toast]);
+  }, [btCharacteristic, toast, selectedEventData]);
 
   if (!mounted) return null;
 
@@ -380,14 +394,19 @@ export default function VendaPage() {
                         <Label className="text-[10px] font-black uppercase opacity-60">Quantidade de Bilhetes</Label>
                         <div className="flex items-center gap-4">
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
-                          <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-xl" />
+                          <Input 
+                            type="number" 
+                            value={quantity} 
+                            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))} 
+                            className="h-12 text-center font-black text-xl" 
+                          />
                           <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                         </div>
                       </div>
                       <div className="bg-primary p-6 rounded-3xl text-center shadow-xl"><p className="text-[10px] font-black uppercase text-white/60 mb-1">Total a Pagar</p><p className="text-4xl font-black text-white">R$ {(formData.unitario * quantity).toFixed(2)}</p></div>
                       
                       <div className="flex flex-col gap-2">
-                        {user?.balance >= (formData.unitario * quantity) && (
+                        {(user?.balance || 0) >= (formData.unitario * quantity) && (
                           <Button type="button" onClick={(e) => handleVenda(e, true)} className="w-full h-16 font-black uppercase bg-accent text-white rounded-2xl shadow-xl" disabled={loading}>
                             {loading ? "PROCESSANDO..." : "CONCLUIR COM SALDO"}
                           </Button>
@@ -414,7 +433,17 @@ export default function VendaPage() {
                        <div className="flex gap-2">
                           <Button onClick={() => printReceipt(vendaRealizada)} className="flex-1 h-16 bg-primary font-black uppercase rounded-2xl gap-2 text-white"><Printer className="w-5 h-5" /> Imprimir</Button>
                           <Button onClick={() => {
-                            const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A🚩 *STATUS:* ${vendaRealizada.status.toUpperCase()}%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${Number(vendaRealizada.valor_total).toFixed(2)}%0A%0A*Auditoria:* ${window.location.origin}/resultados?c=${vendaRealizada.id}`;
+                            let palpiteText = "";
+                            if (vendaRealizada.tipo === 'bolao' && selectedEventData?.partidas) {
+                              const guesses = vendaRealizada.tickets_data[0].p.split('-');
+                              guesses.forEach((g: string, idx: number) => {
+                                const p = selectedEventData.partidas[idx];
+                                const res = g === 'X' ? 'EMPATE' : g;
+                                palpiteText += `\n⚽ ${p.time1} x ${p.time2} -> *${res}*`;
+                              });
+                            }
+                            
+                            const message = `*LEOBET PRO*%0A%0A🎟️ *BILHETE OFICIAL*%0A🚩 *STATUS:* ${vendaRealizada.status.toUpperCase()}%0A👤 *CLIENTE:* ${vendaRealizada.cliente}%0A🏆 *JOGO:* ${vendaRealizada.evento_nome}%0A💰 *VALOR:* R$ ${Number(vendaRealizada.valor_total).toFixed(2)}${palpiteText}%0A%0A*Auditoria:* ${window.location.origin}/resultados?c=${vendaRealizada.id}`;
                             window.open(`https://api.whatsapp.com/send?phone=55${vendaRealizada.whatsapp}&text=${message}`, '_blank');
                           }} className="flex-1 h-16 bg-green-600 hover:bg-green-700 font-black uppercase rounded-2xl gap-2 text-white"><MessageCircle className="w-5 h-5" /> WhatsApp</Button>
                        </div>
