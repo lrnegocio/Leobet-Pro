@@ -61,6 +61,9 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
     if (lotteryResults.includes(num)) {
       setLotteryResults(lotteryResults.filter(n => n !== num));
     } else {
+      if (bolao.tipo === 'quina' && lotteryResults.length >= 5) {
+        return toast({ variant: "destructive", title: "LIMITE ATINGIDO", description: "Para a Quina, selecione apenas 5 dezenas." });
+      }
       setLotteryResults([...lotteryResults, num].sort((a,b) => a-b));
     }
   };
@@ -161,21 +164,26 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                ) : (
                  <div className="space-y-6">
                     <div className="text-center bg-primary/5 p-6 rounded-3xl border-2 border-primary/10">
-                       <p className="text-[10px] font-black uppercase text-muted-foreground mb-4">Selecione as dezenas sorteadas oficiais (Clique para marcar/desmarcar)</p>
-                       <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
+                       <div className="flex justify-between items-center mb-4">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground">Clique nas bolas para marcar o sorteio oficial</p>
+                          <Badge className="bg-primary h-6 px-3 font-black text-[10px]">{lotteryResults.length} MARCADAS</Badge>
+                       </div>
+                       <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5">
                           {Array.from({ length: bolao.tipo === 'mega' ? 60 : 80 }).map((_, i) => {
                             const n = i + 1;
                             const isDrawn = lotteryResults.includes(n);
                             return (
                               <button key={n} onClick={() => handleLotteryToggle(n)} className={cn(
-                                "h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all",
-                                isDrawn ? "bg-green-600 text-white shadow-lg scale-110" : "bg-white border text-muted-foreground/40"
+                                "h-12 w-full rounded-xl flex items-center justify-center font-black text-sm transition-all shadow-sm border-2",
+                                isDrawn ? "bg-green-600 text-white border-green-400 scale-105" : "bg-white border-muted text-muted-foreground/40"
                               )}>{n < 10 ? `0${n}` : n}</button>
                             );
                           })}
                        </div>
                        {bolao.tipo === 'quina' && (
-                         <p className="mt-4 text-[9px] font-black text-orange-600 uppercase">Atenção: Marque apenas 05 dezenas para a Quina.</p>
+                         <p className="mt-4 text-[9px] font-black text-orange-600 uppercase flex items-center justify-center gap-2">
+                           <LayoutGrid className="w-3 h-3" /> Selecione exatamente 05 dezenas para a Quina.
+                         </p>
                        )}
                     </div>
                  </div>
