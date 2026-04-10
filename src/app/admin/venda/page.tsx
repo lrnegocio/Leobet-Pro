@@ -22,12 +22,20 @@ import {
   LayoutGrid,
   Zap,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function VendaPage() {
   const { toast } = useToast();
@@ -72,7 +80,7 @@ export default function VendaPage() {
         if (!timeField) return true;
         const limitTime = new Date(new Date(timeField).getTime() - 60000);
         return now < limitTime;
-      }).map(b => ({ ...b, tipo: b.tipo || 'bolao' }));
+      }).map(b => ({ ...b, tipo: b.tipo || 'esportivo' }));
       
       setEventosAtivos([...validBingos, ...validBoloes]);
     } catch (err) { console.warn(err); }
@@ -118,6 +126,8 @@ export default function VendaPage() {
         setPartidasBolao(matches);
         setPalpites(Array(matches.length).fill(''));
       }
+    } else {
+      setSelectedEventData(null);
     }
   };
 
@@ -134,9 +144,9 @@ export default function VendaPage() {
 
   const handleSurpresinha = () => {
     const limit = formData.tipo === 'mega' ? 15 : 20;
-    const total = formData.tipo === 'mega' ? 60 : 80;
+    const totalNum = formData.tipo === 'mega' ? 60 : 80;
     const nums = new Set<number>();
-    while(nums.size < limit) nums.add(Math.floor(Math.random() * total) + 1);
+    while(nums.size < limit) nums.add(Math.floor(Math.random() * totalNum) + 1);
     setNumerosLoteria(Array.from(nums).sort((a,b) => a-b));
   };
 
@@ -150,7 +160,7 @@ export default function VendaPage() {
       return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Selecione o resultado de todos os jogos da grade." });
     }
 
-    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA) - EXATAMENTE O LIMITE
+    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA)
     const lotLimit = formData.tipo === 'mega' ? 15 : 20;
     if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length !== lotLimit) {
       return toast({ 
@@ -178,8 +188,8 @@ export default function VendaPage() {
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: lotNums,
         p: (formData.tipo === 'bolao' || formData.tipo === 'esportivo') ? palpites.join('-') : null,
-        s: finalStatus,
-        v: 0
+        status: finalStatus,
+        valorPremio: 0
       });
     }
 
@@ -270,14 +280,14 @@ export default function VendaPage() {
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-6xl mx-auto space-y-6">
           <Tabs defaultValue="venda">
-            <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
+            <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto print:hidden">
               <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Vendas</TabsTrigger>
               <TabsTrigger value="reservas" className="font-black uppercase text-[10px] rounded-xl px-8">Minhas Reservas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="venda" className="space-y-6 mt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
-                <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20 print:grid-cols-1">
+                <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary print:hidden">
                   <CardHeader className="p-8 pb-0">
                     <CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Novo Bilhete</CardTitle>
                   </CardHeader>
@@ -295,7 +305,26 @@ export default function VendaPage() {
                           <option value="">-- SELECIONE --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} ({e.tipo.toUpperCase()}) - R$ {Number(e.preco).toFixed(2)}</option>)}
                         </select>
-                        <p className="text-[8px] font-bold text-orange-600 uppercase mt-1 flex items-center gap-1"><Clock className="w-2 h-2" /> Vendas encerram 1 minuto antes do sorteio.</p>
+                        <div className="flex justify-between items-center mt-1">
+                          <p className="text-[8px] font-bold text-orange-600 uppercase flex items-center gap-1"><Clock className="w-2 h-2" /> Vendas encerram 1 minuto antes.</p>
+                          {selectedEventData && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="link" className="h-4 p-0 text-[9px] font-black uppercase text-primary flex items-center gap-1">
+                                  <Info className="w-3 h-3" /> Regras do Jogo
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="bg-white rounded-[2rem]">
+                                <DialogHeader>
+                                  <DialogTitle className="font-black uppercase text-primary">Regras: {selectedEventData.nome}</DialogTitle>
+                                </DialogHeader>
+                                <div className="p-4 bg-muted/30 rounded-2xl text-xs font-bold leading-relaxed whitespace-pre-line">
+                                  {selectedEventData.regras || 'Regras padrão LEOBET PRO. Rateio de 65% para os vencedores.'}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
                       </div>
 
                       {(formData.tipo === 'mega' || formData.tipo === 'quina') && (
@@ -333,10 +362,10 @@ export default function VendaPage() {
                                 <p className="text-[8px] font-black uppercase w-20 truncate">{p.time1} vs {p.time2}</p>
                                 <div className="flex gap-1">
                                    {['1', 'X', '2'].map(c => {
-                                     const result = c === '1' ? p.time1 : c === '2' ? p.time2 : 'X';
+                                     const resultValue = c === '1' ? p.time1 : c === '2' ? p.time2 : 'X';
                                      return (
-                                       <Button key={c} type="button" variant={palpites[idx] === result ? 'default' : 'outline'} className="h-8 w-8 p-0 text-[10px] font-black" onClick={() => {
-                                         const newP = [...palpites]; newP[idx] = result; setPalpites(newP);
+                                       <Button key={c} type="button" variant={palpites[idx] === resultValue ? 'default' : 'outline'} className="h-8 w-8 p-0 text-[10px] font-black" onClick={() => {
+                                         const newP = [...palpites]; newP[idx] = resultValue; setPalpites(newP);
                                        }}>{c}</Button>
                                      );
                                    })}
@@ -384,7 +413,7 @@ export default function VendaPage() {
 
                 <div className="space-y-4">
                   {vendaRealizada ? (
-                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center">
+                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center print:border-none print:shadow-none print:p-0">
                        <p className="text-2xl font-black text-primary">LEOBET PRO</p>
                        <p className="text-[10px] font-black uppercase tracking-widest">Cupom Oficial</p>
                        <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
@@ -409,11 +438,14 @@ export default function VendaPage() {
 
                           <p className="text-center pt-2 border-t font-black">CÓDIGO: {vendaRealizada.id}</p>
                        </div>
-                       <Button onClick={() => shareReceipt(vendaRealizada)} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl mb-2 gap-2"><MessageCircle /> Enviar WhatsApp</Button>
-                       <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px]">Nova Venda</Button>
+                       <div className="space-y-2 print:hidden">
+                          <Button onClick={() => shareReceipt(vendaRealizada)} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><MessageCircle /> Enviar WhatsApp</Button>
+                          <Button onClick={() => window.print()} variant="outline" className="w-full h-14 border-2 font-black uppercase rounded-xl gap-2"><Printer /> Imprimir Bilhete</Button>
+                          <Button onClick={() => setVendaRealizada(null)} variant="ghost" className="w-full h-12 font-black uppercase text-[10px]">Nova Venda</Button>
+                       </div>
                     </div>
                   ) : (
-                    <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
+                    <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white print:hidden">
                       <LayoutGrid className="w-20 h-20 text-primary mb-4" />
                       <h3 className="text-xl font-black uppercase text-primary">Aguardando Seleção...</h3>
                     </div>
