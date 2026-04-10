@@ -6,6 +6,7 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Info, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,7 @@ export default function NovoBingoPage() {
   const [price, setPrice] = useState(10);
   const [quantity, setQuantity] = useState(0); 
   const [drawDate, setDrawDate] = useState('');
+  const [regras, setRegras] = useState('Bingo 1-90 LEOBET PRO. Prêmios: Bingo (50%), Quina (30%), Quadra (20%).');
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -41,7 +43,7 @@ export default function NovoBingoPage() {
           total_cartelas: quantity === 0 ? 999999 : quantity,
           data_sorteio: new Date(drawDate).toISOString(),
           status: 'aberto',
-          regras: 'Bingo 1-90 LEOBET PRO. Prêmios: Bingo (50%), Quina (30%), Quadra (20%).',
+          regras: regras,
           bolas_sorteadas: []
         }]);
 
@@ -129,6 +131,16 @@ export default function NovoBingoPage() {
                     onChange={(e) => setDrawDate(e.target.value)}
                     className="h-12 border-2 rounded-xl font-bold"
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Regras e Premiação</label>
+                  <Textarea
+                    value={regras}
+                    onChange={(e) => setRegras(e.target.value)}
+                    placeholder="Dite as regras aqui..."
+                    className="min-h-[100px] font-bold border-2 rounded-xl bg-primary/5"
                   />
                   <p className="text-[10px] text-orange-600 font-bold flex items-center gap-1">
                     <Info className="w-3 h-3" /> O sistema sincroniza as vendas em tempo real no Supabase.

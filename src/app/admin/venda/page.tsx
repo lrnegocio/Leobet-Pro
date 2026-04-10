@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -11,18 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ShoppingCart, 
-  Bluetooth,
   Printer,
   Plus,
   Minus,
   MessageCircle,
-  Trophy,
   Database,
   Clock,
   LayoutGrid,
   Zap,
-  CheckCircle2,
-  AlertTriangle,
   Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -35,17 +31,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 export default function VendaPage() {
   const { toast } = useToast();
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
-  
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   
   const [formData, setFormData] = useState({ 
@@ -62,6 +58,10 @@ export default function VendaPage() {
   const [palpites, setPalpites] = useState<string[]>([]);
   const [numerosLoteria, setNumerosLoteria] = useState<number[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
+  
+  // Controle de Multi-apostas
+  const [openMultiOption, setOpenMultiOption] = useState(false);
+  const [pendingPayWithBalance, setPendingPayWithBalance] = useState(false);
 
   const loadEventos = async () => {
     try {
@@ -142,52 +142,60 @@ export default function VendaPage() {
     }
   };
 
-  const handleSurpresinha = () => {
-    const limit = formData.tipo === 'mega' ? 15 : 20;
-    const totalNum = formData.tipo === 'mega' ? 60 : 80;
+  const generateRandomNumbers = (count: number, max: number) => {
     const nums = new Set<number>();
-    while(nums.size < limit) nums.add(Math.floor(Math.random() * totalNum) + 1);
-    setNumerosLoteria(Array.from(nums).sort((a,b) => a-b));
+    while(nums.size < count) nums.add(Math.floor(Math.random() * max) + 1);
+    return Array.from(nums).sort((a,b) => a-b);
   };
 
-  const handleVenda = async (e: React.FormEvent, payWithBalance: boolean = false) => {
-    e.preventDefault();
-    if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
-    if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
-    
-    // VALIDAÇÃO DE BOLÃO ESPORTIVO
-    if ((formData.tipo === 'bolao' || formData.tipo === 'esportivo') && palpites.some(p => !p)) {
-      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Selecione o resultado de todos os jogos da grade." });
-    }
+  const generateRandomPicks = (matches: any[]) => {
+    return matches.map(m => {
+      const opts = [m.time1, 'X', m.time2];
+      return opts[Math.floor(Math.random() * 3)];
+    }).join('-');
+  };
 
-    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA)
-    const lotLimit = formData.tipo === 'mega' ? 15 : 20;
-    if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length !== lotLimit) {
-      return toast({ 
-        variant: "destructive", 
-        title: "QUANTIDADE INVÁLIDA", 
-        description: `Você deve selecionar exatamente ${lotLimit} números para a ${formData.tipo.toUpperCase()}.` 
-      });
-    }
-
+  const finalizeVenda = async (mode: 'repeat' | 'random' = 'repeat') => {
+    setOpenMultiOption(false);
     setLoading(true);
     const ticketsGenerated = [];
-    const finalStatus = payWithBalance ? 'pago' : 'pendente';
+    const finalStatus = pendingPayWithBalance ? 'pago' : 'pendente';
 
-    for (let i = 0; i < quantity; i++) {
+    // Bilhete #1 (Manual)
+    let firstLotNums = null;
+    if (formData.tipo === 'bingo') firstLotNums = generateRandomNumbers(15, 90);
+    else if (formData.tipo === 'mega' || formData.tipo === 'quina') firstLotNums = numerosLoteria;
+
+    ticketsGenerated.push({
+      id: Math.random().toString(36).substring(7).toUpperCase(),
+      n: firstLotNums,
+      p: (formData.tipo === 'bolao' || formData.tipo === 'esportivo') ? palpites.join('-') : null,
+      status: finalStatus,
+      valorPremio: 0
+    });
+
+    // Bilhetes Extras
+    for (let i = 1; i < quantity; i++) {
       let lotNums = null;
-      if (formData.tipo === 'bingo') {
-        const nums = new Set<number>();
-        while(nums.size < 15) nums.add(Math.floor(Math.random() * 90) + 1);
-        lotNums = Array.from(nums).sort((a,b) => a-b);
-      } else if (formData.tipo === 'mega' || formData.tipo === 'quina') {
-        lotNums = numerosLoteria;
+      let pPicks = null;
+
+      if (mode === 'repeat') {
+        lotNums = firstLotNums;
+        pPicks = ticketsGenerated[0].p;
+      } else {
+        if (formData.tipo === 'bingo') lotNums = generateRandomNumbers(15, 90);
+        else if (formData.tipo === 'mega') lotNums = generateRandomNumbers(15, 60);
+        else if (formData.tipo === 'quina') lotNums = generateRandomNumbers(20, 80);
+        
+        if (formData.tipo === 'bolao' || formData.tipo === 'esportivo') {
+          pPicks = generateRandomPicks(partidasBolao);
+        }
       }
 
       ticketsGenerated.push({
         id: Math.random().toString(36).substring(7).toUpperCase(),
         n: lotNums,
-        p: (formData.tipo === 'bolao' || formData.tipo === 'esportivo') ? palpites.join('-') : null,
+        p: pPicks,
         status: finalStatus,
         valorPremio: 0
       });
@@ -214,7 +222,7 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
 
-      if (payWithBalance && user) {
+      if (pendingPayWithBalance && user) {
         const total = formData.unitario * quantity;
         const currentBal = Number(user.balance || 0);
         const currentComm = Number(user.commissionBalance || 0);
@@ -245,26 +253,52 @@ export default function VendaPage() {
     finally { setLoading(false); }
   };
 
+  const handleVenda = async (e: React.FormEvent, payWithBalance: boolean = false) => {
+    e.preventDefault();
+    if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
+    if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
+    
+    // VALIDAÇÃO DE BOLÃO ESPORTIVO
+    if ((formData.tipo === 'bolao' || formData.tipo === 'esportivo') && palpites.some(p => !p)) {
+      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Selecione o resultado de todos os jogos da grade." });
+    }
+
+    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA)
+    const lotLimit = formData.tipo === 'mega' ? 15 : 20;
+    if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length !== lotLimit) {
+      return toast({ 
+        variant: "destructive", 
+        title: "QUANTIDADE INVÁLIDA", 
+        description: `Você deve selecionar exatamente ${lotLimit} números para a ${formData.tipo.toUpperCase()}.` 
+      });
+    }
+
+    if (quantity > 1) {
+      setPendingPayWithBalance(payWithBalance);
+      setOpenMultiOption(true);
+    } else {
+      setPendingPayWithBalance(payWithBalance);
+      finalizeVenda('repeat');
+    }
+  };
+
   const shareReceipt = (receipt: any) => {
     let msg = `*LEOBET PRO - RECIBO*%0A%0A*CLIENTE:* ${receipt.cliente}%0A*CÓDIGO:* ${receipt.id}%0A*VALOR:* R$ ${Number(receipt.valor_total).toFixed(2)}%0A%0A`;
     
-    if (receipt.tipo === 'bolao' || receipt.tipo === 'esportivo') {
-      const pArr = receipt.tickets_data[0].p.split('-');
-      msg += `*PALPITES DO BOLÃO:*%0A`;
-      partidasBolao.forEach((match, i) => {
-        msg += `⚽ ${match.time1} x ${match.time2} = ${pArr[i]}%0A`;
-      });
-    } else if (receipt.tipo === 'mega' || receipt.tipo === 'quina') {
-      msg += `*NÚMEROS ESCOLHIDOS:*%0A`;
-      msg += `🔢 ${receipt.tickets_data[0].n.join(', ')}%0A`;
-    } else {
-      msg += `🎟️ ${receipt.evento_nome}%0A`;
-      if (receipt.tickets_data[0].n) {
-        msg += `🔢 NÚMEROS: ${receipt.tickets_data[0].n.join(', ')}`;
+    receipt.tickets_data.forEach((t: any, idx: number) => {
+      msg += `*BILHETE #${idx + 1}*%0A`;
+      if (t.p) {
+        const pArr = t.p.split('-');
+        partidasBolao.forEach((match, i) => {
+          msg += `⚽ ${match.time1} x ${match.time2} = ${pArr[i]}%0A`;
+        });
+      } else if (t.n) {
+        msg += `🔢 NÚMEROS: ${t.n.join(', ')}%0A`;
       }
-    }
+      msg += `%0A`;
+    });
     
-    msg += `%0A%0A*Confira sua aposta:*%0A${window.location.origin}/resultados?c=${receipt.id}`;
+    msg += `*Confira sua aposta:*%0A${window.location.origin}/resultados?c=${receipt.id}`;
     window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
   };
 
@@ -336,7 +370,7 @@ export default function VendaPage() {
                               )}>
                                 {numerosLoteria.length} / {formData.tipo === 'mega' ? '15' : '20'} SELECIONADOS
                               </Badge>
-                              <Button type="button" onClick={handleSurpresinha} variant="outline" className="h-8 gap-2 font-black uppercase text-[10px] rounded-lg border-accent text-accent">
+                              <Button type="button" onClick={() => setNumerosLoteria(generateRandomNumbers(formData.tipo === 'mega' ? 15 : 20, formData.tipo === 'mega' ? 60 : 80))} variant="outline" className="h-8 gap-2 font-black uppercase text-[10px] rounded-lg border-accent text-accent">
                                  <Zap className="w-3 h-3" /> Automático
                               </Button>
                            </div>
@@ -413,7 +447,7 @@ export default function VendaPage() {
 
                 <div className="space-y-4">
                   {vendaRealizada ? (
-                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center print:border-none print:shadow-none print:p-0">
+                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center print:border-none print:shadow-none print:p-0 overflow-y-auto max-h-[80vh]">
                        <p className="text-2xl font-black text-primary">LEOBET PRO</p>
                        <p className="text-[10px] font-black uppercase tracking-widest">Cupom Oficial</p>
                        <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
@@ -421,19 +455,24 @@ export default function VendaPage() {
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between"><span>TIPO:</span> <span>{vendaRealizada.tipo.toUpperCase()}</span></p>
+                          <p className="flex justify-between font-black border-t pt-2"><span>TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                           
-                          <div className="pt-2 mt-2 border-t border-dashed">
-                             {vendaRealizada.tickets_data[0].p && (
-                                <div className="space-y-1">
-                                   <p className="font-black text-[8px]">PALPITES:</p>
-                                   {vendaRealizada.tickets_data[0].p.split('-').map((pal: string, pi: number) => (
-                                      <p key={pi} className="text-[9px]">{partidasBolao[pi]?.time1} x {partidasBolao[pi]?.time2} = {pal}</p>
-                                   ))}
-                                </div>
-                             )}
-                             {vendaRealizada.tickets_data[0].n && (
-                                <p className="text-[9px]">NÚMEROS: {vendaRealizada.tickets_data[0].n.join(', ')}</p>
-                             )}
+                          <div className="pt-2 mt-2 border-t border-dashed space-y-4">
+                             {vendaRealizada.tickets_data.map((t: any, idx: number) => (
+                               <div key={idx} className="p-2 border rounded bg-white/50">
+                                  <p className="font-black text-[9px] mb-1">BILHETE #{idx + 1}:</p>
+                                  {t.p && (
+                                    <div className="space-y-0.5">
+                                      {t.p.split('-').map((pal: string, pi: number) => (
+                                        <p key={pi} className="text-[8px]">{partidasBolao[pi]?.time1} x {partidasBolao[pi]?.time2} = {pal}</p>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {t.n && (
+                                    <p className="text-[8px]">NÚMEROS: {t.n.join(', ')}</p>
+                                  )}
+                               </div>
+                             ))}
                           </div>
 
                           <p className="text-center pt-2 border-t font-black">CÓDIGO: {vendaRealizada.id}</p>
@@ -482,6 +521,24 @@ export default function VendaPage() {
           </Tabs>
         </div>
       </main>
+
+      {/* DIALOG DE MULTI-APOSTAS */}
+      <Dialog open={openMultiOption} onOpenChange={setOpenMultiOption}>
+        <DialogContent className="bg-white rounded-[2rem] max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-black uppercase text-primary text-center">Configurar {quantity} Apostas</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-xs font-bold text-center text-muted-foreground">Como deseja preencher os demais {quantity - 1} bilhetes?</p>
+            <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2 border-primary text-primary" variant="outline">
+              Repetir Bilhete Atual
+            </Button>
+            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl">
+              Gerar Aleatórios (Surpresinha)
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

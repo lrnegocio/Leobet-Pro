@@ -6,7 +6,8 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCcw, Save } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabase/client';
@@ -20,6 +21,7 @@ export default function EditarBingoPage({ params: paramsPromise }: { params: Pro
   const [price, setPrice] = useState(0);
   const [quantity, setQuantity] = useState(0); 
   const [drawDate, setDrawDate] = useState('');
+  const [regras, setRegras] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -35,6 +37,7 @@ export default function EditarBingoPage({ params: paramsPromise }: { params: Pro
         setTitle(data.nome);
         setPrice(data.preco);
         setQuantity(data.total_cartelas === 999999 ? 0 : data.total_cartelas);
+        setRegras(data.regras || '');
         const date = new Date(data.data_sorteio);
         setDrawDate(date.toISOString().slice(0, 16));
       }
@@ -55,6 +58,7 @@ export default function EditarBingoPage({ params: paramsPromise }: { params: Pro
           preco: price,
           total_cartelas: quantity === 0 ? 999999 : quantity,
           data_sorteio: new Date(drawDate).toISOString(),
+          regras: regras
         })
         .eq('id', params.id);
 
@@ -134,6 +138,15 @@ export default function EditarBingoPage({ params: paramsPromise }: { params: Pro
                     onChange={(e) => setDrawDate(e.target.value)}
                     className="h-12 border-2 rounded-xl font-bold"
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-muted-foreground opacity-60">Regras e Premiação</label>
+                  <Textarea
+                    value={regras}
+                    onChange={(e) => setRegras(e.target.value)}
+                    className="min-h-[100px] font-bold border-2 rounded-xl bg-primary/5"
                   />
                 </div>
 
