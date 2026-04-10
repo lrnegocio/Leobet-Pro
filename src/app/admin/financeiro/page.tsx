@@ -239,7 +239,7 @@ function FinanceiroContent() {
                         </div>
                      </div>
 
-                     <p className="text-[10px] font-black opacity-60">CONCURSO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome}</p>
+                     <p className="text-[10px] font-black opacity-60 uppercase">CONCURSO: {t.evento_nome} • VENDEDOR: {t.vendedor_nome || 'ADMIN'}</p>
                      <p className="text-3xl font-black text-orange-600">R$ {Number(t.valor_total).toFixed(2)}</p>
                    </div>
                    <div className="flex gap-2 w-full md:w-auto">

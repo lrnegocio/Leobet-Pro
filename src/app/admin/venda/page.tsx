@@ -21,7 +21,8 @@ import {
   Clock,
   LayoutGrid,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -60,7 +61,6 @@ export default function VendaPage() {
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       const now = new Date();
       
-      // REGRA: Encerra 1 minuto (60000ms) antes do sorteio
       const validBingos = (bingos || []).filter(item => {
         if (!item.data_sorteio) return true;
         const limitTime = new Date(new Date(item.data_sorteio).getTime() - 60000);
@@ -92,8 +92,6 @@ export default function VendaPage() {
   useEffect(() => {
     setMounted(true);
     loadEventos();
-    
-    // Atualiza a lista a cada 30 segundos para respeitar a trava de 1 minuto
     const interval = setInterval(loadEventos, 30000);
 
     if (user?.role === 'cliente') {
@@ -130,7 +128,7 @@ export default function VendaPage() {
     } else if (numerosLoteria.length < limit) {
       setNumerosLoteria([...numerosLoteria, num].sort((a,b) => a-b));
     } else {
-      toast({ variant: "destructive", title: `MÁXIMO ${limit} NÚMEROS` });
+      toast({ variant: "destructive", title: `LIMITE ATINGIDO`, description: `O máximo permitido é ${limit} números.` });
     }
   };
 
@@ -147,12 +145,19 @@ export default function VendaPage() {
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
     
+    // VALIDAÇÃO DE BOLÃO ESPORTIVO
     if ((formData.tipo === 'bolao' || formData.tipo === 'esportivo') && palpites.some(p => !p)) {
-      return toast({ variant: "destructive", title: "MARQUE TODOS OS JOGOS" });
+      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Selecione o resultado de todos os jogos da grade." });
     }
+
+    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA) - EXATAMENTE O LIMITE
     const lotLimit = formData.tipo === 'mega' ? 15 : 20;
-    if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length < lotLimit) {
-      return toast({ variant: "destructive", title: `ESCOLHA OS ${lotLimit} NÚMEROS` });
+    if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length !== lotLimit) {
+      return toast({ 
+        variant: "destructive", 
+        title: "QUANTIDADE INVÁLIDA", 
+        description: `Você deve selecionar exatamente ${lotLimit} números para a ${formData.tipo.toUpperCase()}.` 
+      });
     }
 
     setLoading(true);
@@ -290,13 +295,18 @@ export default function VendaPage() {
                           <option value="">-- SELECIONE --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} ({e.tipo.toUpperCase()}) - R$ {Number(e.preco).toFixed(2)}</option>)}
                         </select>
-                        <p className="text-[8px] font-bold text-orange-600 uppercase mt-1">Vendas encerram 1 minuto antes do sorteio.</p>
+                        <p className="text-[8px] font-bold text-orange-600 uppercase mt-1 flex items-center gap-1"><Clock className="w-2 h-2" /> Vendas encerram 1 minuto antes do sorteio.</p>
                       </div>
 
                       {(formData.tipo === 'mega' || formData.tipo === 'quina') && (
                         <div className="space-y-4 pt-4 border-t">
                            <div className="flex justify-between items-center">
-                              <Badge className="bg-primary h-8 px-4 font-black uppercase text-[10px]">Escolha {formData.tipo === 'mega' ? '15 de 60' : '20 de 80'}</Badge>
+                              <Badge className={cn(
+                                "h-8 px-4 font-black uppercase text-[10px]",
+                                numerosLoteria.length === (formData.tipo === 'mega' ? 15 : 20) ? "bg-green-600" : "bg-primary"
+                              )}>
+                                {numerosLoteria.length} / {formData.tipo === 'mega' ? '15' : '20'} SELECIONADOS
+                              </Badge>
                               <Button type="button" onClick={handleSurpresinha} variant="outline" className="h-8 gap-2 font-black uppercase text-[10px] rounded-lg border-accent text-accent">
                                  <Zap className="w-3 h-3" /> Automático
                               </Button>
