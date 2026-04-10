@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, ArrowLeft, Loader2, Trophy, Clock, CheckCircle2, Database, XCircle, LayoutGrid, Printer, Info } from 'lucide-react';
+import { Search, ArrowLeft, Loader2, Trophy, Clock, CheckCircle2, Database, XCircle, LayoutGrid, Printer, Info, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ function ResultadosContent() {
   const [code, setCode] = useState('');
   const [receipt, setReceipt] = useState<any>(null);
   const [eventData, setEventData] = useState<any>(null);
+  const [eventPool, setEventPool] = useState(0);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -37,6 +38,17 @@ function ResultadosContent() {
         const table = found.tipo === 'bingo' ? 'bingos' : 'boloes';
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).single();
         setEventData(ev);
+
+        // Calcula prêmio acumulado real da rodada (65% das vendas pagas)
+        const { data: allTickets } = await supabase
+          .from('tickets')
+          .select('valor_total')
+          .eq('evento_id', found.evento_id)
+          .in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
+        
+        const totalArrecadado = allTickets?.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0) || 0;
+        setEventPool(totalArrecadado * 0.65);
+
       } else {
         setReceipt(null); toast({ variant: "destructive", title: "BILHETE NÃO ENCONTRADO" });
       }
@@ -53,6 +65,7 @@ function ResultadosContent() {
 
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0 };
+    // SOMA TODOS OS PRÊMIOS DO MESMO RECIBO
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.v || t.vp || t.valorPremio || 0)), 0);
     return { total, count: winners.length };
@@ -113,9 +126,21 @@ function ResultadosContent() {
 
           {receipt && (
             <div className="space-y-6">
+              {/* BLOCO DE PRÊMIO ACUMULADO DA RODADA */}
+              <div className="bg-primary p-6 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg border-b-4 border-accent">
+                 <div className="flex items-center gap-3">
+                    <Wallet className="w-8 h-8 text-accent" />
+                    <div>
+                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado da Rodada (65%)</p>
+                       <p className="text-3xl font-black">R$ {eventPool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                 </div>
+                 <Badge className="bg-accent text-white font-black uppercase text-[9px] h-8 px-4">Auditado Live</Badge>
+              </div>
+
               {statsGanhos.total > 0 && (
                 <div className="p-8 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl bg-green-600 print:bg-white print:text-black print:border-2 print:border-green-600 print:shadow-none">
-                  <div><p className="text-[10px] font-black uppercase opacity-60 print:opacity-100">Prêmio Acumulado</p><p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p></div>
+                  <div><p className="text-[10px] font-black uppercase opacity-60 print:opacity-100">Seu Prêmio Total (Somado)</p><p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p></div>
                   <div className="flex flex-col gap-2 w-full md:w-auto print:hidden">
                     <Badge className="bg-white text-green-700 h-10 px-8 font-black uppercase text-[10px] rounded-xl flex items-center justify-center">BILHETE PREMIADO</Badge>
                     {receipt.status === 'ganhou' ? (
@@ -190,8 +215,8 @@ function ResultadosContent() {
                                const isCorrect = palpite === resultValue;
                                return (
                                  <div key={pIdx} className="flex justify-between items-center text-[10px] border-b pb-1">
-                                    <span className="font-bold uppercase">{match?.time1} x {match?.time2}</span>
-                                    <Badge variant={isCorrect ? 'default' : 'outline'} className={cn("text-[8px] h-4", isCorrect && "bg-green-600")}>{palpite === 'X' ? 'EMPATE' : palpite}</Badge>
+                                    <span className="font-bold uppercase">{match?.time1} x {match?.time2} = {palpite}</span>
+                                    <Badge variant={isCorrect ? 'default' : 'outline'} className={cn("text-[8px] h-4", isCorrect && "bg-green-600")}>{isCorrect ? "ACERTOU" : "ERROU"}</Badge>
                                  </div>
                                );
                              })}

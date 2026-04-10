@@ -19,7 +19,8 @@ import {
   Clock,
   LayoutGrid,
   Zap,
-  Info
+  Info,
+  Trophy
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
@@ -43,6 +44,7 @@ export default function VendaPage() {
   const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
+  const [currentPool, setCurrentPool] = useState(0);
   
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -59,7 +61,6 @@ export default function VendaPage() {
   const [numerosLoteria, setNumerosLoteria] = useState<number[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
   
-  // Controle de Multi-apostas
   const [openMultiOption, setOpenMultiOption] = useState(false);
   const [pendingPayWithBalance, setPendingPayWithBalance] = useState(false);
 
@@ -115,7 +116,7 @@ export default function VendaPage() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleSelectEvento = (eventId: string) => {
+  const handleSelectEvento = async (eventId: string) => {
     const ev = eventosAtivos.find(e => e.id === eventId);
     if (ev) {
       setSelectedEventData(ev);
@@ -126,8 +127,15 @@ export default function VendaPage() {
         setPartidasBolao(matches);
         setPalpites(Array(matches.length).fill(''));
       }
+
+      // Busca prêmio acumulado atual (65%)
+      const { data: tickets } = await supabase.from('tickets').select('valor_total').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
+      const total = tickets?.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0) || 0;
+      setCurrentPool(total * 0.65);
+
     } else {
       setSelectedEventData(null);
+      setCurrentPool(0);
     }
   };
 
@@ -161,7 +169,6 @@ export default function VendaPage() {
     const ticketsGenerated = [];
     const finalStatus = pendingPayWithBalance ? 'pago' : 'pendente';
 
-    // Bilhete #1 (Manual)
     let firstLotNums = null;
     if (formData.tipo === 'bingo') firstLotNums = generateRandomNumbers(15, 90);
     else if (formData.tipo === 'mega' || formData.tipo === 'quina') firstLotNums = numerosLoteria;
@@ -174,7 +181,6 @@ export default function VendaPage() {
       valorPremio: 0
     });
 
-    // Bilhetes Extras
     for (let i = 1; i < quantity; i++) {
       let lotNums = null;
       let pPicks = null;
@@ -246,7 +252,7 @@ export default function VendaPage() {
         }
       }
 
-      setVendaRealizada(receipt);
+      setVendaRealizada({ ...receipt, currentPool });
       toast({ title: "VENDA PROCESSADA!" });
       loadMinhasReservas();
     } catch (err: any) { toast({ variant: "destructive", title: "ERRO NA TRANSAÇÃO" }); }
@@ -258,12 +264,10 @@ export default function VendaPage() {
     if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
     if (!formData.cliente || !formData.whatsapp || !formData.pixKey) return toast({ variant: "destructive", title: "DADOS INCOMPLETOS" });
     
-    // VALIDAÇÃO DE BOLÃO ESPORTIVO
     if ((formData.tipo === 'bolao' || formData.tipo === 'esportivo') && palpites.some(p => !p)) {
       return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Selecione o resultado de todos os jogos da grade." });
     }
 
-    // VALIDAÇÃO DE BOLÃO NUMÉRICO (MEGA/QUINA)
     const lotLimit = formData.tipo === 'mega' ? 15 : 20;
     if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosLoteria.length !== lotLimit) {
       return toast({ 
@@ -283,7 +287,7 @@ export default function VendaPage() {
   };
 
   const shareReceipt = (receipt: any) => {
-    let msg = `*LEOBET PRO - RECIBO*%0A%0A*CLIENTE:* ${receipt.cliente}%0A*CÓDIGO:* ${receipt.id}%0A*VALOR:* R$ ${Number(receipt.valor_total).toFixed(2)}%0A%0A`;
+    let msg = `*LEOBET PRO - RECIBO*%0A%0A*CLIENTE:* ${receipt.cliente}%0A*CÓDIGO:* ${receipt.id}%0A*VALOR:* R$ ${Number(receipt.valor_total).toFixed(2)}%0A*PRÊMIO ATUAL:* R$ ${currentPool.toFixed(2)}%0A%0A`;
     
     receipt.tickets_data.forEach((t: any, idx: number) => {
       msg += `*BILHETE #${idx + 1}*%0A`;
@@ -298,7 +302,7 @@ export default function VendaPage() {
       msg += `%0A`;
     });
     
-    msg += `*Confira sua aposta:*%0A${window.location.origin}/resultados?c=${receipt.id}`;
+    msg += `*Confira sua aposta e o prêmio em tempo real:*%0A${window.location.origin}/resultados?c=${receipt.id}`;
     window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
   };
 
@@ -327,6 +331,16 @@ export default function VendaPage() {
                   </CardHeader>
                   <CardContent className="p-8 space-y-4">
                     <form onSubmit={(e) => handleVenda(e)} className="space-y-4">
+                      {selectedEventData && (
+                        <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 flex justify-between items-center">
+                           <div>
+                              <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado (65%)</p>
+                              <p className="text-2xl font-black text-primary">R$ {currentPool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                           </div>
+                           <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Live</Badge>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold uppercase" required disabled={user?.role === 'cliente'} /></div>
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required disabled={user?.role === 'cliente'} /></div>
@@ -455,7 +469,8 @@ export default function VendaPage() {
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between"><span>TIPO:</span> <span>{vendaRealizada.tipo.toUpperCase()}</span></p>
-                          <p className="flex justify-between font-black border-t pt-2"><span>TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
+                          <p className="flex justify-between font-black border-t pt-2"><span>PRÊMIO ATUAL:</span> <span>R$ {currentPool.toFixed(2)}</span></p>
+                          <p className="flex justify-between font-black border-t pt-2"><span>VALOR PAGO:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                           
                           <div className="pt-2 mt-2 border-t border-dashed space-y-4">
                              {vendaRealizada.tickets_data.map((t: any, idx: number) => (
