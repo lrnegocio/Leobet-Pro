@@ -54,39 +54,24 @@ export default function VendaPage() {
   const [numerosLoteria, setNumerosLoteria] = useState<number[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    loadEventos();
-    if (user?.role === 'cliente') {
-      setFormData(prev => ({ 
-        ...prev, 
-        cliente: user.nome, 
-        whatsapp: user.phone || '', 
-        pixKey: user.pixKey || '' 
-      }));
-    }
-    loadMinhasReservas();
-  }, [user]);
-
   const loadEventos = async () => {
     try {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       const now = new Date();
       
+      // REGRA: Encerra 1 minuto (60000ms) antes do sorteio
       const validBingos = (bingos || []).filter(item => {
         if (!item.data_sorteio) return true;
-        const limitTime = new Date(new Date(item.data_sorteio).getTime());
+        const limitTime = new Date(new Date(item.data_sorteio).getTime() - 60000);
         return now < limitTime;
       }).map(b => ({ ...b, tipo: 'bingo' }));
 
       const validBoloes = (boloes || []).filter(item => {
-        if (item.tipo === 'mega' || item.tipo === 'quina') {
-          if (!item.data_fim) return true;
-          const limitTime = new Date(new Date(item.data_fim).getTime());
-          return now < limitTime;
-        }
-        return true; // Mostra esportivos abertos
+        const timeField = item.data_fim || item.data_sorteio;
+        if (!timeField) return true;
+        const limitTime = new Date(new Date(timeField).getTime() - 60000);
+        return now < limitTime;
       }).map(b => ({ ...b, tipo: b.tipo || 'bolao' }));
       
       setEventosAtivos([...validBingos, ...validBoloes]);
@@ -103,6 +88,26 @@ export default function VendaPage() {
       .order('created_at', { ascending: false });
     setMinhasReservas(data || []);
   };
+
+  useEffect(() => {
+    setMounted(true);
+    loadEventos();
+    
+    // Atualiza a lista a cada 30 segundos para respeitar a trava de 1 minuto
+    const interval = setInterval(loadEventos, 30000);
+
+    if (user?.role === 'cliente') {
+      setFormData(prev => ({ 
+        ...prev, 
+        cliente: user.nome, 
+        whatsapp: user.phone || '', 
+        pixKey: user.pixKey || '' 
+      }));
+    }
+    loadMinhasReservas();
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleSelectEvento = (eventId: string) => {
     const ev = eventosAtivos.find(e => e.id === eventId);
@@ -229,10 +234,10 @@ export default function VendaPage() {
     let msg = `*LEOBET PRO - RECIBO*%0A%0A*CLIENTE:* ${receipt.cliente}%0A*CÓDIGO:* ${receipt.id}%0A*VALOR:* R$ ${Number(receipt.valor_total).toFixed(2)}%0A%0A`;
     
     if (receipt.tipo === 'bolao' || receipt.tipo === 'esportivo') {
-      const p = receipt.tickets_data[0].p.split('-');
+      const pArr = receipt.tickets_data[0].p.split('-');
       msg += `*PALPITES DO BOLÃO:*%0A`;
       partidasBolao.forEach((match, i) => {
-        msg += `⚽ ${match.time1} x ${match.time2} = ${p[i]}%0A`;
+        msg += `⚽ ${match.time1} x ${match.time2} = ${pArr[i]}%0A`;
       });
     } else if (receipt.tipo === 'mega' || receipt.tipo === 'quina') {
       msg += `*NÚMEROS ESCOLHIDOS:*%0A`;
@@ -285,6 +290,7 @@ export default function VendaPage() {
                           <option value="">-- SELECIONE --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} ({e.tipo.toUpperCase()}) - R$ {Number(e.preco).toFixed(2)}</option>)}
                         </select>
+                        <p className="text-[8px] font-bold text-orange-600 uppercase mt-1">Vendas encerram 1 minuto antes do sorteio.</p>
                       </div>
 
                       {(formData.tipo === 'mega' || formData.tipo === 'quina') && (
@@ -318,7 +324,6 @@ export default function VendaPage() {
                                 <div className="flex gap-1">
                                    {['1', 'X', '2'].map(c => {
                                      const result = c === '1' ? p.time1 : c === '2' ? p.time2 : 'X';
-                                     const display = c === 'X' ? 'EMPATE' : result;
                                      return (
                                        <Button key={c} type="button" variant={palpites[idx] === result ? 'default' : 'outline'} className="h-8 w-8 p-0 text-[10px] font-black" onClick={() => {
                                          const newP = [...palpites]; newP[idx] = result; setPalpites(newP);
