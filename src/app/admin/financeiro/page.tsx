@@ -104,30 +104,17 @@ function FinanceiroContent() {
         const { data: userData } = await supabase.from('users').select('*').eq('id', trans.user_id).single();
         if (userData) {
           const currentBalance = Number(userData.balance || 0);
-          const currentComm = Number(userData.commission_balance || 0);
-          
           if (trans.type === 'deposito') {
             await supabase.from('users').update({ balance: currentBalance + Number(trans.amount) }).eq('id', trans.user_id);
           } else if (trans.type === 'saque') {
-            let remaining = Number(trans.amount);
-            let newComm = currentComm;
-            let newBal = currentBalance;
-
-            if (newComm >= remaining) {
-              newComm -= remaining;
-            } else {
-              remaining -= newComm;
-              newComm = 0;
-              newBal -= remaining;
-            }
-            await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', trans.user_id);
+            await supabase.from('users').update({ balance: Math.max(0, currentBalance - Number(trans.amount)) }).eq('id', trans.user_id);
           }
         }
         await supabase.from('transactions').update({ status: 'aprovado' }).eq('id', trans.id);
-        toast({ title: "APOVAL!" });
+        toast({ title: "OPERACÃO APROVADA!" });
       } else {
         await supabase.from('transactions').update({ status: 'rejeitado' }).eq('id', trans.id);
-        toast({ variant: "destructive", title: "REJEITADO!" });
+        toast({ variant: "destructive", title: "OPERACÃO REJEITADA!" });
       }
       loadData();
     } catch (err) {
@@ -200,16 +187,6 @@ function FinanceiroContent() {
             </TabsList>
 
             <TabsContent value="vendas_pendentes" className="mt-6 space-y-4">
-               <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-3">
-                  <Search className="w-5 h-5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Pesquisar por NOME ou CÓDIGO do bilhete..." 
-                    value={searchPending}
-                    onChange={e => setSearchPending(e.target.value)}
-                    className="border-none shadow-none focus-visible:ring-0 font-bold"
-                  />
-               </div>
-
                {filteredPending.length === 0 ? (
                  <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem apostas pendentes</div>
                ) : filteredPending.map((t, i) => (
@@ -253,43 +230,19 @@ function FinanceiroContent() {
                ))}
             </TabsContent>
 
-            <TabsContent value="transacoes" className="mt-6 space-y-4">
-               {transactions.filter(t => t.status === 'pendente').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem movimentações</div>
-               ) : transactions.filter(t => t.status === 'pendente').map((trans, i) => (
-                 <Card key={i} className={cn(
-                   "p-6 border-l-8 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6",
-                   trans.type === 'deposito' ? 'border-l-blue-500' : 'border-l-orange-500'
-                 )}>
-                   <div className="flex-1 w-full space-y-2">
-                     <div className="flex items-center gap-2">
-                        {trans.type === 'deposito' ? <ArrowUpCircle className="text-blue-600" /> : <ArrowDownCircle className="text-orange-600" />}
-                        <p className="font-black uppercase text-xl text-primary">{trans.user_name}</p>
-                     </div>
-                     <p className="text-[10px] font-black opacity-60">PIX: {trans.pix_key || 'DEPÓSITO'}</p>
-                     <p className="text-3xl font-black text-primary">R$ {Number(trans.amount).toFixed(2)}</p>
-                   </div>
-                   <div className="flex gap-2 w-full md:w-auto">
-                      <Button onClick={() => handleTransactionAction(trans, 'reject')} variant="outline" className="h-16 px-8 font-black uppercase rounded-2xl">Recusar</Button>
-                      <Button onClick={() => handleTransactionAction(trans, 'approve')} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Aprovar</Button>
-                   </div>
-                 </Card>
-               ))}
-            </TabsContent>
-
             <TabsContent value="payouts" className="mt-6 space-y-4">
                {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
                  <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Sem prêmios pendentes</div>
                ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => {
-                 const totalAcumulado = t.tickets_data?.filter((item: any) => (item.s || item.status) === 'ganhou')
-                    .reduce((acc: number, item: any) => acc + (Number(item.v || item.valor_premio || item.valorPremio || 0)), 0);
+                 const totalAcumulado = t.tickets_data?.reduce((acc: number, item: any) => 
+                    item.status === 'ganhou' ? acc + Number(item.valorPremio || 0) : acc, 0) || 0;
                  
                  return (
                    <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                      <div className="flex-1 w-full space-y-2">
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-black opacity-60 bg-muted px-2 py-1 rounded inline-block">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
-                       <div className="mt-2"><p className="text-3xl font-black text-green-600">TOTAL SOMADO: R$ {totalAcumulado?.toFixed(2)}</p></div>
+                       <div className="mt-2"><p className="text-3xl font-black text-green-600">TOTAL SOMADO: R$ {totalAcumulado.toFixed(2)}</p></div>
                      </div>
                      <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Confirmar Pagamento Único</Button>
                    </Card>
