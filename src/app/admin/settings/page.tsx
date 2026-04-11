@@ -6,25 +6,21 @@ import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Globe, Save, RefreshCcw, Database, Key } from 'lucide-react';
+import { Globe, Save, RefreshCcw, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
-import { useAuthStore } from '@/store/use-auth-store';
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [systemUrl, setSystemUrl] = useState('https://leobet-probets.vercel.app/');
-  const [pixKey, setPixKey] = useState('');
 
   useEffect(() => {
     setMounted(true);
     const loadSettings = async () => {
-      // Carrega links do localStorage (preferência de interface)
       const saved = localStorage.getItem('leobet_settings');
       if (saved) {
         try {
@@ -33,16 +29,6 @@ export default function SettingsPage() {
           setSystemUrl(parsed.systemUrl || 'https://leobet-probets.vercel.app/');
         } catch (e) {}
       }
-
-      // Carrega PIX Master do primeiro Admin encontrado no Supabase
-      const { data } = await supabase
-        .from('users')
-        .select('pix_key')
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-      
-      if (data?.pix_key) setPixKey(data.pix_key);
     };
     loadSettings();
   }, []);
@@ -52,26 +38,12 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      // 1. Salva links locais
       const newSettings = { youtubeUrl, systemUrl };
       localStorage.setItem('leobet_settings', JSON.stringify(newSettings));
       
-      // 2. Salva PIX no Banco de Dados (Atualiza o Admin logado ou o primeiro admin)
-      const targetId = user?.id === 'MASTER-ADMIN' ? null : user?.id;
-      
-      if (targetId) {
-        await supabase.from('users').update({ pix_key: pixKey }).eq('id', targetId);
-      } else {
-        // Se for bypass, atualiza o primeiro admin que encontrar
-        const { data: admin } = await supabase.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
-        if (admin) {
-          await supabase.from('users').update({ pix_key: pixKey }).eq('id', admin.id);
-        }
-      }
-      
       toast({ 
         title: "CONFIGURAÇÕES ATUALIZADAS!", 
-        description: "Dados salvos no Cloud Supabase." 
+        description: "Links externos salvos com sucesso." 
       });
     } catch (err: any) {
       toast({ variant: "destructive", title: "ERRO AO SALVAR", description: err.message });
@@ -93,31 +65,10 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-none">Configurações Gerais</h1>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Links e PIX Master <Database className="inline w-3 h-3 text-green-600" /></p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Links e YouTube <Database className="inline w-3 h-3 text-green-600" /></p>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-6">
-            <Card className="border-t-4 border-t-accent shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-muted/50 border-b">
-                <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-primary">
-                  <Key className="w-4 h-4" /> Finanças da Plataforma
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Master (Para Depósitos)</Label>
-                  <input 
-                    value={pixKey} 
-                    onChange={e => setPixKey(e.target.value.toUpperCase())}
-                    placeholder="CHAVE PIX OFICIAL" 
-                    className="w-full h-14 font-black text-xl border-2 rounded-xl px-4 outline-none focus:border-primary bg-white text-primary"
-                    required
-                  />
-                  <p className="text-[9px] font-bold text-orange-600 uppercase">Esta chave será exibida para todos os clientes em "Recarregar".</p>
-                </div>
-              </CardContent>
-            </Card>
-
             <Card className="border-t-4 border-t-primary shadow-xl rounded-[2rem] overflow-hidden">
               <CardHeader className="bg-muted/50 border-b">
                 <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-primary">
@@ -146,9 +97,16 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-200">
+               <p className="text-[10px] font-black uppercase text-orange-600 mb-2">Dica de Segurança</p>
+               <p className="text-xs font-bold text-orange-800 leading-relaxed">
+                 A Chave PIX oficial para depósitos agora é gerenciada diretamente no seu **Perfil de Admin**. Para alterá-la, vá em "Meu Perfil" no menu lateral.
+               </p>
+            </div>
+
             <Button type="submit" className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase text-lg rounded-2xl shadow-xl" disabled={loading}>
               {loading ? <RefreshCcw className="animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-              SALVAR CONFIGURAÇÕES NO CLOUD
+              SALVAR CONFIGURAÇÕES
             </Button>
           </form>
         </div>

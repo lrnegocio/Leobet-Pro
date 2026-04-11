@@ -150,7 +150,6 @@ function FinanceiroContent() {
 
   const filteredHistory = useMemo(() => {
     return tickets.filter(t => {
-      // Mostra apenas o que não está pendente
       if (t.status === 'pendente') return false;
       const term = searchHistory.toLowerCase();
       return (
@@ -290,9 +289,9 @@ function FinanceiroContent() {
                      <div className="flex-1 w-full space-y-2">
                        <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
                        <p className="text-[10px] font-black opacity-60 bg-muted px-2 py-1 rounded inline-block">PIX: {t.pix_resgate || "NÃO INFORMADO"}</p>
-                       <div className="mt-2"><p className="text-3xl font-black text-green-600">TOTAL: R$ {totalAcumulado?.toFixed(2)}</p></div>
+                       <div className="mt-2"><p className="text-3xl font-black text-green-600">TOTAL SOMADO: R$ {totalAcumulado?.toFixed(2)}</p></div>
                      </div>
-                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Confirmar Pagamento</Button>
+                     <Button onClick={() => confirmPayout(t.id)} className="bg-green-600 hover:bg-green-700 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Confirmar Pagamento Único</Button>
                    </Card>
                  );
                })}

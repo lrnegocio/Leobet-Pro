@@ -39,7 +39,6 @@ function ResultadosContent() {
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).single();
         setEventData(ev);
 
-        // Calcula prêmio acumulado real da rodada (65% das vendas pagas)
         const { data: allTickets } = await supabase
           .from('tickets')
           .select('valor_total')
@@ -65,7 +64,6 @@ function ResultadosContent() {
 
   const statsGanhos = useMemo(() => {
     if (!receipt || !receipt.tickets_data) return { total: 0, count: 0 };
-    // SOMA TODOS OS PRÊMIOS DO MESMO RECIBO
     const winners = receipt.tickets_data.filter((t: any) => (t.s || t.status) === 'ganhou');
     const total = winners.reduce((acc: number, t: any) => acc + (Number(t.v || t.vp || t.valorPremio || 0)), 0);
     return { total, count: winners.length };
@@ -108,13 +106,21 @@ function ResultadosContent() {
     finally { setLoading(false); }
   };
 
+  const handleBack = () => {
+    if (user) {
+      router.push(`/${user.role}/dashboard`);
+    } else {
+      router.push('/');
+    }
+  };
+
   if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-muted/30 p-2 md:p-8 flex flex-col items-center font-body">
       <div className="max-w-4xl w-full space-y-6">
-        <Button onClick={() => user ? router.push(`/${user.role}/dashboard`) : router.push('/')} variant="outline" className="h-11 rounded-xl border-2 font-black uppercase text-[10px] print:hidden">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Painel
+        <Button onClick={handleBack} variant="outline" className="h-11 rounded-xl border-2 font-black uppercase text-[10px] print:hidden">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao Painel
         </Button>
         <h1 className="text-4xl md:text-6xl font-black uppercase text-primary text-center print:hidden">Auditoria Digital</h1>
         
@@ -126,7 +132,6 @@ function ResultadosContent() {
 
           {receipt && (
             <div className="space-y-6">
-              {/* BLOCO DE PRÊMIO ACUMULADO DA RODADA */}
               <div className="bg-primary p-6 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg border-b-4 border-accent">
                  <div className="flex items-center gap-3">
                     <Wallet className="w-8 h-8 text-accent" />
