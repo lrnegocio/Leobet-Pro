@@ -150,11 +150,13 @@ function FinanceiroContent() {
 
   const filteredHistory = useMemo(() => {
     return tickets.filter(t => {
+      // Mostra apenas o que não está pendente
       if (t.status === 'pendente') return false;
       const term = searchHistory.toLowerCase();
       return (
         t.cliente.toLowerCase().includes(term) || 
-        t.id.toLowerCase().includes(term)
+        t.id.toLowerCase().includes(term) ||
+        t.evento_nome.toLowerCase().includes(term)
       );
     });
   }, [tickets, searchHistory]);
@@ -314,7 +316,9 @@ function FinanceiroContent() {
                     <div>
                        <div className="flex items-center gap-2">
                           <p className="font-black uppercase text-xs text-primary">{t.cliente}</p>
-                          <Badge className="bg-green-100 text-green-700 border-none text-[8px] uppercase">{t.status}</Badge>
+                          <Badge className={cn("text-[8px] uppercase", 
+                            t.status === 'pago' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                          )}>{t.status}</Badge>
                        </div>
                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{t.evento_nome} • COD: {t.id}</p>
                     </div>
