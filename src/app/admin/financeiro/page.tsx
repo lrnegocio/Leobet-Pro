@@ -124,7 +124,7 @@ function FinanceiroContent() {
           }
         }
         await supabase.from('transactions').update({ status: 'aprovado' }).eq('id', trans.id);
-        toast({ title: "APROVADO!" });
+        toast({ title: "APOVAL!" });
       } else {
         await supabase.from('transactions').update({ status: 'rejeitado' }).eq('id', trans.id);
         toast({ variant: "destructive", title: "REJEITADO!" });
