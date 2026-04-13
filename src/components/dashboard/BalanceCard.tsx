@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, ArrowUpCircle, ArrowDownCircle, ExternalLink, Copy, RefreshCcw } from 'lucide-react';
+import { Wallet, ArrowUpCircle, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/use-auth-store';
 import Link from 'next/link';
@@ -17,17 +17,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { supabase } from '@/supabase/client';
 
 export function BalanceCard() {
   const { user } = useAuthStore();
   const { toast } = useToast();
-  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [openWithdraw, setOpenWithdraw] = useState(false);
   const [openDeposit, setOpenDeposit] = useState(false);
   const [masterPix, setMasterPix] = useState('CARREGANDO...');
 
