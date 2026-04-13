@@ -3,50 +3,46 @@
 import React, { useEffect } from 'react';
 
 /**
- * SecurityProvider - Camada de proteção do terminal LEOBET PRO.
- * Bloqueia inspeção de código, console e cópia não autorizada.
+ * SecurityProvider - Proteção avançada do terminal LEOBET PRO.
+ * Bloqueia inspeção, console e cópia não autorizada sem causar erros de frame.
  */
 export function SecurityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Bloqueia o menu de contexto (Botão Direito)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      return false;
     };
 
     // Bloqueia teclas de atalho de desenvolvedor
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F12
+      // Bloqueia F12
       if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
-        return false;
       }
 
       // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (Inspecionar/Console)
-      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
         e.preventDefault();
-        return false;
       }
 
       // Ctrl+U (Exibir Código Fonte)
-      if (e.ctrlKey && (e.key === 'u' || e.keyCode === 85)) {
+      if (e.ctrlKey && e.key === 'u') {
         e.preventDefault();
-        return false;
       }
 
       // Ctrl+S (Salvar Página)
-      if (e.ctrlKey && (e.key === 's' || e.keyCode === 83)) {
+      if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
-        return false;
       }
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('keydown', handleKeyDown);
+    // Adiciona os ouvintes de eventos de forma segura no objeto window
+    window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 

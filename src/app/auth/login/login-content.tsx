@@ -32,9 +32,12 @@ export default function LoginContent() {
     if (!mounted) return;
     setLoading(true);
 
+    const cleanId = identifier.trim().toLowerCase();
+    const cleanPass = password.trim();
+
     try {
       // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS MESTRE (lrnegocio0 / 135796lR@.,/)
-      if (identifier.toLowerCase() === 'lrnegocio0' && password === '135796lR@.,/') {
+      if (cleanId === 'lrnegocio0' && cleanPass === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
           nome: 'ADMIN MASTER',
@@ -48,7 +51,7 @@ export default function LoginContent() {
         };
         setUser(masterUser);
         localStorage.setItem('logged_user', JSON.stringify(masterUser));
-        toast({ title: "ACESSO MESTRE LIBERADO!" });
+        toast({ title: "ACESSO MASTER ATIVADO!" });
         router.push('/admin/dashboard');
         return;
       }
@@ -57,8 +60,8 @@ export default function LoginContent() {
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
-        .or(`email.eq.${identifier.toLowerCase()},nome.eq.${identifier.toUpperCase()}`)
-        .eq('password', password)
+        .or(`email.eq.${cleanId},nome.eq.${identifier.trim().toUpperCase()}`)
+        .eq('password', cleanPass)
         .maybeSingle();
 
       if (error || !user) throw new Error("Usuário ou senha incorretos.");

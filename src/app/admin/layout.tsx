@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react';
@@ -35,11 +34,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      // PERMISSÃO ESPECIAL: Cambistas e Gerentes podem acessar Terminal de Vendas e Relatórios dentro de /admin
-      const isSharedRoute = pathname.includes('/admin/venda') || pathname.includes('/relatorios') || pathname.includes('/perfil') || pathname.includes('/resultados');
+      // PERMISSÃO ESPECIAL: Se for ADMIN MASTER, libera tudo imediatamente
+      if (currentUser.id === 'MASTER-ADMIN' || currentUser.role === 'admin') {
+        setLoading(false);
+        return;
+      }
+
+      // PERMISSÃO PARA OUTROS CARGOS EM ROTAS COMPARTILHADAS
+      const isSharedRoute = pathname.includes('/admin/venda') || 
+                            pathname.includes('/relatorios') || 
+                            pathname.includes('/perfil') || 
+                            pathname.includes('/resultados');
       
-      if (currentUser.role !== 'admin' && !isSharedRoute) {
-        // Se não for admin e tentar acessar gestão master, manda para o dashboard dele
+      if (!isSharedRoute) {
         router.push(`/${currentUser.role}/dashboard`);
       } else {
         setLoading(false);
