@@ -23,9 +23,7 @@ export default function LoginContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +34,8 @@ export default function LoginContent() {
     const cleanPass = password.trim();
 
     try {
-      // 1. ACESSO MESTRE - PRIORIDADE MÁXIMA
-      if (cleanId.toLowerCase() === 'lrnegocio0' && cleanPass === '135796lR@.,/') {
+      // 1. ACESSO MESTRE - PRIORIDADE ABSOLUTA
+      if (cleanId === 'lrnegocio0' && cleanPass === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
           nome: 'ADMIN MASTER',
@@ -56,11 +54,11 @@ export default function LoginContent() {
         return;
       }
 
-      // 2. TENTATIVA VIA BANCO DE DADOS (TABELA USERS)
+      // 2. BUSCA NA TABELA USERS (SCHEMA SQL)
       const { data: dbUser, error: dbError } = await supabase
         .from('users')
         .select('*')
-        .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()}`)
+        .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()},id.eq.${cleanId.toUpperCase()}`)
         .eq('password', cleanPass)
         .maybeSingle();
 
@@ -77,55 +75,19 @@ export default function LoginContent() {
           status: dbUser.status,
           phone: dbUser.phone,
           pixKey: dbUser.pix_key,
+          gerenteId: dbUser.gerente_id,
           createdAt: dbUser.created_at
         };
 
         setUser(formattedUser);
         localStorage.setItem('logged_user', JSON.stringify(formattedUser));
         
-        // Redirecionamento Estrito por Role
-        if (formattedUser.role === 'admin') {
-          router.push('/admin/dashboard');
-        } else {
-          router.push(`/${formattedUser.role}/dashboard`);
-        }
+        if (formattedUser.role === 'admin') router.push('/admin/dashboard');
+        else router.push(`/${formattedUser.role}/dashboard`);
         return;
       }
 
-      // 3. TENTATIVA VIA SUPABASE AUTH
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@leobet.com`,
-        password: cleanPass
-      });
-
-      if (!authError && authData.user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', authData.user.email)
-          .maybeSingle();
-
-        if (profile) {
-          const formatted = {
-            id: profile.id,
-            nome: profile.nome,
-            email: profile.email,
-            role: profile.role,
-            balance: Number(profile.balance || 0),
-            commissionBalance: Number(profile.commission_balance || 0),
-            status: profile.status,
-            phone: profile.phone,
-            pixKey: profile.pix_key,
-            createdAt: profile.created_at
-          };
-          setUser(formatted);
-          localStorage.setItem('logged_user', JSON.stringify(formatted));
-          router.push(profile.role === 'admin' ? '/admin/dashboard' : `/${profile.role}/dashboard`);
-          return;
-        }
-      }
-
-      throw new Error("Credenciais inválidas.");
+      throw new Error("Credenciais inválidas ou Usuário não encontrado.");
 
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });
@@ -135,8 +97,6 @@ export default function LoginContent() {
   };
 
   if (!mounted) return null;
-
-  const showRegisterLink = roleFromUrl === 'cliente' || roleFromUrl === 'cambista';
 
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center p-4">
@@ -153,33 +113,19 @@ export default function LoginContent() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Usuário ou E-mail</Label>
-              <Input 
-                placeholder="Seu usuário" 
-                value={identifier} 
-                onChange={e => setIdentifier(e.target.value)} 
-                required 
-                className="h-14 font-bold border-2 rounded-xl focus:border-primary" 
-              />
+              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-14 font-bold border-2 rounded-xl focus:border-primary" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Senha Secreta</Label>
-              <Input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                required 
-                className="h-14 font-bold border-2 rounded-xl focus:border-primary" 
-              />
+              <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-14 font-bold border-2 rounded-xl focus:border-primary" />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-16 font-black uppercase text-lg shadow-xl transition-all active:scale-95 rounded-2xl" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : "ENTRAR NO SISTEMA"}
             </Button>
           </form>
         </CardContent>
-        {showRegisterLink && (
+        {(roleFromUrl === 'cliente' || roleFromUrl === 'cambista') && (
           <CardFooter className="flex flex-col gap-4 border-t p-8 bg-muted/30 rounded-b-[2.5rem]">
-            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Não tem conta?</p>
             <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
               <Button variant="outline" className="w-full border-2 border-primary/20 hover:bg-primary/5 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
                 <UserPlus className="w-4 h-4" /> Criar nova conta
@@ -188,10 +134,6 @@ export default function LoginContent() {
           </CardFooter>
         )}
       </Card>
-      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest text-center">
-        Proteção Anti-Hacker Ativa • Sincronizado com Supabase<br/>
-        Acesso Master Ativado para 'lrnegocio0'
-      </p>
     </div>
   );
 }

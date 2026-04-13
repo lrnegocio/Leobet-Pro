@@ -11,24 +11,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!mounted) return;
 
     const checkAuth = () => {
       const storedUser = localStorage.getItem('logged_user');
-      
       let currentUser = user;
+
       if (!currentUser && storedUser) {
         try {
           currentUser = JSON.parse(storedUser);
           if (currentUser) setUser(currentUser);
-        } catch (e) {
-          console.error("Erro ao ler sessão local");
-        }
+        } catch (e) { console.error("Erro sessão"); }
       }
 
       if (!currentUser) {
@@ -45,14 +41,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      // Se for cambista ou gerente, ele SÓ pode acessar a Venda se estiver dentro de /admin
-      // Mas por segurança, vamos redirecionar para o dashboard deles se tentarem qualquer outra coisa
-      if (pathname.includes('/admin/venda')) {
+      // Cambistas e Gerentes só podem acessar a tela de VENDA se ela estiver no admin
+      if (pathname === '/admin/venda') {
         setLoading(false);
         return;
       }
 
-      // Bloqueio total: Expulsa para o dashboard correto
+      // Bloqueio Total: Expulsa para o dashboard correto
       router.replace(`/${currentUser.role}/dashboard`);
     };
 
@@ -64,7 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="font-black uppercase tracking-widest text-[10px]">Validando Acesso Restrito...</p>
+          <p className="font-black uppercase tracking-widest text-[10px]">Validando Acesso Master...</p>
         </div>
       </div>
     );
