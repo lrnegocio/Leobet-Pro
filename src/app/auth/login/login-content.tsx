@@ -56,45 +56,71 @@ export default function LoginContent() {
         return;
       }
 
-      // 2. LOGIN VIA BANCO DE DATOS (SUPABASE)
-      // Buscamos o usuário pelo email ou nome (case insensitive no nome)
-      const { data: user, error } = await supabase
+      // 2. TENTATIVA VIA SUPABASE AUTH (USUÁRIO DO DASHBOARD)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@leobet.com`,
+        password: cleanPass
+      });
+
+      if (!authError && authData.user) {
+        // Se autenticou no Auth, busca o perfil na tabela users
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', authData.user.email)
+          .maybeSingle();
+
+        if (profile) {
+          const formatted = {
+            id: profile.id,
+            nome: profile.nome,
+            email: profile.email,
+            role: profile.role,
+            balance: Number(profile.balance || 0),
+            commissionBalance: Number(profile.commission_balance || 0),
+            status: profile.status,
+            phone: profile.phone,
+            pixKey: profile.pix_key,
+            createdAt: profile.created_at
+          };
+          setUser(formatted);
+          localStorage.setItem('logged_user', JSON.stringify(formatted));
+          router.push(profile.role === 'admin' ? '/admin/dashboard' : `/${profile.role}/dashboard`);
+          return;
+        }
+      }
+
+      // 3. TENTATIVA VIA TABELA DIRETA (USUÁRIOS SEM AUTH)
+      const { data: dbUser, error: dbError } = await supabase
         .from('users')
         .select('*')
         .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()}`)
         .eq('password', cleanPass)
         .maybeSingle();
 
-      if (error || !user) throw new Error("Credenciais inválidas. Verifique seu usuário e senha.");
-      
-      if (user.status === 'blocked') {
-        throw new Error("Acesso suspenso. Entre em contato com o administrador.");
+      if (dbUser) {
+        if (dbUser.status === 'blocked') throw new Error("Acesso suspenso.");
+        
+        const formattedUser = {
+          id: dbUser.id,
+          nome: dbUser.nome,
+          email: dbUser.email,
+          role: dbUser.role,
+          balance: Number(dbUser.balance || 0),
+          commissionBalance: Number(dbUser.commission_balance || 0),
+          status: dbUser.status,
+          phone: dbUser.phone,
+          pixKey: dbUser.pix_key,
+          createdAt: dbUser.created_at
+        };
+
+        setUser(formattedUser);
+        localStorage.setItem('logged_user', JSON.stringify(formattedUser));
+        router.push(dbUser.role === 'admin' ? '/admin/dashboard' : `/${dbUser.role}/dashboard`);
+      } else {
+        throw new Error("Credenciais inválidas. Verifique usuário e senha.");
       }
 
-      if (user.status === 'pending') {
-        throw new Error("Sua conta está em análise. Aguarde a liberação.");
-      }
-
-      const formattedUser = {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        role: user.role,
-        balance: Number(user.balance || 0),
-        commissionBalance: Number(user.commission_balance || 0),
-        pendingBalance: Number(user.pending_balance || 0),
-        status: user.status,
-        phone: user.phone,
-        pixKey: user.pix_key,
-        gerenteId: user.gerente_id,
-        createdAt: user.created_at
-      };
-
-      setUser(formattedUser);
-      localStorage.setItem('logged_user', JSON.stringify(formattedUser));
-      
-      const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
-      router.push(dashboardPath);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });
     } finally {
@@ -156,7 +182,10 @@ export default function LoginContent() {
           </CardFooter>
         )}
       </Card>
-      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest">Proteção Anti-Hacker Ativa • Sincronizado com Supabase</p>
+      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest text-center">
+        Proteção Anti-Hacker Ativa • Sincronizado com Supabase<br/>
+        Acesso Master Ativado para 'lrnegocio0'
+      </p>
     </div>
   );
 }
