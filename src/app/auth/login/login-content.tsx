@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -33,7 +34,7 @@ export default function LoginContent() {
     setLoading(true);
 
     try {
-      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS MESTRE
+      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS MESTRE (lrnegocio0 / 135796lR@.,/)
       if (identifier.toLowerCase() === 'lrnegocio0' && password === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
@@ -48,11 +49,12 @@ export default function LoginContent() {
         };
         setUser(masterUser);
         localStorage.setItem('logged_user', JSON.stringify(masterUser));
+        toast({ title: "ACESSO MESTRE LIBERADO!" });
         router.push('/admin/dashboard');
         return;
       }
 
-      // 2. LOGIN VIA BANCO DE DADOS
+      // 2. LOGIN VIA BANCO DE DADOS (SUPABASE)
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
@@ -67,7 +69,7 @@ export default function LoginContent() {
       }
 
       if (user.status === 'pending') {
-        throw new Error("Sua conta ainda está em análise pela diretoria. Aguarde a aprovação.");
+        throw new Error("Sua conta ainda está em análise. Aguarde a aprovação.");
       }
 
       const formattedUser = {
@@ -104,42 +106,54 @@ export default function LoginContent() {
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center p-4">
       <Link href="/" className="mb-8 flex items-center gap-2 text-white/60 hover:text-white uppercase text-[10px] font-black">
-        <ArrowLeft className="w-4 h-4" /> Home
+        <ArrowLeft className="w-4 h-4" /> Voltar para Home
       </Link>
-      <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-accent rounded-[2rem]">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-accent/20 p-3 rounded-full w-fit mb-4"><Lock className="w-6 h-6 text-accent" /></div>
-          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso ao Terminal</CardTitle>
-          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">LEOBET PRO AUDITADO</CardDescription>
+      <Card className="w-full max-w-md shadow-2xl border-t-8 border-t-accent rounded-[2.5rem] bg-white">
+        <CardHeader className="text-center pt-8">
+          <div className="mx-auto bg-accent/10 p-4 rounded-full w-fit mb-4 text-accent"><Lock className="w-8 h-8" /></div>
+          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso Restrito</CardTitle>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Profissional LEOBET PRO</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-xs font-black uppercase opacity-60">Usuário / Email</Label>
-              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-12 font-bold" />
+              <Label className="text-xs font-black uppercase opacity-60">Usuário ou E-mail</Label>
+              <Input 
+                placeholder="Seu usuário" 
+                value={identifier} 
+                onChange={e => setIdentifier(e.target.value)} 
+                required 
+                className="h-14 font-bold border-2 rounded-xl focus:border-primary" 
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black uppercase opacity-60">Senha de Acesso</Label>
-              <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 font-bold" />
+              <Label className="text-xs font-black uppercase opacity-60">Senha Secreta</Label>
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+                className="h-14 font-bold border-2 rounded-xl focus:border-primary" 
+              />
             </div>
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-14 font-black uppercase shadow-xl transition-all active:scale-95" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "Entrar no Sistema"}
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-16 font-black uppercase text-lg shadow-xl transition-all active:scale-95 rounded-2xl" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : "ACESSAR PLATAFORMA"}
             </Button>
           </form>
         </CardContent>
         {showRegisterLink && (
-          <CardFooter className="flex flex-col gap-4 border-t pt-6 bg-muted/30 rounded-b-[2rem]">
-            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">
-              Ainda não tem conta?
-            </p>
+          <CardFooter className="flex flex-col gap-4 border-t p-8 bg-muted/30 rounded-b-[2.5rem]">
+            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Ainda não possui conta?</p>
             <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
               <Button variant="outline" className="w-full border-2 border-primary/20 hover:bg-primary/5 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
-                <UserPlus className="w-4 h-4" /> Cadastre-se Agora
+                <UserPlus className="w-4 h-4" /> Criar nova conta
               </Button>
             </Link>
           </CardFooter>
         )}
       </Card>
+      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest">Sistema Auditado 365 Dias • Proteção Anti-Hacker Ativa</p>
     </div>
   );
 }
