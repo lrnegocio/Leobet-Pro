@@ -36,23 +36,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      // PERMISSÃO ESPECIAL: ADMIN MASTER ou ROLE ADMIN
-      if (currentUser.id === 'MASTER-ADMIN' || currentUser.role === 'admin') {
+      // REGRA DE OURO: Somente Admin ou Master entra aqui.
+      const isMaster = currentUser.id === 'MASTER-ADMIN' || currentUser.email === 'lrnegocio0@leobet.pro';
+      const isAdmin = currentUser.role === 'admin';
+
+      if (isMaster || isAdmin) {
         setLoading(false);
         return;
       }
 
-      // Rotas que outros cargos podem acessar (Venda, Relatórios, etc)
-      const isSharedRoute = pathname.includes('/admin/venda') || 
-                            pathname.includes('/relatorios') || 
-                            pathname.includes('/perfil') || 
-                            pathname.includes('/resultados');
-      
-      if (!isSharedRoute) {
-        router.replace(`/${currentUser.role}/dashboard`);
-      } else {
+      // Se for cambista ou gerente, ele SÓ pode acessar a Venda se estiver dentro de /admin
+      // Mas por segurança, vamos redirecionar para o dashboard deles se tentarem qualquer outra coisa
+      if (pathname.includes('/admin/venda')) {
         setLoading(false);
+        return;
       }
+
+      // Bloqueio total: Expulsa para o dashboard correto
+      router.replace(`/${currentUser.role}/dashboard`);
     };
 
     checkAuth();
@@ -63,7 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="font-black uppercase tracking-widest text-[10px]">Validando Acesso Seguro...</p>
+          <p className="font-black uppercase tracking-widest text-[10px]">Validando Acesso Restrito...</p>
         </div>
       </div>
     );

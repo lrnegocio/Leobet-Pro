@@ -56,14 +56,49 @@ export default function LoginContent() {
         return;
       }
 
-      // 2. TENTATIVA VIA SUPABASE AUTH (USUÁRIO DO DASHBOARD)
+      // 2. TENTATIVA VIA BANCO DE DADOS (TABELA USERS)
+      const { data: dbUser, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()}`)
+        .eq('password', cleanPass)
+        .maybeSingle();
+
+      if (dbUser) {
+        if (dbUser.status === 'blocked') throw new Error("Acesso suspenso.");
+        
+        const formattedUser = {
+          id: dbUser.id,
+          nome: dbUser.nome,
+          email: dbUser.email,
+          role: dbUser.role,
+          balance: Number(dbUser.balance || 0),
+          commissionBalance: Number(dbUser.commission_balance || 0),
+          status: dbUser.status,
+          phone: dbUser.phone,
+          pixKey: dbUser.pix_key,
+          createdAt: dbUser.created_at
+        };
+
+        setUser(formattedUser);
+        localStorage.setItem('logged_user', JSON.stringify(formattedUser));
+        
+        // Redirecionamento Estrito por Role
+        if (formattedUser.role === 'admin') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push(`/${formattedUser.role}/dashboard`);
+        }
+        return;
+      }
+
+      // 3. TENTATIVA VIA SUPABASE AUTH
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@leobet.com`,
         password: cleanPass
       });
 
       if (!authError && authData.user) {
-        // Se autenticou no Auth, busca o perfil na tabela users
         const { data: profile } = await supabase
           .from('users')
           .select('*')
@@ -90,36 +125,7 @@ export default function LoginContent() {
         }
       }
 
-      // 3. TENTATIVA VIA TABELA DIRETA (USUÁRIOS SEM AUTH)
-      const { data: dbUser, error: dbError } = await supabase
-        .from('users')
-        .select('*')
-        .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()}`)
-        .eq('password', cleanPass)
-        .maybeSingle();
-
-      if (dbUser) {
-        if (dbUser.status === 'blocked') throw new Error("Acesso suspenso.");
-        
-        const formattedUser = {
-          id: dbUser.id,
-          nome: dbUser.nome,
-          email: dbUser.email,
-          role: dbUser.role,
-          balance: Number(dbUser.balance || 0),
-          commissionBalance: Number(dbUser.commission_balance || 0),
-          status: dbUser.status,
-          phone: dbUser.phone,
-          pixKey: dbUser.pix_key,
-          createdAt: dbUser.created_at
-        };
-
-        setUser(formattedUser);
-        localStorage.setItem('logged_user', JSON.stringify(formattedUser));
-        router.push(dbUser.role === 'admin' ? '/admin/dashboard' : `/${dbUser.role}/dashboard`);
-      } else {
-        throw new Error("Credenciais inválidas. Verifique usuário e senha.");
-      }
+      throw new Error("Credenciais inválidas.");
 
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });

@@ -3,8 +3,8 @@
 import React, { useEffect } from 'react';
 
 /**
- * SecurityProvider - Proteção avançada do terminal LEOBET PRO.
- * Bloqueia inspeção e cópia não autorizada de forma segura.
+ * SecurityProvider - Proteção avançada LEOBET PRO.
+ * Bloqueia F12, Botão Direito, Ctrl+U e Inspeção.
  */
 export function SecurityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -15,28 +15,31 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
 
     // Bloqueia teclas de atalho de desenvolvedor
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Bloqueia F12 (123)
-      if (e.keyCode === 123 || e.key === 'F12') {
+      // Bloqueia F12
+      if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
+        return false;
       }
 
-      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (Inspecionar/Console)
-      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
+      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (Inspecionar)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
         e.preventDefault();
+        return false;
       }
 
-      // Ctrl+U (Exibir Código Fonte - 85)
-      if (e.ctrlKey && (e.key === 'u' || e.keyCode === 85)) {
+      // Ctrl+U (Exibir Código Fonte)
+      if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
         e.preventDefault();
+        return false;
       }
 
-      // Ctrl+S (Salvar Página - 83)
-      if (e.ctrlKey && (e.key === 's' || e.keyCode === 83)) {
+      // Ctrl+S (Salvar Página)
+      if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
+        return false;
       }
     };
 
-    // Adiciona os ouvintes apenas se estiver no navegador
     if (typeof window !== 'undefined') {
       window.addEventListener('contextmenu', handleContextMenu);
       window.addEventListener('keydown', handleKeyDown, true);

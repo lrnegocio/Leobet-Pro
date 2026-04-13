@@ -1,8 +1,7 @@
-
 'use client';
 import { createClient } from '@supabase/supabase-js';
 
-// Essas são as variáveis que você está configurando no Netlify agora
+// Variáveis de ambiente configuradas no Netlify/Vercel
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
