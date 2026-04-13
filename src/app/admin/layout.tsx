@@ -26,28 +26,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         try {
           currentUser = JSON.parse(storedUser);
           if (currentUser) setUser(currentUser);
-        } catch (e) {}
+        } catch (e) {
+          console.error("Erro ao ler sessão local");
+        }
       }
 
       if (!currentUser) {
-        router.push('/auth/login?role=admin');
+        router.replace('/auth/login?role=admin');
         return;
       }
 
-      // PERMISSÃO ESPECIAL: Se for ADMIN MASTER, libera tudo imediatamente
+      // PERMISSÃO ESPECIAL: ADMIN MASTER ou ROLE ADMIN
       if (currentUser.id === 'MASTER-ADMIN' || currentUser.role === 'admin') {
         setLoading(false);
         return;
       }
 
-      // PERMISSÃO PARA OUTROS CARGOS EM ROTAS COMPARTILHADAS
+      // Rotas que outros cargos podem acessar (Venda, Relatórios, etc)
       const isSharedRoute = pathname.includes('/admin/venda') || 
                             pathname.includes('/relatorios') || 
                             pathname.includes('/perfil') || 
                             pathname.includes('/resultados');
       
       if (!isSharedRoute) {
-        router.push(`/${currentUser.role}/dashboard`);
+        router.replace(`/${currentUser.role}/dashboard`);
       } else {
         setLoading(false);
       }

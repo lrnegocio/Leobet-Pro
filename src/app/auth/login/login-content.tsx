@@ -32,12 +32,12 @@ export default function LoginContent() {
     if (!mounted) return;
     setLoading(true);
 
-    const cleanId = identifier.trim().toLowerCase();
+    const cleanId = identifier.trim();
     const cleanPass = password.trim();
 
     try {
-      // 1. BYPASS DE EMERGÊNCIA - CREDENCIAIS MESTRE (lrnegocio0 / 135796lR@.,/)
-      if (cleanId === 'lrnegocio0' && cleanPass === '135796lR@.,/') {
+      // 1. ACESSO MESTRE - PRIORIDADE MÁXIMA
+      if (cleanId.toLowerCase() === 'lrnegocio0' && cleanPass === '135796lR@.,/') {
         const masterUser = {
           id: 'MASTER-ADMIN',
           nome: 'ADMIN MASTER',
@@ -56,22 +56,23 @@ export default function LoginContent() {
         return;
       }
 
-      // 2. LOGIN VIA BANCO DE DADOS (SUPABASE)
+      // 2. LOGIN VIA BANCO DE DATOS (SUPABASE)
+      // Buscamos o usuário pelo email ou nome (case insensitive no nome)
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
-        .or(`email.eq.${cleanId},nome.eq.${identifier.trim().toUpperCase()}`)
+        .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()}`)
         .eq('password', cleanPass)
         .maybeSingle();
 
-      if (error || !user) throw new Error("Usuário ou senha incorretos.");
+      if (error || !user) throw new Error("Credenciais inválidas. Verifique seu usuário e senha.");
       
       if (user.status === 'blocked') {
-        throw new Error("Conta bloqueada. Contate o administrador.");
+        throw new Error("Acesso suspenso. Entre em contato com o administrador.");
       }
 
       if (user.status === 'pending') {
-        throw new Error("Sua conta ainda está em análise. Aguarde a aprovação.");
+        throw new Error("Sua conta está em análise. Aguarde a liberação.");
       }
 
       const formattedUser = {
@@ -95,7 +96,7 @@ export default function LoginContent() {
       const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
       router.push(dashboardPath);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Falha no Login", description: err.message });
+      toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -113,8 +114,8 @@ export default function LoginContent() {
       <Card className="w-full max-w-md shadow-2xl border-t-8 border-t-accent rounded-[2.5rem] bg-white">
         <CardHeader className="text-center pt-8">
           <div className="mx-auto bg-accent/10 p-4 rounded-full w-fit mb-4 text-accent"><Lock className="w-8 h-8" /></div>
-          <CardTitle className="text-2xl font-black uppercase text-primary">Acesso Restrito</CardTitle>
-          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Terminal Profissional LEOBET PRO</CardDescription>
+          <CardTitle className="text-2xl font-black uppercase text-primary">Terminal Seguro</CardTitle>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Acesso Restrito LEOBET PRO</CardDescription>
         </CardHeader>
         <CardContent className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -140,13 +141,13 @@ export default function LoginContent() {
               />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-16 font-black uppercase text-lg shadow-xl transition-all active:scale-95 rounded-2xl" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "ACESSAR PLATAFORMA"}
+              {loading ? <Loader2 className="animate-spin" /> : "ENTRAR NO SISTEMA"}
             </Button>
           </form>
         </CardContent>
         {showRegisterLink && (
           <CardFooter className="flex flex-col gap-4 border-t p-8 bg-muted/30 rounded-b-[2.5rem]">
-            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Ainda não possui conta?</p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground text-center">Não tem conta?</p>
             <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
               <Button variant="outline" className="w-full border-2 border-primary/20 hover:bg-primary/5 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
                 <UserPlus className="w-4 h-4" /> Criar nova conta
@@ -155,7 +156,7 @@ export default function LoginContent() {
           </CardFooter>
         )}
       </Card>
-      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest">Sistema Auditado 365 Dias • Proteção Anti-Hacker Ativa</p>
+      <p className="mt-8 text-[8px] font-black uppercase text-white/20 tracking-widest">Proteção Anti-Hacker Ativa • Sincronizado com Supabase</p>
     </div>
   );
 }

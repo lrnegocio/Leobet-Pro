@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 
 /**
  * SecurityProvider - Proteção avançada do terminal LEOBET PRO.
- * Bloqueia inspeção, console e cópia não autorizada sem causar erros de frame.
+ * Bloqueia inspeção e cópia não autorizada de forma segura.
  */
 export function SecurityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -36,13 +36,17 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Adiciona os ouvintes de eventos de forma segura no objeto window
-    window.addEventListener('contextmenu', handleContextMenu);
-    window.addEventListener('keydown', handleKeyDown);
+    // Adiciona os ouvintes apenas se estiver no navegador
+    if (typeof window !== 'undefined') {
+      window.addEventListener('contextmenu', handleContextMenu);
+      window.addEventListener('keydown', handleKeyDown);
+    }
 
     return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-      window.removeEventListener('keydown', handleKeyDown);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('contextmenu', handleContextMenu);
+        window.removeEventListener('keydown', handleKeyDown);
+      }
     };
   }, []);
 
