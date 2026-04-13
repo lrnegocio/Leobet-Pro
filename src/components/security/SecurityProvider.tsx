@@ -44,9 +44,6 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
-    // Nota: Removida a proteção de breakout de frame (window.top.location)
-    // para evitar erros de permissão em ambientes de desenvolvimento e Cloud Workstations.
-
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
