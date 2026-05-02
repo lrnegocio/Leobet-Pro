@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -12,33 +13,33 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       return false;
     };
 
-    // Bloqueio de Teclas de Inspeção (F12, Ctrl+U, Ctrl+Shift+I, etc)
+    // Bloqueio de Teclas de Inspeção e Atalhos de Hacker
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F12
+      // Bloquear F12
       if (e.keyCode === 123 || e.key === 'F12') {
         e.preventDefault();
         return false;
       }
 
-      // Ctrl + U (View Source)
+      // Bloquear Ctrl + U (View Source)
       if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
         e.preventDefault();
         return false;
       }
 
-      // Ctrl + S (Save Page)
+      // Bloquear Ctrl + S (Save Page)
       if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         return false;
       }
 
-      // Ctrl + Shift + I / J / C (Developer Tools)
+      // Bloquear Ctrl + Shift + I / J / C / K (Developer Tools)
       if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.key === 'K')) {
         e.preventDefault();
         return false;
       }
 
-      // Cmd + Alt + I (Mac Developer Tools)
+      // Bloquear Cmd + Alt + I (Mac Developer Tools)
       if (e.metaKey && e.altKey && e.key === 'i') {
         e.preventDefault();
         return false;
@@ -48,7 +49,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
-    // Proteção adicional contra drag and drop de elementos de código
+    // Proteção contra drag and drop de elementos
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
       return false;
