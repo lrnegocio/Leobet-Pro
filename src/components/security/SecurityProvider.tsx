@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
@@ -7,13 +6,13 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Bloqueio de Botão Direito
+    // Bloqueio Total de Botão Direito
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       return false;
     };
 
-    // Bloqueio de Teclas de Inspeção e Atalhos de Hacker
+    // Bloqueio de Teclas de Inspeção (F12, Ctrl+U, Ctrl+Shift+I, etc)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Bloquear F12
       if (e.keyCode === 123 || e.key === 'F12') {
@@ -21,20 +20,20 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // Bloquear Ctrl + U (View Source)
+      // Bloquear Ctrl + U (Ver código fonte)
       if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
         e.preventDefault();
         return false;
       }
 
-      // Bloquear Ctrl + S (Save Page)
+      // Bloquear Ctrl + S (Salvar página)
       if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         return false;
       }
 
       // Bloquear Ctrl + Shift + I / J / C / K (Developer Tools)
-      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.key === 'K')) {
+      if (e.ctrlKey && e.shiftKey && (['I', 'J', 'C', 'K'].includes(e.key.toUpperCase()))) {
         e.preventDefault();
         return false;
       }
