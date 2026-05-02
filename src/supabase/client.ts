@@ -1,6 +1,7 @@
 'use client';
 import { createClient } from '@supabase/supabase-js';
 
+// Chaves oficiais fornecidas pelo usuário
 const supabaseUrl = 'https://woknbjmkhpkxahzbkdic.supabase.co';
 const supabaseAnonKey = 'sb_publishable_g-jp4nu7n4iRDJV_ns0k_g_aZNqOEvZ';
 

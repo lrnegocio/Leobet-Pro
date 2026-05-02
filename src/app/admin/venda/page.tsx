@@ -8,12 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Printer, Plus, Minus, MessageCircle, Clock, LayoutGrid, Zap, Info } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, MessageCircle, Clock, LayoutGrid, Zap, Info, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function VendaPage() {
   const { toast } = useToast();
@@ -29,7 +29,6 @@ export default function VendaPage() {
   const [formData, setFormData] = useState({ cliente: '', whatsapp: '', pixKey: '', eventoId: '', eventoNome: '', tipo: 'bingo' as any, unitario: 0 });
   const [partidasBolao, setPartidasBolao] = useState<any[]>([]);
   const [palpites, setPalpites] = useState<string[]>([]);
-  const [numerosLoteria, setNumerosLoteria] = useState<number[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
   const [openMultiOption, setOpenMultiOption] = useState(false);
 
@@ -64,15 +63,29 @@ export default function VendaPage() {
     if (ev) {
       setSelectedEventData(ev);
       setFormData({ ...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo });
-      setNumerosLoteria([]);
+      
+      // Cálculo de Pool Dinâmico: Arrecadação - Comissões Estimadas (ou reais já registradas)
+      const { data: tickets } = await supabase.from('tickets').select('valor_total, vendedor_id').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago']);
+      const { data: users } = await supabase.from('users').select('id, commission_rate, gerente_id');
+      
+      let totalArrecadado = 0;
+      let totalComissoes = 0;
+
+      tickets?.forEach(t => {
+        const valor = Number(t.valor_total) || 0;
+        totalArrecadado += valor;
+        const seller = users?.find(u => u.id === t.vendedor_id);
+        const rate = (Number(seller?.commission_rate || 0)) / 100;
+        const gRate = seller?.gerente_id ? 0.05 : 0;
+        totalComissoes += (valor * (rate + gRate));
+      });
+
+      setCurrentPool(Math.max(0, totalArrecadado - totalComissoes));
+      
       if (ev.tipo === 'bolao' || ev.tipo === 'esportivo') {
-        const matches = ev.partidas || [];
-        setPartidasBolao(matches);
-        setPalpites(Array(matches.length).fill(''));
+        setPartidasBolao(ev.partidas || []);
+        setPalpites(Array((ev.partidas || []).length).fill(''));
       }
-      const { data } = await supabase.from('tickets').select('valor_total').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago']);
-      const total = data?.reduce((acc, t) => acc + Number(t.valor_total), 0) || 0;
-      setCurrentPool(total * 0.65);
     } else { setSelectedEventData(null); setCurrentPool(0); }
   };
 
@@ -86,7 +99,12 @@ export default function VendaPage() {
     setOpenMultiOption(false);
     setLoading(true);
     const ticketsGenerated = [];
-    const firstTicketNums = formData.tipo === 'bingo' ? generateRandomNumbers(15, 90) : [...numerosLoteria];
+    
+    // Primeiro bilhete (Manual ou Aleatório conforme o tipo)
+    let firstTicketNums = null;
+    if (formData.tipo === 'bingo') firstTicketNums = generateRandomNumbers(15, 90);
+    else if (formData.tipo === 'mega') firstTicketNums = generateRandomNumbers(15, 60);
+    else if (formData.tipo === 'quina') firstTicketNums = generateRandomNumbers(20, 80);
 
     for (let i = 0; i < quantity; i++) {
       let n = null; let p = null;
@@ -162,7 +180,7 @@ export default function VendaPage() {
                     <form onSubmit={handleVenda} className="space-y-4">
                       {selectedEventData && (
                         <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 flex justify-between items-center">
-                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado (65%)</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
+                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado Líquido</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
                            <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Pool</Badge>
                         </div>
                       )}
@@ -216,11 +234,11 @@ export default function VendaPage() {
 
       <Dialog open={openMultiOption} onOpenChange={setOpenMultiOption}>
         <DialogContent className="bg-white rounded-[2rem] max-w-sm">
-          <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Configurar Apostas</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Opções de Bilhete</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4 text-center">
-            <p className="text-xs font-bold text-muted-foreground">Deseja repetir o mesmo bilhete ou gerar novos aleatórios?</p>
-            <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2">Repetir Bilhete</Button>
-            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl">Surpresinha (Novos)</Button>
+            <p className="text-xs font-bold text-muted-foreground">Você está comprando {quantity} bilhetes. Deseja repetir o primeiro ou gerar novos aleatórios?</p>
+            <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2">Repetir Primeiro</Button>
+            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl">Surpresinha (Aleatórios)</Button>
           </div>
         </DialogContent>
       </Dialog>

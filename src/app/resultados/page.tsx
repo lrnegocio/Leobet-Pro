@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
@@ -39,14 +38,30 @@ function ResultadosContent() {
         const { data: ev } = await supabase.from(table).select('*').eq('id', found.evento_id).single();
         setEventData(ev);
 
+        // Busca todos os tickets para calcular o pool real (Arrecadação - Comissões)
         const { data: allTickets } = await supabase
           .from('tickets')
-          .select('valor_total')
+          .select('valor_total, vendedor_id')
           .eq('evento_id', found.evento_id)
           .in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
         
-        const totalArrecadado = allTickets?.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0) || 0;
-        setEventPool(totalArrecadado * 0.65);
+        // Busca todos os vendedores para saber as taxas de comissão
+        const { data: sellers } = await supabase.from('users').select('id, commission_rate, gerente_id');
+        
+        let totalComissoes = 0;
+        let totalArrecadado = 0;
+
+        allTickets?.forEach(t => {
+          const valor = Number(t.valor_total) || 0;
+          totalArrecadado += valor;
+          const seller = sellers?.find(s => s.id === t.vendedor_id);
+          const rate = Number(seller?.commission_rate || 0) / 100;
+          const gRate = seller?.gerente_id ? 0.05 : 0; // Taxa de gerente fixa em 5%
+          totalComissoes += (valor * (rate + gRate));
+        });
+
+        // Prêmio final é o que sobra após pagar comissões
+        setEventPool(Math.max(0, totalArrecadado - totalComissoes));
 
       } else {
         setReceipt(null); toast({ variant: "destructive", title: "NÃO ENCONTRADO" });
@@ -116,7 +131,7 @@ function ResultadosContent() {
                  <div className="flex items-center gap-3">
                     <Wallet className="w-8 h-8 text-accent" />
                     <div>
-                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado (65%)</p>
+                       <p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado (Total Líquido)</p>
                        <p className="text-3xl font-black">R$ {eventPool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                  </div>
@@ -125,7 +140,7 @@ function ResultadosContent() {
 
               {statsGanhos.total > 0 && (
                 <div className="p-8 rounded-[2rem] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl bg-green-600 print:bg-white print:text-black print:border-2 print:border-green-600">
-                  <div><p className="text-[10px] font-black uppercase opacity-60 print:opacity-100">Prêmio Total (Somado)</p><p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p></div>
+                  <div><p className="text-[10px] font-black uppercase opacity-60 print:opacity-100">Meu Prêmio Total</p><p className="text-4xl font-black">R$ {statsGanhos.total.toFixed(2)}</p></div>
                   <Badge className="bg-white text-green-700 h-10 px-8 font-black uppercase text-[10px] rounded-xl flex items-center justify-center">PREMIADO</Badge>
                 </div>
               )}
@@ -139,7 +154,7 @@ function ResultadosContent() {
                 {eventData && (
                   <div className="mb-6 p-4 bg-white border-2 border-dashed rounded-2xl">
                     <p className="text-[9px] font-black uppercase text-primary flex items-center gap-1 mb-2"><Info className="w-3 h-3" /> Regras do Jogo:</p>
-                    <p className="text-[10px] font-bold text-muted-foreground whitespace-pre-line">{eventData.regras || 'Rateio de 65% para os vencedores.'}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground whitespace-pre-line">{eventData.regras || 'Rateio automático auditado via Cloud.'}</p>
                   </div>
                 )}
                 
@@ -160,6 +175,12 @@ function ResultadosContent() {
                               const isDrawn = eventData?.tipo === 'bingo' ? eventData.bolas_sorteadas?.includes(n) : eventData?.drawn_numbers?.includes(n);
                               return (<div key={n} className={cn("h-8 flex items-center justify-center rounded-lg text-xs font-black border", isDrawn ? "bg-green-600 text-white" : "bg-muted/30 text-muted-foreground/40")}>{n < 10 ? `0${n}` : n}</div>);
                             })}
+                          </div>
+                        )}
+                        {(eventData?.tipo === 'esportivo' || eventData?.tipo === 'bolao') && t.p && (
+                          <div className="p-3 bg-muted/10 rounded-xl">
+                             <p className="text-[9px] font-black uppercase mb-1">Meus Palpites:</p>
+                             <p className="text-[10px] font-bold font-mono tracking-tighter">{t.p}</p>
                           </div>
                         )}
                       </div>
