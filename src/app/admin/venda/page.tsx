@@ -64,9 +64,9 @@ export default function VendaPage() {
       setSelectedEventData(ev);
       setFormData({ ...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo });
       
-      // Cálculo de Pool Dinâmico: Arrecadação - Comissões Estimadas (ou reais já registradas)
-      const { data: tickets } = await supabase.from('tickets').select('valor_total, vendedor_id').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago']);
-      const { data: users } = await supabase.from('users').select('id, commission_rate, gerente_id');
+      // Cálculo de Pool Dinâmico: Arrecadação - Comissões Dinâmicas Reais
+      const { data: tickets } = await supabase.from('tickets').select('valor_total, vendedor_id').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
+      const { data: sellers } = await supabase.from('users').select('id, commission_rate, gerente_id');
       
       let totalArrecadado = 0;
       let totalComissoes = 0;
@@ -74,9 +74,9 @@ export default function VendaPage() {
       tickets?.forEach(t => {
         const valor = Number(t.valor_total) || 0;
         totalArrecadado += valor;
-        const seller = users?.find(u => u.id === t.vendedor_id);
+        const seller = sellers?.find(u => u.id === t.vendedor_id);
         const rate = (Number(seller?.commission_rate || 0)) / 100;
-        const gRate = seller?.gerente_id ? 0.05 : 0;
+        const gRate = seller?.gerente_id ? 0.05 : 0; // Gerente sempre 5% fixo sobre a rede
         totalComissoes += (valor * (rate + gRate));
       });
 
@@ -100,7 +100,6 @@ export default function VendaPage() {
     setLoading(true);
     const ticketsGenerated = [];
     
-    // Primeiro bilhete (Manual ou Aleatório conforme o tipo)
     let firstTicketNums = null;
     if (formData.tipo === 'bingo') firstTicketNums = generateRandomNumbers(15, 90);
     else if (formData.tipo === 'mega') firstTicketNums = generateRandomNumbers(15, 60);
@@ -146,7 +145,7 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
       setVendaRealizada({ ...receipt, currentPool });
-      toast({ title: "VENDA PROCESSADA!" });
+      toast({ title: "VENDA PROCESSADA COM SUCESSO!" });
       loadMinhasReservas();
     } catch (err: any) { toast({ variant: "destructive", title: "ERRO NA TRANSAÇÃO" }); }
     finally { setLoading(false); }
@@ -168,31 +167,31 @@ export default function VendaPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           <Tabs defaultValue="venda">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto print:hidden">
-              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Vendas</TabsTrigger>
+              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Terminal de Vendas</TabsTrigger>
               <TabsTrigger value="reservas" className="font-black uppercase text-[10px] rounded-xl px-8">Minhas Reservas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="venda" className="space-y-6 mt-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20 print:grid-cols-1">
                 <Card className="rounded-[2.5rem] shadow-2xl bg-white border-t-8 border-primary print:hidden">
-                  <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Terminal de Vendas</CardTitle></CardHeader>
+                  <CardHeader className="p-8 pb-0"><CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2"><ShoppingCart className="w-6 h-6" /> Novo Bilhete</CardTitle></CardHeader>
                   <CardContent className="p-8 space-y-4">
                     <form onSubmit={handleVenda} className="space-y-4">
                       {selectedEventData && (
                         <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 flex justify-between items-center">
-                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Acumulado Líquido</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
-                           <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Pool</Badge>
+                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Total - Comissões)</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
+                           <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Audit</Badge>
                         </div>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold uppercase" required /></div>
-                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD+NUM" className="h-12 font-bold" required /></div>
+                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
+                        <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
                       </div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate do Prêmio</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
+                        <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso Aberto</Label>
                         <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                          <option value="">-- SELECIONE --</option>
+                          <option value="">-- SELECIONE O JOGO --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} - R$ {Number(e.preco).toFixed(2)}</option>)}
                         </select>
                       </div>
@@ -201,7 +200,7 @@ export default function VendaPage() {
                         <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className="h-12 text-center font-black text-xl border-2" />
                         <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                       </div>
-                      <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl" disabled={loading}>{loading ? 'PROCESSANDO...' : 'FINALIZAR VENDA'}</Button>
+                      <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl hover:scale-[1.01] transition-all" disabled={loading}>{loading ? 'PROCESSANDO...' : 'FINALIZAR E GERAR BILHETES'}</Button>
                     </form>
                   </CardContent>
                 </Card>
@@ -236,9 +235,9 @@ export default function VendaPage() {
         <DialogContent className="bg-white rounded-[2rem] max-w-sm">
           <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Opções de Bilhete</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4 text-center">
-            <p className="text-xs font-bold text-muted-foreground">Você está comprando {quantity} bilhetes. Deseja repetir o primeiro ou gerar novos aleatórios?</p>
-            <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2">Repetir Primeiro</Button>
-            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl">Surpresinha (Aleatórios)</Button>
+            <p className="text-xs font-bold text-muted-foreground">Você está comprando {quantity} bilhetes. Deseja repetir as mesmas dezenas em todos ou gerar novos aleatórios?</p>
+            <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2">Repetir Iguais</Button>
+            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl shadow-lg">Surpresinha (Novos Números)</Button>
           </div>
         </DialogContent>
       </Dialog>

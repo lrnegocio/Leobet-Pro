@@ -15,7 +15,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     // Bloqueio de Teclas de Inspeção (F12, Ctrl+U, Ctrl+Shift+I, etc)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Bloquear F12
-      if (e.keyCode === 123 || e.key === 'F12') {
+      if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
         return false;
       }
@@ -32,8 +32,8 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // Bloquear Ctrl + Shift + I / J / C / K (Developer Tools)
-      if (e.ctrlKey && e.shiftKey && (['I', 'J', 'C', 'K'].includes(e.key.toUpperCase()))) {
+      // Bloquear Ferramentas de Desenvolvedor (Ctrl+Shift+I, J, C)
+      if (e.ctrlKey && e.shiftKey && (['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
         e.preventDefault();
         return false;
       }
@@ -48,7 +48,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
-    // Proteção contra drag and drop de elementos
+    // Proteção contra drag and drop de elementos e seleção de texto sensível
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
       return false;
