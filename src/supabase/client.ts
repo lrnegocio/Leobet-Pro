@@ -1,9 +1,8 @@
 'use client';
 import { createClient } from '@supabase/supabase-js';
 
-// Variáveis de ambiente configuradas no Netlify/Vercel
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+const supabaseUrl = 'https://woknbjmkhpkxahzbkdic.supabase.co';
+const supabaseAnonKey = 'sb_publishable_g-jp4nu7n4iRDJV_ns0k_g_aZNqOEvZ';
 
 export const supabase = createClient(
   supabaseUrl,
@@ -16,8 +15,8 @@ export const supabase = createClient(
     },
     global: {
       fetch: (...args) => fetch(...args).catch(err => {
-        console.warn("Supabase Fetch Warning:", err.message);
-        return new Response(JSON.stringify({ error: "Network/Sync issue" }), { status: 500 });
+        console.warn("Supabase Sync:", err.message);
+        return new Response(JSON.stringify({ error: "Sync issue" }), { status: 500 });
       })
     }
   }

@@ -22,7 +22,6 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
   const [finished, setFinished] = useState(false);
   const [currentPrizeLevel, setCurrentPrizeLevel] = useState<'quadra' | 'quina' | 'bingo'>('quadra');
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  
   const [winners, setWinners] = useState<{ quadra: any[], quina: any[], bingo: any[] }>({ quadra: [], quina: [], bingo: [] });
 
   const loadBingoData = async () => {
@@ -43,23 +42,30 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
 
   useEffect(() => { loadBingoData(); }, [params.id]);
 
-  const totalComissoes = useMemo(() => {
-    return tickets.reduce((acc, t) => {
+  const poolData = useMemo(() => {
+    let totalComissoes = 0;
+    let totalArrecadado = 0;
+
+    tickets.forEach(t => {
+      const valor = Number(t.valor_total) || 0;
+      totalArrecadado += valor;
+      
       const seller = allUsers.find(u => u.id === t.vendedor_id);
       const rate = Number(seller?.commission_rate || 0) / 100;
       const gRate = seller?.gerente_id ? 0.05 : 0; // Gerente fixo 5%
-      return acc + (Number(t.valor_total) * (rate + gRate));
-    }, 0);
+      totalComissoes += (valor * (rate + gRate));
+    });
+
+    const pool = Math.max(0, totalArrecadado - totalComissoes);
+    return {
+      pool,
+      premios: {
+        bingo: Math.floor(pool * 0.50 * 100) / 100,
+        quina: Math.floor(pool * 0.30 * 100) / 100,
+        quadra: Number((pool - (Math.floor(pool * 0.50 * 100) / 100) - (Math.floor(pool * 0.30 * 100) / 100)).toFixed(2))
+      }
+    };
   }, [tickets, allUsers]);
-
-  const totalArrecadado = useMemo(() => tickets.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0), [tickets]);
-  const pool = Math.max(0, totalArrecadado - totalComissoes);
-
-  const premios = {
-    bingo: Math.floor(pool * 0.50 * 100) / 100,
-    quina: Math.floor(pool * 0.30 * 100) / 100,
-    quadra: Number((pool - (Math.floor(pool * 0.50 * 100) / 100) - (Math.floor(pool * 0.30 * 100) / 100)).toFixed(2))
-  };
 
   const markTicketAsWinner = async (receiptId: string, ticketId: string, level: string, prize: number) => {
     const receipt = tickets.find(t => t.id === receiptId);
@@ -101,7 +107,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
       newWinners[level] = [...(newWinners[level] || []), ...currentRoundWinners];
       setWinners(newWinners);
 
-      const individualPrize = premios[level] / newWinners[level].length;
+      const individualPrize = poolData.premios[level] / newWinners[level].length;
       for (const winner of currentRoundWinners) {
         await markTicketAsWinner(winner.receiptId, winner.ticketId, level, individualPrize);
       }
@@ -114,7 +120,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         setCurrentPrizeLevel(level === 'quadra' ? 'quina' : 'bingo');
       }
     }
-  }, [tickets, winners, currentPrizeLevel, premios, finished, params.id]);
+  }, [tickets, winners, currentPrizeLevel, poolData, finished, params.id]);
 
   const drawNumber = async () => {
     if (drawnNumbers.length >= 90 || finished) return;
@@ -141,8 +147,8 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
         <div className="flex items-center justify-between shrink-0 h-6 px-2">
           <Link href="/admin/bingo" className="text-primary font-black text-[9px] uppercase"><ArrowLeft className="w-3 h-3 inline" /> Voltar</Link>
           <div className="text-right">
-             <p className="text-[7px] font-black uppercase opacity-60">Prêmio Dinâmico (Arrecadação - Comissões)</p>
-             <p className="text-[10px] font-black text-green-600">R$ {pool.toFixed(2)}</p>
+             <p className="text-[7px] font-black uppercase opacity-60">Prêmio Dinâmico (Total - Comissões)</p>
+             <p className="text-[10px] font-black text-green-600">R$ {poolData.pool.toFixed(2)}</p>
           </div>
         </div>
 
@@ -169,7 +175,7 @@ export default function SorteioPage({ params: paramsPromise }: { params: Promise
              <div className="flex-1 space-y-2 overflow-y-auto">
                 {['quadra', 'quina', 'bingo'].map((lvl: any) => (
                   <Card key={lvl} className={cn("p-2 transition-all border-none shadow-sm", currentPrizeLevel === lvl ? "ring-2 ring-accent" : "opacity-40")}>
-                    <div className="flex justify-between items-center text-[9px] font-black uppercase"><span>{lvl}</span><span className="text-green-600">R$ {premios[lvl as keyof typeof premios].toFixed(2)}</span></div>
+                    <div className="flex justify-between items-center text-[9px] font-black uppercase"><span>{lvl}</span><span className="text-green-600">R$ {poolData.premios[lvl as keyof typeof poolData.premios].toFixed(2)}</span></div>
                     <div className="mt-2 space-y-1">
                        {winners[lvl as keyof typeof winners]?.map((w, i) => (
                          <div key={i} className="text-[8px] font-black uppercase bg-green-50 p-1.5 rounded-lg border flex justify-between"><span>{w.cliente}</span><Trophy className="w-2 h-2" /></div>

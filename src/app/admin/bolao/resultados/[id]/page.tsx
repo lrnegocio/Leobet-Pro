@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -17,6 +16,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
   const { toast } = useToast();
   const [bolao, setBolao] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
   const [lotteryResults, setLotteryResults] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
@@ -31,7 +31,7 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       const { data: bData } = await supabase.from('boloes').select('*').eq('id', resolvedParams.id).single();
       if (bData) {
         setBolao(bData);
-        if (bData.tipo === 'esportivo') {
+        if (bData.tipo === 'esportivo' || !bData.tipo) {
           if (bData.scores && bData.scores.length > 0) setScores(bData.scores);
           else setScores(Array(bData.partidas?.length || 10).fill({ p1: '', p2: '' }));
         } else {
@@ -39,16 +39,31 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         }
       }
       const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
-      setTickets(tData || []);
+      const { data: uData } = await supabase.from('users').select('*');
+      
+      if (tData) setTickets(tData);
+      if (uData) setAllUsers(uData);
     } catch (err) { console.error(err); }
   };
 
   useEffect(() => { loadData(); }, [mounted]);
 
   const pool = useMemo(() => {
-    const total = tickets.reduce((acc, t) => acc + (Number(t.valor_total || 0)), 0);
-    return Math.floor(total * 0.65 * 100) / 100;
-  }, [tickets]);
+    let totalComissoes = 0;
+    let totalArrecadado = 0;
+
+    tickets.forEach(t => {
+      const valor = Number(t.valor_total) || 0;
+      totalArrecadado += valor;
+      
+      const seller = allUsers.find(u => u.id === t.vendedor_id);
+      const rate = Number(seller?.commission_rate || 0) / 100;
+      const gRate = seller?.gerente_id ? 0.05 : 0;
+      totalComissoes += (valor * (rate + gRate));
+    });
+
+    return Math.max(0, totalArrecadado - totalComissoes);
+  }, [tickets, allUsers]);
 
   const handleUpdateScore = (index: number, field: 'p1' | 'p2', val: string) => {
     const newScores = [...scores];
@@ -62,17 +77,13 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
       setLotteryResults(lotteryResults.filter(n => n !== num));
     } else {
       if (bolao.tipo === 'quina' && lotteryResults.length >= 5) {
-        return toast({ variant: "destructive", title: "LIMITE ATINGIDO", description: "Para a Quina, selecione apenas 5 dezenas." });
+        return toast({ variant: "destructive", title: "LIMITE", description: "Selecione apenas 5." });
       }
       setLotteryResults([...lotteryResults, num].sort((a,b) => a-b));
     }
   };
 
   const calculateWinners = async () => {
-    if (bolao.tipo === 'quina' && lotteryResults.length !== 5) {
-      return toast({ variant: "destructive", title: "ATENÇÃO", description: "Selecione exatamente 5 dezenas para o sorteio da Quina." });
-    }
-
     setSaving(true);
     try {
       let maxHits = 0;
@@ -107,9 +118,9 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
         const { data: rec } = await supabase.from('tickets').select('*').eq('id', winner.receiptId).single();
         if (rec) {
           const updatedData = rec.tickets_data.map((t: any) => 
-            t.id === winner.ticketId ? { ...t, s: 'ganhou', v: individualPrize } : t
+            t.id === winner.ticketId ? { ...t, status: 'ganhou', valorPremio: individualPrize } : t
           );
-          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou' }).eq('id', rec.id);
+          await supabase.from('tickets').update({ tickets_data: updatedData, status: 'ganhou', detalhe_premios: { total: individualPrize, data: new Date().toISOString() } }).eq('id', rec.id);
         }
       }
 
@@ -139,16 +150,17 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
              <Link href="/admin/bolao" className="flex items-center gap-2 text-primary hover:underline font-black text-[10px] uppercase">
                 <ArrowLeft className="w-4 h-4" /> Voltar
              </Link>
-             <Badge variant="outline" className="font-black uppercase text-[10px] flex gap-1 items-center">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria {bolao.tipo?.toUpperCase()}
-             </Badge>
+             <div className="text-right">
+                <p className="text-[7px] font-black uppercase opacity-60">Prêmio da Rodada (Líquido)</p>
+                <p className="text-xl font-black text-green-600">R$ {pool.toFixed(2)}</p>
+             </div>
           </div>
 
           <Card className="rounded-[2.5rem] bg-white overflow-hidden shadow-2xl border-none">
             <CardContent className="p-8 space-y-8">
                <h1 className="text-4xl font-black uppercase text-primary leading-none text-center">{bolao.nome}</h1>
                
-               {bolao.tipo === 'esportivo' ? (
+               {bolao.tipo === 'esportivo' || !bolao.tipo ? (
                  <div className="grid grid-cols-1 gap-3">
                     {bolao.partidas.map((p: any, i: number) => (
                       <div key={i} className="flex flex-col sm:flex-row items-center gap-4 p-5 rounded-2xl bg-muted/20 border-2">
@@ -180,11 +192,6 @@ export default function ResultadosBolaoPage({ params: paramsPromise }: { params:
                             );
                           })}
                        </div>
-                       {bolao.tipo === 'quina' && (
-                         <p className="mt-4 text-[9px] font-black text-orange-600 uppercase flex items-center justify-center gap-2">
-                           <LayoutGrid className="w-3 h-3" /> Selecione exatamente 05 dezenas para a Quina.
-                         </p>
-                       )}
                     </div>
                  </div>
                )}
