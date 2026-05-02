@@ -61,7 +61,7 @@ export default function GestaoUsuariosPage() {
       ...formData, 
       nome: formData.nome.toUpperCase(), 
       email: formData.email.toLowerCase(),
-      commission_rate: Number(formData.commission_rate) || 0
+      commission_rate: formData.role === 'cliente' ? 0 : Number(formData.commission_rate)
     };
     try {
       if (selectedUser && openEdit) {
@@ -85,19 +85,19 @@ export default function GestaoUsuariosPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-3xl font-black uppercase text-primary leading-none text-center lg:text-left">Gestão de Rede <Database className="inline w-6 h-6 text-green-600" /></h1>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Configuração de Comissões e Acessos</p>
+              <h1 className="text-3xl font-black uppercase text-primary leading-none">Gestão de Rede <Database className="inline w-6 h-6 text-green-600" /></h1>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Controle de Acessos e Comissões</p>
             </div>
             <Button onClick={() => { setOpenCreate(true); setSelectedUser(null); setFormData({ nome: '', email: '', password: '', role: 'cambista', phone: '', pix_key: '', cpf: '', commission_rate: 10 }); }} className="bg-accent h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg"><UserPlus className="w-4 h-4" /> Novo</Button>
           </div>
 
           <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border items-center">
             <Search className="w-5 h-5 text-muted-foreground ml-3" />
-            <Input placeholder="Pesquisar por nome ou e-mail..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="border-none focus-visible:ring-0 font-bold" />
+            <Input placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="border-none focus-visible:ring-0 font-bold" />
           </div>
 
           <div className="grid grid-cols-1 gap-4 pb-20">
-            {loading ? <div className="py-20 text-center animate-pulse font-black uppercase text-xs">Consultando Supabase...</div> : filteredUsers.map((u) => (
+            {loading ? <div className="py-20 text-center animate-pulse font-black uppercase text-xs">Conectando...</div> : filteredUsers.map((u) => (
               <Card key={u.id} className="border-l-8 border-l-primary rounded-3xl overflow-hidden bg-white">
                 <CardContent className="p-6 flex flex-col md:flex-row justify-between items-center gap-6">
                   <div className="flex items-center gap-4 flex-1">
@@ -110,12 +110,7 @@ export default function GestaoUsuariosPage() {
                           <Badge variant="outline" className="text-[9px] font-black border-accent text-accent h-5">COMISSÃO: {u.commission_rate || 0}%</Badge>
                         )}
                       </div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'Sem Zap'}</p>
-                      <div className="flex gap-2 items-center bg-muted/50 w-fit px-2 py-1 rounded-lg">
-                        <span className="text-[9px] font-black opacity-50 uppercase">Acesso:</span>
-                        <span className="text-[10px] font-black">{visiblePasswords[u.id] ? u.password : '••••••••'}</span>
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setVisiblePasswords(p => ({ ...p, [u.id]: !p[u.id] }))}>{visiblePasswords[u.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button>
-                      </div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{u.email} • {u.phone || 'S/ Whats'}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -129,10 +124,9 @@ export default function GestaoUsuariosPage() {
           </div>
         </div>
 
-        {/* DIALOG CRIAR/EDITAR */}
         <Dialog open={openCreate || openEdit} onOpenChange={v => { setOpenCreate(v); if(!v) setOpenEdit(false); }}>
           <DialogContent className="bg-white rounded-[2rem] border-none max-w-lg">
-            <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">{openEdit ? 'Ajustar Cadastro' : 'Novo Membro'}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Cadastro de Usuário</DialogTitle></DialogHeader>
             <form onSubmit={handleSaveUser} className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -146,39 +140,35 @@ export default function GestaoUsuariosPage() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase opacity-60">Comissão (%)</Label>
-                  <div className="relative">
-                    <Input type="number" value={formData.commission_rate} onChange={e => setFormData({...formData, commission_rate: Number(e.target.value)})} className="h-11 font-bold pl-8" disabled={formData.role === 'cliente'} />
-                    <Percent className="absolute left-2.5 top-3 w-4 h-4 opacity-40" />
-                  </div>
+                  <Input type="number" value={formData.commission_rate} onChange={e => setFormData({...formData, commission_rate: Number(e.target.value)})} className="h-11 font-bold" disabled={formData.role === 'cliente'} />
                 </div>
               </div>
-              <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold uppercase" /></div>
+              <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold uppercase" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="h-11 font-bold" /></div>
                 <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX</Label><Input value={formData.pix_key} onChange={e => setFormData({...formData, pix_key: e.target.value})} className="h-11 font-bold uppercase" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">E-mail (Login)</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
+                <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Login/Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required className="h-11 font-bold" /></div>
                 <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Senha</Label><Input value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required className="h-11 font-bold" /></div>
               </div>
-              <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl mt-4">SALVAR NO BANCO</Button>
+              <Button type="submit" className="w-full h-14 bg-primary text-white font-black uppercase rounded-xl">SALVAR NO BANCO</Button>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* DIALOG SALDO */}
         <Dialog open={openBalance} onOpenChange={setOpenBalance}>
           <DialogContent className="bg-white rounded-[2.5rem] border-none max-w-sm">
             <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Ajustar Saldo</DialogTitle></DialogHeader>
-            <div className="space-y-6 py-4 text-center">
+            <div className="space-y-6 py-4">
                <div className="flex gap-2">
-                 <Button variant={balanceType === 'balance' ? 'default' : 'outline'} className="flex-1 h-10 font-black text-[10px]" onClick={() => setBalanceType('balance')}>APOSTAS</Button>
-                 <Button variant={balanceType === 'commission_balance' ? 'default' : 'outline'} className="flex-1 h-10 font-black text-[10px]" onClick={() => setBalanceType('commission_balance')}>COMISSÕES</Button>
+                 <Button variant={balanceType === 'balance' ? 'default' : 'outline'} className="flex-1" onClick={() => setBalanceType('balance')}>APOSTAS</Button>
+                 <Button variant={balanceType === 'commission_balance' ? 'default' : 'outline'} className="flex-1" onClick={() => setBalanceType('commission_balance')}>COMISSÕES</Button>
                </div>
-               <Input type="number" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)} className="h-14 text-center font-black text-2xl rounded-2xl" placeholder="0.00" />
+               <Input type="number" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)} className="h-14 text-center font-black text-2xl" placeholder="0.00" />
                <div className="flex gap-3">
-                 <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-14 font-black uppercase rounded-xl"><Minus className="w-4 h-4" /> Retirar</Button>
-                 <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-14 bg-green-600 font-black uppercase rounded-xl text-white"><Plus className="w-4 h-4" /> Adicionar</Button>
+                 <Button onClick={() => handleAdjustBalance('remove')} variant="destructive" className="flex-1 h-12">Retirar</Button>
+                 <Button onClick={() => handleAdjustBalance('add')} className="flex-1 h-12 bg-green-600">Adicionar</Button>
                </div>
             </div>
           </DialogContent>

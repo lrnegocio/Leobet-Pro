@@ -15,7 +15,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     // BLOQUEIO DE TECLAS DE ATALHO (F12, CTRL+U, CTRL+SHIFT+I, ETC)
     const handleKeyDown = (e: KeyboardEvent) => {
       // F12
-      if (e.keyCode === 123) {
+      if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
         return false;
       }
