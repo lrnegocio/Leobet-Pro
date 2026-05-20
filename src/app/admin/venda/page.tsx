@@ -8,11 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Printer, Plus, Minus, MessageCircle, Clock, LayoutGrid, Zap, Info, Wallet } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
-import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function VendaPage() {
@@ -21,7 +20,6 @@ export default function VendaPage() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
-  const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [currentPool, setCurrentPool] = useState(0);
@@ -45,17 +43,10 @@ export default function VendaPage() {
     } catch (err) { console.warn(err); }
   };
 
-  const loadMinhasReservas = async () => {
-    if (!user) return;
-    const { data } = await supabase.from('tickets').select('*').eq('status', 'pendente').or(`vendedor_id.eq.${user.id},cliente.eq.${user.nome}`).order('created_at', { ascending: false });
-    setMinhasReservas(data || []);
-  };
-
   useEffect(() => {
     setMounted(true);
     loadEventos();
     if (user?.role === 'cliente') setFormData(p => ({ ...p, cliente: user.nome, whatsapp: user.phone || '', pixKey: user.pixKey || '' }));
-    loadMinhasReservas();
   }, [user]);
 
   const handleSelectEvento = async (eventId: string) => {
@@ -76,7 +67,7 @@ export default function VendaPage() {
         totalArrecadado += valor;
         const seller = sellers?.find(u => u.id === t.vendedor_id);
         const rate = (Number(seller?.commission_rate || 0)) / 100;
-        const gRate = seller?.gerente_id ? 0.05 : 0; // Gerente sempre 5% fixo sobre a rede
+        const gRate = seller?.gerente_id ? 0.05 : 0; 
         totalComissoes += (valor * (rate + gRate));
       });
 
@@ -146,7 +137,6 @@ export default function VendaPage() {
       if (error) throw error;
       setVendaRealizada({ ...receipt, currentPool });
       toast({ title: "VENDA PROCESSADA COM SUCESSO!" });
-      loadMinhasReservas();
     } catch (err: any) { toast({ variant: "destructive", title: "ERRO NA TRANSAÇÃO" }); }
     finally { setLoading(false); }
   };
@@ -168,7 +158,6 @@ export default function VendaPage() {
           <Tabs defaultValue="venda">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto print:hidden">
               <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Terminal de Vendas</TabsTrigger>
-              <TabsTrigger value="reservas" className="font-black uppercase text-[10px] rounded-xl px-8">Minhas Reservas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="venda" className="space-y-6 mt-6">
@@ -179,7 +168,7 @@ export default function VendaPage() {
                     <form onSubmit={handleVenda} className="space-y-4">
                       {selectedEventData && (
                         <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 flex justify-between items-center">
-                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Total - Comissões)</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
+                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Líquido)</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
                            <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Audit</Badge>
                         </div>
                       )}
@@ -187,9 +176,9 @@ export default function VendaPage() {
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
                       </div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX para Resgate do Prêmio</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso Aberto</Label>
+                        <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
                         <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                           <option value="">-- SELECIONE O JOGO --</option>
                           {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} - R$ {Number(e.preco).toFixed(2)}</option>)}
@@ -200,23 +189,22 @@ export default function VendaPage() {
                         <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className="h-12 text-center font-black text-xl border-2" />
                         <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                       </div>
-                      <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl hover:scale-[1.01] transition-all" disabled={loading}>{loading ? 'PROCESSANDO...' : 'FINALIZAR E GERAR BILHETES'}</Button>
+                      <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl" disabled={loading}>{loading ? 'PROCESSANDO...' : 'GERAR BILHETES'}</Button>
                     </form>
                   </CardContent>
                 </Card>
 
                 <div className="space-y-4">
                   {vendaRealizada ? (
-                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center print:border-none print:shadow-none print:p-0 overflow-y-auto max-h-[80vh]">
+                    <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center overflow-y-auto max-h-[80vh]">
                        <p className="text-2xl font-black text-primary">LEOBET PRO</p>
-                       <p className="text-[10px] font-black uppercase">Recibo Oficial de Aposta</p>
+                       <p className="text-[10px] font-black uppercase">Recibo Oficial</p>
                        <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between font-black border-t pt-2"><span>VALOR TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
-                          <p className="text-center pt-2 border-t font-black">CÓDIGO: {vendaRealizada.id}</p>
                        </div>
-                       <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2 print:hidden"><Printer /> Imprimir Bilhete</Button>
+                       <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir</Button>
                     </div>
                   ) : (
                     <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
@@ -235,9 +223,9 @@ export default function VendaPage() {
         <DialogContent className="bg-white rounded-[2rem] max-w-sm">
           <DialogHeader><DialogTitle className="font-black uppercase text-primary text-center">Opções de Bilhete</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4 text-center">
-            <p className="text-xs font-bold text-muted-foreground">Você está comprando {quantity} bilhetes. Deseja repetir as mesmas dezenas em todos ou gerar novos aleatórios?</p>
+            <p className="text-xs font-bold text-muted-foreground">Você está comprando {quantity} bilhetes.</p>
             <Button onClick={() => finalizeVenda('repeat')} className="w-full h-14 font-black uppercase rounded-xl border-2">Repetir Iguais</Button>
-            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl shadow-lg">Surpresinha (Novos Números)</Button>
+            <Button onClick={() => finalizeVenda('random')} className="w-full h-14 font-black uppercase bg-primary text-white rounded-xl shadow-lg">Surpresinha</Button>
           </div>
         </DialogContent>
       </Dialog>

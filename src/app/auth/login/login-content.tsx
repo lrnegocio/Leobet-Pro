@@ -54,8 +54,8 @@ export default function LoginContent() {
         return;
       }
 
-      // 2. BUSCA NA TABELA USERS (SCHEMA SQL)
-      const { data: dbUser, error: dbError } = await supabase
+      // 2. BUSCA NO BANCO
+      const { data: dbUser } = await supabase
         .from('users')
         .select('*')
         .or(`email.eq.${cleanId.toLowerCase()},nome.eq.${cleanId.toUpperCase()},id.eq.${cleanId.toUpperCase()}`)
@@ -87,8 +87,7 @@ export default function LoginContent() {
         return;
       }
 
-      throw new Error("Credenciais inválidas ou Usuário não encontrado.");
-
+      throw new Error("Credenciais inválidas.");
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro de Acesso", description: err.message });
     } finally {
@@ -107,32 +106,30 @@ export default function LoginContent() {
         <CardHeader className="text-center pt-8">
           <div className="mx-auto bg-accent/10 p-4 rounded-full w-fit mb-4 text-accent"><Lock className="w-8 h-8" /></div>
           <CardTitle className="text-2xl font-black uppercase text-primary">Terminal Seguro</CardTitle>
-          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">Acesso Restrito LEOBET PRO</CardDescription>
+          <CardDescription className="font-bold uppercase text-[10px] tracking-widest opacity-60">LEOBET PRO</CardDescription>
         </CardHeader>
         <CardContent className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase opacity-60">Usuário ou E-mail</Label>
-              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-14 font-bold border-2 rounded-xl focus:border-primary" />
+              <Input placeholder="Seu usuário" value={identifier} onChange={e => setIdentifier(e.target.value)} required className="h-14 font-bold border-2 rounded-xl" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black uppercase opacity-60">Senha Secreta</Label>
-              <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-14 font-bold border-2 rounded-xl focus:border-primary" />
+              <Label className="text-xs font-black uppercase opacity-60">Senha</Label>
+              <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-14 font-bold border-2 rounded-xl" />
             </div>
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-16 font-black uppercase text-lg shadow-xl transition-all active:scale-95 rounded-2xl" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "ENTRAR NO SISTEMA"}
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 h-16 font-black uppercase rounded-2xl shadow-xl" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : "ENTRAR"}
             </Button>
           </form>
         </CardContent>
-        {(roleFromUrl === 'cliente' || roleFromUrl === 'cambista') && (
-          <CardFooter className="flex flex-col gap-4 border-t p-8 bg-muted/30 rounded-b-[2.5rem]">
-            <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
-              <Button variant="outline" className="w-full border-2 border-primary/20 hover:bg-primary/5 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
-                <UserPlus className="w-4 h-4" /> Criar nova conta
-              </Button>
-            </Link>
-          </CardFooter>
-        )}
+        <CardFooter className="flex flex-col gap-4 border-t p-8 bg-muted/30 rounded-b-[2.5rem]">
+          <Link href={`/auth/register?role=${roleFromUrl}`} className="w-full">
+            <Button variant="outline" className="w-full border-2 h-12 font-black uppercase text-[10px] rounded-xl gap-2">
+              <UserPlus className="w-4 h-4" /> Criar nova conta
+            </Button>
+          </Link>
+        </CardFooter>
       </Card>
     </div>
   );
