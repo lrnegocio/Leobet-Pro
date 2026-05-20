@@ -48,7 +48,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
-    // Proteção contra drag and drop
+    // Proteção contra drag and drop de imagens/texto
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
       return false;

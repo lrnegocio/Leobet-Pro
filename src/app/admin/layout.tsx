@@ -32,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      // REGRA DE OURO: Somente Admin ou Master entra aqui.
+      // REGRA MASTER: lrnegocio0 sempre é admin master
       const isMaster = currentUser.id === 'MASTER-ADMIN' || currentUser.email === 'lrnegocio0@leobet.pro';
       const isAdmin = currentUser.role === 'admin';
 
@@ -41,13 +41,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      // Cambistas e Gerentes só podem acessar a tela de VENDA se ela estiver no admin
+      // Se for cambista ou gerente tentando entrar no admin, expulsa
+      if (pathname.startsWith('/admin') && pathname !== '/admin/venda') {
+        router.replace(`/${currentUser.role}/dashboard`);
+        return;
+      }
+
+      // Permitir apenas a tela de venda para outros níveis se estiver no admin
       if (pathname === '/admin/venda') {
         setLoading(false);
         return;
       }
 
-      // Bloqueio Total: Expulsa para o dashboard correto
       router.replace(`/${currentUser.role}/dashboard`);
     };
 
@@ -59,7 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex items-center justify-center h-screen bg-primary">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="font-black uppercase tracking-widest text-[10px]">Validando Acesso Master...</p>
+          <p className="font-black uppercase tracking-widest text-[10px]">Proteção Master Ativa...</p>
         </div>
       </div>
     );

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Printer, Plus, Minus, LayoutGrid } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, LayoutGrid, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -25,8 +25,6 @@ export default function VendaPage() {
   const [currentPool, setCurrentPool] = useState(0);
   
   const [formData, setFormData] = useState({ cliente: '', whatsapp: '', pixKey: '', eventoId: '', eventoNome: '', tipo: 'bingo' as any, unitario: 0 });
-  const [partidasBolao, setPartidasBolao] = useState<any[]>([]);
-  const [palpites, setPalpites] = useState<string[]>([]);
   const [vendaRealizada, setVendaRealizada] = useState<any>(null);
   const [openMultiOption, setOpenMultiOption] = useState(false);
 
@@ -72,11 +70,6 @@ export default function VendaPage() {
       });
 
       setCurrentPool(Math.max(0, totalArrecadado - totalComissoes));
-      
-      if (ev.tipo === 'bolao' || ev.tipo === 'esportivo') {
-        setPartidasBolao(ev.partidas || []);
-        setPalpites(Array((ev.partidas || []).length).fill(''));
-      }
     } else { setSelectedEventData(null); setCurrentPool(0); }
   };
 
@@ -97,22 +90,15 @@ export default function VendaPage() {
     else if (formData.tipo === 'quina') firstTicketNums = generateRandomNumbers(20, 80);
 
     for (let i = 0; i < quantity; i++) {
-      let n = null; let p = null;
+      let n = null;
       if (i === 0 || mode === 'repeat') {
         n = firstTicketNums;
-        p = (formData.tipo === 'bolao' || formData.tipo === 'esportivo') ? palpites.join('-') : null;
       } else {
         if (formData.tipo === 'bingo') n = generateRandomNumbers(15, 90);
         else if (formData.tipo === 'mega') n = generateRandomNumbers(15, 60);
         else if (formData.tipo === 'quina') n = generateRandomNumbers(20, 80);
-        if (formData.tipo === 'bolao' || formData.tipo === 'esportivo') {
-          p = partidasBolao.map(m => {
-            const opts = [m.time1, 'X', m.time2];
-            return opts[Math.floor(Math.random() * 3)];
-          }).join('-');
-        }
       }
-      ticketsGenerated.push({ id: Math.random().toString(36).substring(7).toUpperCase(), n, p, status: 'pago' });
+      ticketsGenerated.push({ id: Math.random().toString(36).substring(7).toUpperCase(), n, status: 'pago' });
     }
 
     const receipt = {
@@ -124,7 +110,7 @@ export default function VendaPage() {
       whatsapp: formData.whatsapp.replace(/\D/g, ''),
       pix_resgate: formData.pixKey.toUpperCase(),
       valor_total: formData.unitario * quantity,
-      vendedor_id: user?.id || 'admin-master',
+      vendedor_id: user?.id || 'MASTER-ADMIN',
       vendedor_nome: user?.nome || 'Admin',
       gerente_id: user?.gerenteId || null,
       status: 'pago',
@@ -136,8 +122,8 @@ export default function VendaPage() {
       const { error } = await supabase.from('tickets').insert([receipt]);
       if (error) throw error;
       setVendaRealizada({ ...receipt, currentPool });
-      toast({ title: "VENDA PROCESSADA COM SUCESSO!" });
-    } catch (err: any) { toast({ variant: "destructive", title: "ERRO NA TRANSAÇÃO" }); }
+      toast({ title: "BILHETE GERADO E AUDITADO!" });
+    } catch (err: any) { toast({ variant: "destructive", title: "ERRO AO SALVAR NO BANCO" }); }
     finally { setLoading(false); }
   };
 
@@ -157,7 +143,7 @@ export default function VendaPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           <Tabs defaultValue="venda">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto print:hidden">
-              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Terminal de Vendas</TabsTrigger>
+              <TabsTrigger value="venda" className="font-black uppercase text-[10px] rounded-xl px-8">Terminal de Bilhetes</TabsTrigger>
             </TabsList>
 
             <TabsContent value="venda" className="space-y-6 mt-6">
@@ -168,7 +154,11 @@ export default function VendaPage() {
                     <form onSubmit={handleVenda} className="space-y-4">
                       {selectedEventData && (
                         <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 flex justify-between items-center">
-                           <div><p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Líquido)</p><p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p></div>
+                           <div>
+                              <p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Líquido)</p>
+                              <p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p>
+                              <p className="text-[8px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-1"><Info className="w-3 h-3" /> Valor após comissões</p>
+                           </div>
                            <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Audit</Badge>
                         </div>
                       )}
@@ -198,11 +188,12 @@ export default function VendaPage() {
                   {vendaRealizada ? (
                     <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center overflow-y-auto max-h-[80vh]">
                        <p className="text-2xl font-black text-primary">LEOBET PRO</p>
-                       <p className="text-[10px] font-black uppercase">Recibo Oficial</p>
+                       <p className="text-[10px] font-black uppercase">Recibo Oficial de Aposta</p>
                        <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between font-black border-t pt-2"><span>VALOR TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
+                          <p className="text-[8px] mt-4 opacity-60">BILHETE AUDITADO PELO SUPABASE CLOUD</p>
                        </div>
                        <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir</Button>
                     </div>

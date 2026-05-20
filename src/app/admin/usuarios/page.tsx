@@ -86,7 +86,7 @@ export default function GestaoUsuariosPage() {
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-black uppercase text-primary leading-none">Gestão de Rede <Database className="inline w-6 h-6 text-green-600" /></h1>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Controle de Acessos e Comissões</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Ajuste Manual de Comissões e Acessos</p>
             </div>
             <Button onClick={() => { setOpenCreate(true); setSelectedUser(null); setFormData({ nome: '', email: '', password: '', role: 'cambista', phone: '', pix_key: '', cpf: '', commission_rate: 10 }); }} className="bg-accent h-12 gap-2 font-black uppercase text-xs rounded-xl shadow-lg"><UserPlus className="w-4 h-4" /> Novo</Button>
           </div>
@@ -139,8 +139,8 @@ export default function GestaoUsuariosPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Taxa de Comissão (%)</Label>
-                  <Input type="number" value={formData.commission_rate} onChange={e => setFormData({...formData, commission_rate: Number(e.target.value)})} className="h-11 font-bold" disabled={formData.role === 'cliente'} />
+                  <Label className="text-[10px] font-black uppercase opacity-60">Comissão Dinâmica (%)</Label>
+                  <Input type="number" value={formData.commission_rate} onChange={e => setFormData({...formData, commission_rate: Number(e.target.value)})} className="h-11 font-black text-primary" disabled={formData.role === 'cliente'} />
                 </div>
               </div>
               <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Nome Completo</Label><Input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required className="h-11 font-bold uppercase" /></div>
