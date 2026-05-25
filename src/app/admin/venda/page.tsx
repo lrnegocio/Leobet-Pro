@@ -53,7 +53,6 @@ export default function VendaPage() {
       setSelectedEventData(ev);
       setFormData({ ...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo });
       
-      // Cálculo de Pool Dinâmico: Arrecadação - Comissões Dinâmicas Reais
       const { data: tickets } = await supabase.from('tickets').select('valor_total, vendedor_id').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
       const { data: sellers } = await supabase.from('users').select('id, commission_rate, gerente_id');
       

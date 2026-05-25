@@ -6,13 +6,13 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Bloqueio Total de Botão Direito
+    // BLOQUEIO TOTAL DE BOTÃO DIREITO
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       return false;
     };
 
-    // Bloqueio de Teclas de Inspeção (F12, Ctrl+U, Ctrl+Shift+I, etc)
+    // BLOQUEIO DE TECLAS DE INSPEÇÃO (F12, CTRL+U, CTRL+SHIFT+I, ETC)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Bloquear F12
       if (e.key === 'F12' || e.keyCode === 123) {
