@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Printer, Plus, Minus, LayoutGrid, Info } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, LayoutGrid, Info, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -53,6 +54,7 @@ export default function VendaPage() {
       setSelectedEventData(ev);
       setFormData({ ...formData, eventoId: ev.id, eventoNome: ev.nome, unitario: ev.preco, tipo: ev.tipo });
       
+      // Cálculo do prêmio dinâmico REAL (Arrecadação - Comissões)
       const { data: tickets } = await supabase.from('tickets').select('valor_total, vendedor_id').eq('evento_id', ev.id).in('status', ['pago', 'ganhou', 'premio_pago', 'pendente-resgate']);
       const { data: sellers } = await supabase.from('users').select('id, commission_rate, gerente_id');
       
@@ -156,7 +158,7 @@ export default function VendaPage() {
                            <div>
                               <p className="text-[10px] font-black uppercase opacity-60">Prêmio Dinâmico (Líquido)</p>
                               <p className="text-2xl font-black text-primary">R$ {currentPool.toFixed(2)}</p>
-                              <p className="text-[8px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-1"><Info className="w-3 h-3" /> Valor após comissões</p>
+                              <p className="text-[8px] font-bold text-orange-600 uppercase flex items-center gap-1 mt-1"><Info className="w-3 h-3" /> Valor atualizado após comissões</p>
                            </div>
                            <Badge className="bg-primary text-white h-8 px-4 font-black uppercase text-[9px]">Live Audit</Badge>
                         </div>
@@ -165,7 +167,7 @@ export default function VendaPage() {
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
                         <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
                       </div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black border-accent/30 uppercase" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX PARA RECEBER" className="h-12 font-black border-accent/30 uppercase" required /></div>
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase opacity-60">Escolha o Concurso</Label>
                         <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
@@ -192,7 +194,7 @@ export default function VendaPage() {
                           <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                           <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
                           <p className="flex justify-between font-black border-t pt-2"><span>VALOR TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
-                          <p className="text-[8px] mt-4 opacity-60">BILHETE AUDITADO PELO SUPABASE CLOUD</p>
+                          <p className="text-[8px] mt-4 opacity-60 text-center">BILHETE AUDITADO PELO SUPABASE CLOUD</p>
                        </div>
                        <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir</Button>
                     </div>
