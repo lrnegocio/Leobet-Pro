@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -18,7 +19,8 @@ import {
   ChevronRight,
   Settings as SettingsIcon,
   Grid3X3,
-  Users
+  Users,
+  Ticket
 } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, roles: ['admin'] },
   { label: 'Terminal Vendas', href: '/admin/venda', icon: ShoppingCart, roles: ['admin', 'cambista', 'gerente'] },
+  { label: 'Gestão Rifas', href: '/admin/rifa', icon: Ticket, roles: ['admin'] },
   { label: 'Relatórios', href: '/relatorios', icon: FileText, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Conferir Bilhete', href: '/resultados', icon: Search, roles: ['admin', 'cambista', 'gerente', 'cliente'] },
   { label: 'Gestão Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
