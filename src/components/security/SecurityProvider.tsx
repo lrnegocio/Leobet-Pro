@@ -33,6 +33,12 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      // Bloquear Ctrl + P (Evitar impressão pirata se não for na tela certa)
+      if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
+        // Permitir apenas em telas específicas se necessário
+        // e.preventDefault();
+      }
+
       // Bloquear Ferramentas de Desenvolvedor (Ctrl+Shift+I, J, C)
       if (e.ctrlKey && e.shiftKey && (['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
         e.preventDefault();
