@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, AlertCircle, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -84,7 +85,6 @@ export default function VendaPage() {
     const totalVenda = formData.unitario * quantity;
     const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
     
-    // Regra: Rifas só podem ser vendidas se houver saldo
     if (formData.tipo === 'rifa' && totalBalance < totalVenda && user.role !== 'admin') {
       setLoading(false);
       return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Venda de rifas exige saldo na plataforma." });
@@ -233,7 +233,7 @@ export default function VendaPage() {
 
             <div className="space-y-4">
               {vendaRealizada ? (
-                <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center overflow-y-auto max-h-[80vh]">
+                <div className="bg-[#FFFFF4] p-8 shadow-2xl border font-mono rounded-[2rem] text-center overflow-y-auto max-h-[80vh] relative">
                    <p className="text-2xl font-black text-primary">LEOBET PRO</p>
                    <Badge className={cn("mt-2 font-black uppercase text-[9px]", vendaRealizada.status === 'pago' ? "bg-green-600" : "bg-orange-600")}>
                      {vendaRealizada.status === 'pago' ? "VALIDADO E PAGO" : "AGUARDANDO PAGAMENTO"}
@@ -262,6 +262,16 @@ export default function VendaPage() {
                         </div>
                       ))}
                    </div>
+
+                   {/* QR CODE PARA PAGAMENTO NO BILHETE */}
+                   <div className="bg-white p-4 rounded-2xl border-2 border-dashed mb-6 flex flex-col items-center gap-2">
+                      <p className="text-[10px] font-black uppercase opacity-60">Pagamento PIX Oficial</p>
+                      <div className="bg-muted p-2 rounded-xl">
+                        <QrCode className="w-24 h-24 text-primary" />
+                      </div>
+                      <p className="text-[8px] font-bold uppercase">Escaneie para validar sua aposta</p>
+                   </div>
+
                    <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir Bilhete</Button>
                 </div>
               ) : (
