@@ -1,9 +1,8 @@
-
 'use server';
 
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 
-// Credenciais fornecidas pelo usuário
+// Credenciais oficiais fornecidas pelo usuário
 const client = new MercadoPagoConfig({
   accessToken: 'APP_USR-5125321872252102-123010-1e5de53b8331371d32f7aab5ea2a2bd0-38477053',
 });
