@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from '@/components/ui/checkbox';
 
 const ANIMAIS_FAZENDINHA = [
   "AVESTRUZ", "ÁGUIA", "BURRO", "BORBOLETA", "CACHORRO", "CABRA", "CARNEIRO", "CAMELO", "COBRA", "COELHO",
@@ -27,6 +27,7 @@ export default function VendaPage() {
   const [eventosAtivos, setEventosAtivos] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
+  const [isManualPending, setIsManualPending] = useState(false);
   
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -90,11 +91,18 @@ export default function VendaPage() {
     
     const totalVenda = formData.unitario * quantity;
     const hasBalance = (Number(user.balance) + Number(user.commissionBalance)) >= totalVenda;
+    const shouldBePaid = hasBalance && !isManualPending;
     
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let n = null;
-      if (formData.tipo === 'bingo') n = Array.from({length: 15}, () => Math.floor(Math.random() * 90) + 1);
+      if (formData.tipo === 'bingo') {
+        n = [];
+        while(n.length < 15) {
+          const num = Math.floor(Math.random() * 90) + 1;
+          if(!n.includes(num)) n.push(num);
+        }
+      }
       else if (formData.tipo === 'rifa') {
          if (selectedEventData?.tipo === 'fazendinha') n = [Math.floor(Math.random() * 25) + 1];
          else n = [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
@@ -102,7 +110,7 @@ export default function VendaPage() {
       ticketsGenerated.push({ 
         id: Math.random().toString(36).substring(7).toUpperCase(), 
         n, 
-        status: hasBalance ? 'pago' : 'pendente' 
+        status: shouldBePaid ? 'pago' : 'pendente' 
       });
     }
 
@@ -117,14 +125,13 @@ export default function VendaPage() {
       valor_total: totalVenda,
       vendedor_id: user.id,
       vendedor_nome: user.nome,
-      status: hasBalance ? 'pago' : 'pendente',
+      status: shouldBePaid ? 'pago' : 'pendente',
       tickets_data: ticketsGenerated,
       created_at: new Date().toISOString()
     };
 
     try {
-      // Se tiver saldo, desconta na hora
-      if (hasBalance) {
+      if (shouldBePaid) {
         let remaining = totalVenda;
         let newComm = Number(user.commissionBalance || 0);
         let newBal = Number(user.balance || 0);
@@ -152,8 +159,8 @@ export default function VendaPage() {
       
       setVendaRealizada(receipt);
       toast({ 
-        title: hasBalance ? "BILHETE PAGO E AUDITADO!" : "BILHETE AGUARDANDO PAGAMENTO!",
-        variant: hasBalance ? "default" : "destructive"
+        title: shouldBePaid ? "BILHETE VALIDADO!" : "BILHETE PENDENTE DE PAGAMENTO!",
+        variant: shouldBePaid ? "default" : "destructive"
       });
     } catch (err: any) { 
       toast({ variant: "destructive", title: "ERRO AO SALVAR VENDA" }); 
@@ -182,7 +189,7 @@ export default function VendaPage() {
                   <ShoppingCart className="w-6 h-6" /> Terminal LEOBET
                 </CardTitle>
                 <div className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase text-orange-600">
-                  <AlertCircle className="w-3 h-3" /> Vendas sem saldo ficam pendentes de validação.
+                  <AlertCircle className="w-3 h-3" /> Vendas sem saldo ou a prazo ficam pendentes.
                 </div>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
@@ -191,12 +198,12 @@ export default function VendaPage() {
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
                     <div className="space-y-1"><Label className="text-[10px] font-black uppercase">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
                   </div>
-                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX" className="h-12 font-black uppercase border-accent/30" required /></div>
+                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX PARA RECEBER PRÊMIO" className="h-12 font-black uppercase border-accent/30" required /></div>
                   
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase">Concurso</Label>
                     <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                      <option value="">-- SELECIONE --</option>
+                      <option value="">-- SELECIONE O JOGO --</option>
                       {eventosAtivos.map(e => (
                         <option key={e.id} value={e.id}>
                           {e.nome} - R$ {Number(e.preco).toFixed(2)}
@@ -210,6 +217,13 @@ export default function VendaPage() {
                     <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-xl border-2" />
                     <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                   </div>
+
+                  {(user?.role === 'admin' || user?.role === 'gerente') && (
+                    <div className="flex items-center space-x-2 bg-muted/50 p-4 rounded-xl border-2 border-dashed">
+                      <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} />
+                      <label htmlFor="manual" className="text-[10px] font-black uppercase text-primary cursor-pointer">Vender a Prazo (Deixar Pendente para Auditoria)</label>
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl" disabled={loading}>
                     {loading ? 'PROCESSANDO...' : 'EMITIR BILHETE'}
@@ -231,16 +245,17 @@ export default function VendaPage() {
                    )}
                    
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
+                      <p className="flex justify-between"><span>ID BILHETE:</span> <span>{vendaRealizada.id}</span></p>
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between"><span>JOGO:</span> <span>{vendaRealizada.evento_nome}</span></p>
-                      <p className="flex justify-between font-black border-t pt-2"><span>VALOR:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
+                      <p className="flex justify-between font-black border-t pt-2"><span>VALOR TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                    </div>
                    
                    <div className="grid grid-cols-1 gap-2 mb-6">
                       {vendaRealizada.tickets_data.map((t: any, idx: number) => (
                         <div key={idx} className="bg-primary/5 p-3 rounded-lg border text-sm font-black flex justify-between">
                            <span>COTA #{idx+1}:</span>
-                           <span className="text-primary">
+                           <span className="text-primary truncate ml-2">
                              {vendaRealizada.tipo === 'rifa' && selectedEventData?.tipo === 'fazendinha' 
                                ? ANIMAIS_FAZENDINHA[Number(t.n[0]) - 1] 
                                : t.n.join(' - ')}
@@ -248,12 +263,12 @@ export default function VendaPage() {
                         </div>
                       ))}
                    </div>
-                   <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir</Button>
+                   <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir Bilhete</Button>
                 </div>
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] opacity-20 bg-white">
                   <Ticket className="w-20 h-20 text-primary mb-4" />
-                  <h3 className="text-xl font-black uppercase text-primary text-center px-8 leading-tight">Terminal de Vendas<br/>Aguardando Bilhete</h3>
+                  <h3 className="text-xl font-black uppercase text-primary text-center px-8 leading-tight">Aguardando Emissão<br/>de Bilhete</h3>
                 </div>
               )}
             </div>

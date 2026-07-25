@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Trophy, RefreshCcw, Database, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Trophy, RefreshCcw, Database, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +28,8 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
   const [finished, setFinished] = useState(false);
 
   const loadData = async () => {
-    const { data: rData } = await supabase.from('rifas').select('*').eq('id', (await params).id).single();
+    const resolvedParams = await params;
+    const { data: rData } = await supabase.from('rifas').select('*').eq('id', resolvedParams.id).single();
     if (rData) {
       setRifa(rData);
       if (rData.ganhador_numero) {
@@ -37,8 +38,8 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
         setCurrentNum(rData.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[rData.ganhador_numero - 1] : rData.ganhador_numero);
       }
     }
-    // IMPORTANTE: Apenas bilhetes PAGOS podem ganhar
-    const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', (await params).id).eq('status', 'pago');
+    // Auditoria: Apenas bilhetes PAGOS concorrem
+    const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
     setTickets(tData || []);
   };
 
@@ -46,7 +47,7 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
 
   const startSorteio = () => {
     if (finished || tickets.length === 0) {
-      if (tickets.length === 0) toast({ variant: "destructive", title: "SEM BILHETES VALIDADOS", description: "Não há apostas pagas para este sorteio." });
+      if (tickets.length === 0) toast({ variant: "destructive", title: "SEM BILHETES VALIDADOS", description: "Não há apostas pagas para sortear." });
       return;
     }
     setIsSpinning(true);
@@ -59,13 +60,12 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
       count++;
       if (count > 40) {
         clearInterval(interval);
-        finalizeSorteio(max);
+        finalizeSorteio();
       }
     }, 80);
   };
 
-  const finalizeSorteio = async (maxRange: number) => {
-    // Para ser auditável, pegamos apenas números que foram realmente vendidos (pago)
+  const finalizeSorteio = async () => {
     const allSoldNumbers: number[] = [];
     tickets.forEach(receipt => {
       receipt.tickets_data?.forEach((t: any) => {
@@ -75,16 +75,14 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
 
     if (allSoldNumbers.length === 0) {
       setIsSpinning(false);
-      return toast({ variant: "destructive", title: "ERRO", description: "Nenhuma cota validada encontrada." });
+      return toast({ variant: "destructive", title: "ERRO DE AUDITORIA", description: "Cotas pagas não encontradas." });
     }
 
-    // Sorteia um entre os vendidos
     const winningNum = allSoldNumbers[Math.floor(Math.random() * allSoldNumbers.length)];
-    
     setCurrentNum(rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[winningNum - 1] : winningNum);
     setIsSpinning(false);
 
-    let winnerName = "GANHADOR NÃO IDENTIFICADO";
+    let winnerName = "GANHADOR";
     tickets.forEach(receipt => {
       receipt.tickets_data?.forEach((t: any) => {
         if (Number(t.n?.[0]) === winningNum) winnerName = receipt.cliente;
@@ -114,7 +112,7 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
             <Link href="/admin/rifa" className="flex items-center gap-2 text-primary font-black text-[10px] uppercase"><ArrowLeft className="w-3 h-3" /> Voltar</Link>
             <div className="flex items-center gap-2 bg-white px-6 py-2 rounded-2xl border shadow-sm">
                <ShieldCheck className="w-4 h-4 text-green-600" />
-               <p className="text-[10px] font-black uppercase text-primary">Sorteio Auditado Supabase</p>
+               <p className="text-[10px] font-black uppercase text-primary">Globo Virtual Auditado</p>
             </div>
           </div>
 
@@ -123,24 +121,24 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                <div className="absolute inset-0 opacity-10 pointer-events-none">
                  <Database className="w-full h-full p-20" />
                </div>
-               <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.3em] mb-6">Visor do Globo Virtual</p>
+               <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.3em] mb-6">Visor do Sorteio Live</p>
                <div className={cn(
                  "w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center font-black border-[12px] border-accent shadow-inner transition-all duration-300",
                  isSpinning ? "animate-pulse scale-105" : "scale-100",
-                 rifa.tipo === 'fazendinha' ? "text-2xl" : "text-7xl"
+                 rifa.tipo === 'fazendinha' ? "text-2xl px-4 text-center leading-tight" : "text-7xl"
                )}>
                  {currentNum || '--'}
                </div>
                {!finished && (
-                 <Button onClick={startSorteio} disabled={isSpinning} className="mt-10 bg-accent hover:bg-accent/90 h-16 px-16 rounded-3xl font-black uppercase text-xl shadow-xl gap-3 transition-all active:scale-95">
-                   {isSpinning ? "SORTEANDO..." : "GIRAR GLOBO"}
+                 <Button onClick={startSorteio} disabled={isSpinning} className="mt-10 bg-accent hover:bg-accent/90 h-16 px-16 rounded-3xl font-black uppercase text-xl shadow-xl gap-3">
+                   {isSpinning ? "GIRANDO..." : "SORTEAR AGORA"}
                  </Button>
                )}
             </Card>
 
             <div className="space-y-6">
                <Card className="rounded-[2.5rem] bg-white p-8 shadow-lg border-none">
-                  <h3 className="text-xs font-black uppercase text-primary mb-6 flex items-center gap-2"><Trophy className="w-5 h-5 text-accent" /> Resultado do Sorteio</h3>
+                  <h3 className="text-xs font-black uppercase text-primary mb-6 flex items-center gap-2"><Trophy className="w-5 h-5 text-accent" /> Resultado do Globo</h3>
                   {finished ? (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                        <div className="p-6 bg-green-50 border-2 border-green-200 rounded-[2rem]">
@@ -148,14 +146,14 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                           <p className="text-2xl font-black text-primary uppercase leading-tight">{winner?.nome}</p>
                        </div>
                        <div className="p-6 bg-muted/20 rounded-[2rem] border">
-                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Cota da Sorte</p>
-                          <p className="text-3xl font-black text-primary">{winner?.numero} - {rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[winner?.numero - 1] : 'NUMÉRICA'}</p>
+                          <p className="text-[10px] font-black uppercase opacity-60 mb-1">Cota Sorteada</p>
+                          <p className="text-3xl font-black text-primary uppercase">{winner?.numero} - {rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[winner?.numero - 1] : 'BILHETE'}</p>
                        </div>
                     </div>
                   ) : (
                     <div className="py-16 text-center opacity-30">
                        <RefreshCcw className="w-16 h-16 mx-auto mb-4 animate-spin text-primary" />
-                       <p className="font-black uppercase text-xs tracking-widest">Aguardando Início Live</p>
+                       <p className="font-black uppercase text-xs tracking-widest">Aguardando Sorteio</p>
                     </div>
                   )}
                </Card>
@@ -164,7 +162,7 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                   <p className="text-[9px] font-black uppercase opacity-60 mb-2">Campanha Selecionada</p>
                   <p className="font-black text-primary uppercase text-lg leading-tight">{rifa.nome}</p>
                   <div className="mt-4 flex gap-4">
-                     <div><p className="text-[8px] font-black uppercase opacity-50">Cotas Vendidas</p><p className="font-black text-sm">{tickets.length} / {rifa.total_numeros}</p></div>
+                     <div><p className="text-[8px] font-black uppercase opacity-50">Cotas Liquidadas</p><p className="font-black text-sm">{tickets.length} Válidas</p></div>
                      <div><p className="text-[8px] font-black uppercase opacity-50">Tipo</p><p className="font-black text-sm uppercase">{rifa.tipo}</p></div>
                   </div>
                </Card>

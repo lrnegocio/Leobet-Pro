@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { RefreshCcw, Database, Search, Wallet, ShoppingCart, Key, MessageCircle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { RefreshCcw, Database, Wallet, MessageCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/supabase/client';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,7 @@ function FinanceiroContent() {
       const { error: ticketError } = await supabase.from('tickets').update({ status: 'pago' }).eq('id', receipt.id);
       if (ticketError) throw ticketError;
 
-      // 2. Calcular Comissões Dinâmicas e pagar vendedor
+      // 2. Pagar Comissão se o vendedor for cambista/gerente
       const { data: vData } = await supabase.from('users').select('*').eq('id', receipt.vendedor_id).single();
       if (vData && vData.role !== 'admin' && vData.role !== 'cliente') {
         const rate = Number(vData.commission_rate || 0) / 100;
@@ -50,12 +50,11 @@ function FinanceiroContent() {
           commission_balance: Number(vData.commission_balance || 0) + commission 
         }).eq('id', vData.id);
 
-        // Se houver gerente, pagar 5% fixo do gerente
+        // Se houver gerente, paga 5% fixo pro gerente
         if (vData.gerente_id) {
           const { data: gData } = await supabase.from('users').select('*').eq('id', vData.gerente_id).single();
           if (gData) {
-            const gRate = 0.05;
-            const gComm = Number(receipt.valor_total) * gRate;
+            const gComm = Number(receipt.valor_total) * 0.05;
             await supabase.from('users').update({ 
               commission_balance: Number(gData.commission_balance || 0) + gComm 
             }).eq('id', gData.id);
@@ -67,6 +66,12 @@ function FinanceiroContent() {
       loadData();
     } catch (err: any) { toast({ variant: "destructive", title: "ERRO AO VALIDAR" }); } 
     finally { setSyncing(false); }
+  };
+
+  const deleteTicket = async (id: string) => {
+    if(!confirm("Excluir esta aposta?")) return;
+    await supabase.from('tickets').delete().eq('id', id);
+    loadData();
   };
 
   const totalPendingPayout = useMemo(() => tickets.filter(t => t.status === 'pendente-resgate').length, [tickets]);
@@ -81,9 +86,9 @@ function FinanceiroContent() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-4xl font-black uppercase text-primary">Financeiro Master</h1>
+              <h1 className="text-4xl font-black uppercase text-primary leading-none">Financeiro Master</h1>
               <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60">
-                <Database className="w-3 h-3 text-green-600" /> Auditoria de Arrecadação
+                <Database className="w-3 h-3 text-green-600" /> Auditoria Digital LEOBET
               </p>
             </div>
             <Button onClick={loadData} variant="outline" className="h-14 w-14 rounded-2xl">
@@ -94,17 +99,17 @@ function FinanceiroContent() {
           <Tabs defaultValue="vendas_pendentes">
             <TabsList className="bg-white p-1 rounded-2xl w-full flex justify-start gap-2 shadow-sm border h-14 overflow-x-auto">
               <TabsTrigger value="vendas_pendentes" className="font-black uppercase text-[10px] rounded-xl px-8">
-                Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
+                Apostas Pendentes {totalPendingSales > 0 && <span className="ml-2 bg-orange-600 text-white px-2 py-0.5 rounded-full">{totalPendingSales}</span>}
               </TabsTrigger>
               <TabsTrigger value="payouts" className="font-black uppercase text-[10px] rounded-xl px-8">
-                Prêmios {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
+                Resgates Prêmios {totalPendingPayout > 0 && <span className="ml-2 bg-red-600 text-white px-2 py-0.5 rounded-full">{totalPendingPayout}</span>}
               </TabsTrigger>
-              <TabsTrigger value="historico" className="font-black uppercase text-[10px] rounded-xl px-8">Histórico Total</TabsTrigger>
+              <TabsTrigger value="historico" className="font-black uppercase text-[10px] rounded-xl px-8">Histórico Geral</TabsTrigger>
             </TabsList>
 
             <TabsContent value="vendas_pendentes" className="mt-6 space-y-4">
                {tickets.filter(t => t.status === 'pendente').length === 0 ? (
-                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Tudo em dia. Nenhuma venda pendente.</div>
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Tudo em dia. Nenhuma venda aguardando.</div>
                ) : tickets.filter(t => t.status === 'pendente').map((t, i) => (
                  <Card key={i} className="p-6 border-l-8 border-l-orange-600 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                    <div className="flex-1 w-full space-y-3">
@@ -123,30 +128,35 @@ function FinanceiroContent() {
                         <div className="flex items-center gap-2">
                           <AlertCircle className="w-4 h-4 text-orange-600" />
                           <div>
-                            <p className="text-[8px] font-black uppercase opacity-50">Status do Caixa</p>
-                            <span className="text-[11px] font-black text-orange-600">AGUARDANDO DINHEIRO</span>
+                            <p className="text-[8px] font-black uppercase opacity-50">Status</p>
+                            <span className="text-[11px] font-black text-orange-600 uppercase">Aguardando Liquidação</span>
                           </div>
                         </div>
                      </div>
                      <p className="text-3xl font-black text-orange-600">R$ {Number(t.valor_total).toFixed(2)}</p>
                    </div>
-                   <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Validar e Pagar Comissão</Button>
+                   <div className="flex flex-col gap-2 w-full md:w-auto">
+                     <Button onClick={() => approvePendingSale(t)} className="bg-primary hover:bg-primary/90 h-16 px-10 font-black uppercase rounded-2xl shadow-lg text-white">Validar Venda</Button>
+                     <Button onClick={() => deleteTicket(t.id)} variant="ghost" className="text-destructive uppercase font-black text-[9px] h-10"><Trash2 className="w-3 h-3 mr-1" /> Excluir Venda</Button>
+                   </div>
                  </Card>
                ))}
             </TabsContent>
 
             <TabsContent value="payouts" className="mt-6 space-y-4">
-               {tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => (
+               {tickets.filter(t => t.status === 'pendente-resgate').length === 0 ? (
+                 <div className="py-20 text-center opacity-30 font-black uppercase text-xs">Nenhum prêmio aguardando resgate.</div>
+               ) : tickets.filter(t => t.status === 'pendente-resgate').map((t, i) => (
                  <Card key={i} className="p-6 border-l-8 border-l-green-500 rounded-[2rem] shadow-xl bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                    <div className="flex-1 w-full space-y-2">
                      <p className="font-black uppercase text-2xl text-primary">{t.cliente}</p>
-                     <p className="text-[10px] font-black opacity-60">PIX DE RESGATE: {t.pix_resgate}</p>
-                     <p className="text-3xl font-black text-green-600">VALOR DO PRÊMIO: R$ {Number(t.detalhe_premios?.total || 0).toFixed(2)}</p>
+                     <div className="p-3 bg-green-50 rounded-xl border border-green-100"><p className="text-[10px] font-black opacity-60">CHAVE PIX PARA PAGAR:</p><p className="font-black text-green-700">{t.pix_resgate}</p></div>
+                     <p className="text-3xl font-black text-green-600">R$ {Number(t.detalhe_premios?.total || 0).toFixed(2)}</p>
                    </div>
                    <Button onClick={async () => { 
                       await supabase.from('tickets').update({ status: 'premio_pago' }).eq('id', t.id); 
                       loadData(); 
-                   }} className="bg-green-600 h-16 px-10 font-black uppercase rounded-2xl text-white">Confirmar Pagamento do Prêmio</Button>
+                   }} className="bg-green-600 h-16 px-10 font-black uppercase rounded-2xl text-white">Confirmar Pagamento</Button>
                  </Card>
                ))}
             </TabsContent>
@@ -159,8 +169,8 @@ function FinanceiroContent() {
                     <p className="text-[9px] font-bold opacity-50">{new Date(t.created_at).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black">R$ {Number(t.valor_total).toFixed(2)}</p>
-                    <Badge variant="outline" className="text-[8px] uppercase">{t.status}</Badge>
+                    <p className="text-sm font-black text-primary">R$ {Number(t.valor_total).toFixed(2)}</p>
+                    <Badge variant="outline" className={cn("text-[8px] uppercase font-black", t.status === 'pago' ? 'text-green-600' : 'text-orange-600')}>{t.status}</Badge>
                   </div>
                 </div>
               ))}
