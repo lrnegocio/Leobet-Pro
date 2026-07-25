@@ -112,7 +112,7 @@ export default function VendaPage() {
       }
       else if (formData.tipo === 'rifa') {
          if (selectedEventData?.tipo === 'fazendinha') n = [Math.floor(Math.random() * 25) + 1];
-         else n = [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
+         else n = [Math.floor(Math.random() * (selectedEventData?.total_numbers || 100)) + 1];
       }
       ticketsGenerated.push({ 
         id: Math.random().toString(36).substring(7).toUpperCase(), 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -36,7 +35,8 @@ export default function NovaRifaPage() {
       const { error } = await supabase.from('rifas').insert([{
         ...formData,
         nome: formData.nome.toUpperCase(),
-        status: 'aberto'
+        status: 'aberto',
+        total_numeros: formData.tipo === 'fazendinha' ? 25 : formData.total_numeros
       }]);
       if (error) throw error;
       toast({ title: "RIFA CRIADA COM SUCESSO!" });
