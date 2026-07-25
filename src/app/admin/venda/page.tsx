@@ -90,14 +90,15 @@ export default function VendaPage() {
     setLoading(true);
     
     const totalVenda = formData.unitario * quantity;
-    const hasBalance = (Number(user.balance) + Number(user.commissionBalance)) >= totalVenda;
+    const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
     
     // Regra: Rifas só podem ser vendidas se houver saldo
-    if (formData.tipo === 'rifa' && !hasBalance) {
+    if (formData.tipo === 'rifa' && totalBalance < totalVenda) {
       setLoading(false);
       return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Rifas exigem pagamento imediato via saldo." });
     }
 
+    const hasBalance = totalBalance >= totalVenda;
     const shouldBePaid = hasBalance && !isManualPending;
     
     const ticketsGenerated = [];
@@ -112,7 +113,7 @@ export default function VendaPage() {
       }
       else if (formData.tipo === 'rifa') {
          if (selectedEventData?.tipo === 'fazendinha') n = [Math.floor(Math.random() * 25) + 1];
-         else n = [Math.floor(Math.random() * (selectedEventData?.total_numbers || 100)) + 1];
+         else n = [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
       }
       ticketsGenerated.push({ 
         id: Math.random().toString(36).substring(7).toUpperCase(), 
