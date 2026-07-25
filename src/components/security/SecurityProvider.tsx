@@ -55,10 +55,18 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     };
     document.addEventListener('dragstart', handleDragStart);
 
+    // Proteção adicional: Bloquear seleção de texto para dificultar cópia
+    const handleSelectStart = (e: Event) => {
+      // Opcional: Descomente se quiser bloquear seleção de texto
+      // e.preventDefault();
+    };
+    document.addEventListener('selectstart', handleSelectStart);
+
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('selectstart', handleSelectStart);
     };
   }, []);
 

@@ -37,7 +37,6 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
         setCurrentNum(rData.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[rData.ganhador_numero - 1] : rData.ganhador_numero);
       }
     }
-    // Auditoria: Apenas bilhetes PAGOS concorrem
     const { data: tData } = await supabase.from('tickets').select('*').eq('evento_id', resolvedParams.id).eq('status', 'pago');
     setTickets(tData || []);
   };
@@ -57,7 +56,7 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
       const rand = Math.floor(Math.random() * max) + 1;
       setCurrentNum(rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[rand - 1] : rand);
       count++;
-      if (count > 40) {
+      if (count > 50) {
         clearInterval(interval);
         finalizeSorteio();
       }
@@ -124,12 +123,12 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                <div className={cn(
                  "w-56 h-56 rounded-full bg-white text-primary flex items-center justify-center font-black border-[12px] border-accent shadow-inner transition-all duration-300",
                  isSpinning ? "animate-pulse scale-105" : "scale-100",
-                 rifa.tipo === 'fazendinha' ? "text-2xl px-4 text-center leading-tight" : "text-7xl"
+                 rifa.tipo === 'fazendinha' ? "text-xl px-4 text-center leading-tight" : "text-7xl"
                )}>
                  {currentNum || '--'}
                </div>
                {!finished && (
-                 <Button onClick={startSorteio} disabled={isSpinning} className="mt-10 bg-accent hover:bg-accent/90 h-16 px-16 rounded-3xl font-black uppercase text-xl shadow-xl gap-3">
+                 <Button onClick={startSorteio} disabled={isSpinning} className="mt-10 bg-accent hover:bg-accent/90 h-16 px-16 rounded-3xl font-black uppercase text-xl shadow-xl gap-3 text-white">
                    {isSpinning ? "GIRANDO..." : "SORTEAR AGORA"}
                  </Button>
                )}
@@ -146,7 +145,9 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                        </div>
                        <div className="p-6 bg-muted/20 rounded-[2rem] border">
                           <p className="text-[10px] font-black uppercase opacity-60 mb-1">Cota Sorteada</p>
-                          <p className="text-3xl font-black text-primary uppercase">{winner?.numero} - {rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[winner?.numero - 1] : 'BILHETE'}</p>
+                          <p className="text-3xl font-black text-primary uppercase">
+                            {winner?.numero} - {rifa.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[winner?.numero - 1] : 'BILHETE'}
+                          </p>
                        </div>
                     </div>
                   ) : (
@@ -155,15 +156,6 @@ export default function RifaSorteioPage({ params: paramsPromise }: { params: Pro
                        <p className="font-black uppercase text-xs tracking-widest">Aguardando Sorteio</p>
                     </div>
                   )}
-               </Card>
-               
-               <Card className="rounded-[2rem] bg-white p-8 shadow-sm border-l-8 border-l-primary">
-                  <p className="text-[9px] font-black uppercase opacity-60 mb-2">Campanha Selecionada</p>
-                  <p className="font-black text-primary uppercase text-lg leading-tight">{rifa.nome}</p>
-                  <div className="mt-4 flex gap-4">
-                     <div><p className="text-[8px] font-black uppercase opacity-50">Cotas Liquidadas</p><p className="font-black text-sm">{tickets.length} Válidas</p></div>
-                     <div><p className="text-[8px] font-black uppercase opacity-50">Tipo</p><p className="font-black text-sm uppercase">{rifa.tipo}</p></div>
-                  </div>
                </Card>
             </div>
           </div>

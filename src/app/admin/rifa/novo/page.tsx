@@ -22,7 +22,7 @@ export default function NovaRifaPage() {
     total_numeros: 100,
     tipo: 'numerica',
     data_sorteio: '',
-    regras: 'O sorteio será realizado assim que 100% dos bilhetes forem vendidos.',
+    regras: 'O sorteio será realizado assim que atingir a meta de vendas.',
     imagem_url: '',
     descricao: ''
   });
@@ -36,7 +36,8 @@ export default function NovaRifaPage() {
         ...formData,
         nome: formData.nome.toUpperCase(),
         status: 'aberto',
-        total_numeros: formData.tipo === 'fazendinha' ? 25 : formData.total_numeros
+        total_numeros: formData.tipo === 'fazendinha' ? 25 : Number(formData.total_numeros),
+        vendidos: 0
       }]);
       if (error) throw error;
       toast({ title: "RIFA CRIADA COM SUCESSO!" });
@@ -85,7 +86,7 @@ export default function NovaRifaPage() {
 
                 <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Descrição Visível (Site e Bilhete)</Label><Textarea value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} placeholder="Detalhes do prêmio..." className="min-h-[100px] font-bold" /></div>
 
-                <Button type="submit" className="w-full h-16 bg-primary font-black uppercase rounded-2xl shadow-xl gap-2" disabled={loading}>
+                <Button type="submit" className="w-full h-16 bg-primary font-black uppercase rounded-2xl shadow-xl gap-2 text-white" disabled={loading}>
                   <Save className="w-5 h-5" /> {loading ? "SALVANDO..." : "PUBLICAR RIFA"}
                 </Button>
               </form>

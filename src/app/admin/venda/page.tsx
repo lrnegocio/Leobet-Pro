@@ -59,14 +59,6 @@ export default function VendaPage() {
   useEffect(() => {
     setMounted(true);
     loadEventos();
-    if (user?.role === 'cliente') {
-      setFormData(p => ({ 
-        ...p, 
-        cliente: user.nome, 
-        whatsapp: user.phone || '', 
-        pixKey: user.pixKey || '' 
-      }));
-    }
   }, [user]);
 
   const handleSelectEvento = (eventId: string) => {
@@ -77,7 +69,7 @@ export default function VendaPage() {
         ...formData, 
         eventoId: ev.id, 
         eventoNome: ev.nome, 
-        unitario: ev.preco, 
+        unitario: Number(ev.preco), 
         tipo: ev.tipo 
       });
     } else {
@@ -93,9 +85,9 @@ export default function VendaPage() {
     const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
     
     // Regra: Rifas só podem ser vendidas se houver saldo
-    if (formData.tipo === 'rifa' && totalBalance < totalVenda) {
+    if (formData.tipo === 'rifa' && totalBalance < totalVenda && user.role !== 'admin') {
       setLoading(false);
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Rifas exigem pagamento imediato via saldo." });
+      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Venda de rifas exige saldo na plataforma." });
     }
 
     const hasBalance = totalBalance >= totalVenda;
@@ -110,8 +102,7 @@ export default function VendaPage() {
           const num = Math.floor(Math.random() * 90) + 1;
           if(!n.includes(num)) n.push(num);
         }
-      }
-      else if (formData.tipo === 'rifa') {
+      } else if (formData.tipo === 'rifa') {
          if (selectedEventData?.tipo === 'fazendinha') n = [Math.floor(Math.random() * 25) + 1];
          else n = [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
       }
@@ -226,7 +217,7 @@ export default function VendaPage() {
                     <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
                   </div>
 
-                  {(user?.role === 'admin' || user?.role === 'gerente') && formData.tipo !== 'rifa' && (
+                  {(user?.role === 'admin' || user?.role === 'gerente') && (
                     <div className="flex items-center space-x-2 bg-muted/50 p-4 rounded-xl border-2 border-dashed">
                       <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} />
                       <label htmlFor="manual" className="text-[10px] font-black uppercase text-primary cursor-pointer">Vender a Prazo (Deixar Pendente)</label>
