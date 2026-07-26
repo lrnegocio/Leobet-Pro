@@ -8,178 +8,168 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/use-auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { TrendingUp, Users, DollarSign, Send, Wallet, ShieldCheck } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Send, Wallet, ShieldCheck, Database } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/supabase/client';
 
 export default function GerenteDashboard() {
   const { user, setUser } = useAuthStore();
   const { toast } = useToast();
   const [stats, setStats] = useState({ cambistas: 0, vendas: 0, comissao: 0 });
-  const [transferAmount, setTransferAmount] = useState(0);
+  const [transferAmount, setTransferAmount] = useState('');
   const [targetCambista, setTargetCambista] = useState('');
   const [myCambistas, setMyCambistas] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const allUsers = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    
-    // Filtra apenas os cambistas vinculados a este gerente
-    const mine = allUsers.filter((u: any) => u.gerenteId === user?.id);
-    setMyCambistas(mine);
-    
-    // Soma as vendas próprias + vendas dos cambistas da rede
-    const mySales = allTickets.filter((t: any) => (t.gerenteId === user?.id || t.vendedorId === user?.id) && t.status === 'pago');
-    
-    // Calcula comissão (5% sobre as vendas dos cambistas + 15% sobre vendas próprias se ele vender)
-    // Para simplificar, mostramos o saldo de comissão real que ele já tem no objeto user
-    const currentComm = user?.commissionBalance || 0;
-
-    setStats({
-      cambistas: mine.length,
-      vendas: mySales.length,
-      comissao: currentComm
-    });
+    setMounted(true);
+    if (user?.id) loadData();
   }, [user]);
 
-  const handleTransfer = () => {
-    if (transferAmount <= 0 || !targetCambista || !user) return;
-    
-    const totalBalance = (user.balance || 0) + (user.commissionBalance || 0);
+  const loadData = async () => {
+    try {
+      const { data: allUsers } = await supabase.from('users').select('*');
+      const { data: allTickets } = await supabase.from('tickets').select('*');
+      
+      const mine = allUsers?.filter((u: any) => u.gerente_id === user?.id) || [];
+      setMyCambistas(mine);
+      
+      const myNetworkSales = allTickets?.filter((t: any) => 
+        (t.vendedor_id === user?.id || mine.some(c => c.id === t.vendedor_id)) && 
+        t.status === 'pago'
+      ) || [];
+      
+      setStats({
+        cambistas: mine.length,
+        vendas: myNetworkSales.length,
+        comissao: Number(user?.commissionBalance || 0)
+      });
+    } catch (err) {
+      console.error("Erro dashboard gerente:", err);
+    }
+  };
 
-    if (totalBalance < transferAmount) {
+  const handleTransfer = async () => {
+    const amount = Number(transferAmount);
+    if (amount <= 0 || !targetCambista || !user) return;
+    
+    const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
+
+    if (totalBalance < amount) {
       toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
       return;
     }
 
-    const all = JSON.parse(localStorage.getItem('leobet_users') || '[]');
-    const updated = all.map((u: any) => {
-      // Deduz do gerente
-      if (u.id === user.id) {
-        let remaining = transferAmount;
-        let newComm = u.commissionBalance || 0;
-        let newBal = u.balance || 0;
+    try {
+      // 1. Deduz do gerente
+      let rem = amount;
+      let newComm = Number(user.commissionBalance || 0);
+      let newBal = Number(user.balance || 0);
 
-        if (newComm >= remaining) {
-          newComm -= remaining;
-          remaining = 0;
-        } else {
-          remaining -= newComm;
-          newComm = 0;
-          newBal -= remaining;
-        }
-        return { ...u, balance: newBal, commissionBalance: newComm };
-      }
-      // Adiciona ao cambista
-      if (u.id === targetCambista) {
-        return { ...u, balance: (u.balance || 0) + transferAmount };
-      }
-      return u;
-    });
+      if (newComm >= rem) { newComm -= rem; rem = 0; } else { rem -= newComm; newComm = 0; newBal -= rem; }
+      
+      await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
+      
+      // 2. Adiciona ao cambista
+      const target = myCambistas.find(c => c.id === targetCambista);
+      const targetNewBal = (Number(target?.balance) || 0) + amount;
+      await supabase.from('users').update({ balance: targetNewBal }).eq('id', targetCambista);
 
-    localStorage.setItem('leobet_users', JSON.stringify(updated));
-    const me = updated.find((u: any) => u.id === user.id);
-    setUser(me);
-    toast({ title: "TRANSFERÊNCIA REALIZADA!", description: "O saldo já está disponível para o vendedor." });
-    setTransferAmount(0);
+      setUser({ ...user, balance: newBal, commissionBalance: newComm });
+      toast({ title: "TRANSFERÊNCIA REALIZADA!" });
+      setTransferAmount('');
+      loadData();
+    } catch (err) {
+      toast({ variant: "destructive", title: "ERRO NA TRANSFERÊNCIA" });
+    }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-black uppercase text-primary leading-none">Painel do Gerente</h1>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Gestão de Rede e Performance</p>
+              <h1 className="text-4xl font-black uppercase text-primary leading-none">Painel Gerência</h1>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1 flex items-center gap-2">
+                <Database className="w-3 h-3 text-green-600" /> Sincronização Cloud Ativa
+              </p>
             </div>
-            <Card className="bg-primary text-white p-6 rounded-2xl shadow-xl border-none">
-              <p className="text-[10px] font-black uppercase opacity-60">Meu Saldo Total</p>
-              <p className="text-3xl font-black">R$ {((user?.balance || 0) + (user?.commissionBalance || 0)).toFixed(2)}</p>
+            <Card className="bg-primary text-white p-6 rounded-[2rem] shadow-xl border-none w-full md:w-auto">
+              <p className="text-[10px] font-black uppercase opacity-60">Meu Saldo Disponível</p>
+              <p className="text-3xl font-black">R$ {((Number(user?.balance) || 0) + (Number(user?.commissionBalance) || 0)).toFixed(2)}</p>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-white border-none shadow-sm rounded-2xl">
-              <CardContent className="p-6 flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-black uppercase text-muted-foreground">Cambistas Ativos</p>
-                  <p className="text-3xl font-black">{stats.cambistas}</p>
-                </div>
-                <Users className="w-10 h-10 text-primary/20" />
-              </CardContent>
+            <Card className="bg-white border-none shadow-sm rounded-[2rem] p-6 flex justify-between items-center">
+              <div><p className="text-xs font-black uppercase text-muted-foreground">Rede de Cambistas</p><p className="text-3xl font-black">{stats.cambistas}</p></div>
+              <div className="bg-blue-100 p-4 rounded-2xl"><Users className="w-8 h-8 text-blue-600" /></div>
             </Card>
-            <Card className="bg-white border-none shadow-sm rounded-2xl">
-              <CardContent className="p-6 flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-black uppercase text-muted-foreground">Vendas da Rede</p>
-                  <p className="text-3xl font-black">{stats.vendas}</p>
-                </div>
-                <TrendingUp className="w-10 h-10 text-green-600/20" />
-              </CardContent>
+            <Card className="bg-white border-none shadow-sm rounded-[2rem] p-6 flex justify-between items-center">
+              <div><p className="text-xs font-black uppercase text-muted-foreground">Vendas Totais</p><p className="text-3xl font-black">{stats.vendas}</p></div>
+              <div className="bg-green-100 p-4 rounded-2xl"><TrendingUp className="w-8 h-8 text-green-600" /></div>
             </Card>
-            <Card className="bg-white border-none shadow-sm rounded-2xl">
-              <CardContent className="p-6 flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-black uppercase text-muted-foreground">Minha Comissão</p>
-                  <p className="text-3xl font-black text-accent">R$ {stats.comissao.toFixed(2)}</p>
-                </div>
-                <DollarSign className="w-10 h-10 text-accent/20" />
-              </CardContent>
+            <Card className="bg-white border-none shadow-sm rounded-[2rem] p-6 flex justify-between items-center">
+              <div><p className="text-xs font-black uppercase text-muted-foreground">Minha Comissão</p><p className="text-3xl font-black text-accent">R$ {stats.comissao.toFixed(2)}</p></div>
+              <div className="bg-orange-100 p-4 rounded-2xl"><DollarSign className="w-8 h-8 text-accent" /></div>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card className="border-t-4 border-t-accent shadow-xl rounded-2xl overflow-hidden">
-              <CardHeader className="bg-muted/50 border-b">
-                <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-accent" /> Recarregar Cambista
+            <Card className="border-t-8 border-t-accent shadow-2xl rounded-[3rem] overflow-hidden bg-white">
+              <CardHeader className="bg-muted/50 border-b p-8">
+                <CardTitle className="text-base font-black uppercase flex items-center gap-2 text-primary">
+                  <Wallet className="w-6 h-6 text-accent" /> Recarregar Cambista
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase opacity-60">Vendedor da minha rede</label>
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase opacity-60">Escolher Vendedor</label>
                   <select 
-                    className="w-full h-12 border-2 rounded-xl px-3 font-bold bg-white focus:border-accent"
+                    className="w-full h-14 border-2 rounded-2xl px-4 font-bold bg-white focus:border-accent outline-none"
                     value={targetCambista}
                     onChange={e => setTargetCambista(e.target.value)}
                   >
-                    <option value="">-- SELECIONE O CAMBISTA --</option>
-                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome} (Saldo: R$ {((c.balance || 0) + (c.commissionBalance || 0)).toFixed(2)})</option>)}
+                    <option value="">-- SELECIONE NA LISTA --</option>
+                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome} (Saldo: R$ {((Number(c.balance) || 0) + (Number(c.commission_balance) || 0)).toFixed(2)})</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase opacity-60">Valor da Transferência (R$)</label>
-                  <Input type="number" placeholder="VALOR R$" value={transferAmount} onChange={e => setTransferAmount(Number(e.target.value))} className="h-12 font-black text-xl border-2" />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase opacity-60">Valor (R$)</label>
+                  <Input type="number" placeholder="0,00" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="h-16 text-center font-black text-4xl border-2 rounded-2xl" />
                 </div>
-                <Button onClick={handleTransfer} className="w-full bg-accent hover:bg-accent/90 font-black h-14 uppercase rounded-xl shadow-lg transition-all active:scale-95">
-                  <Send className="w-4 h-4 mr-2" /> Confirmar Transferência
+                <Button onClick={handleTransfer} className="w-full bg-accent hover:bg-accent/90 text-white font-black h-16 uppercase rounded-2xl shadow-xl transition-all active:scale-95 text-lg">
+                  <Send className="w-5 h-5 mr-2" /> Transferir Saldo
                 </Button>
-                <p className="text-[9px] font-bold text-center text-muted-foreground uppercase">O valor será deduzido do seu saldo de comissão/depósito.</p>
+                <p className="text-[9px] font-bold text-center text-muted-foreground uppercase">O valor será retirado da sua comissão/depósito e enviado ao cambista.</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-              <CardHeader><CardTitle className="text-sm font-black uppercase">Atalhos Rápidos</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                <Link href="/gerente/cambistas">
-                  <Button className="w-full h-24 uppercase font-black flex flex-col gap-2 rounded-2xl shadow-sm border-2 border-primary/10 bg-white text-primary hover:bg-primary hover:text-white transition-all">
-                    <Users className="w-6 h-6" /> Meus Cambistas
+            <Card className="rounded-[3rem] border-none shadow-sm bg-white overflow-hidden">
+              <CardHeader className="p-8 pb-4"><CardTitle className="text-base font-black uppercase text-primary">Atalhos da Gestão</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4 p-8 pt-0">
+                <Link href="/gerente/cambistas" className="contents">
+                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-primary/10 hover:bg-primary hover:text-white transition-all group">
+                    <Users className="w-10 h-10 text-primary group-hover:text-white" /> Meus Cambistas
                   </Button>
                 </Link>
-                <Link href="/admin/venda">
-                  <Button className="w-full h-24 uppercase font-black flex flex-col gap-2 rounded-2xl shadow-sm border-2 border-accent/10 bg-white text-accent hover:bg-accent hover:text-white transition-all">
-                    <Send className="w-6 h-6" /> Nova Venda
+                <Link href="/admin/venda" className="contents">
+                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-accent/10 hover:bg-accent hover:text-white transition-all group">
+                    <Send className="w-10 h-10 text-accent group-hover:text-white" /> Nova Venda
                   </Button>
                 </Link>
-                <Link href="/relatorios">
-                  <Button className="w-full h-24 uppercase font-black flex flex-col gap-2 rounded-2xl shadow-sm border-2 border-blue-100 bg-white text-blue-600 hover:bg-blue-600 hover:text-white transition-all">
-                    <TrendingUp className="w-6 h-6" /> Relatórios Rede
+                <Link href="/relatorios" className="contents">
+                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-blue-100 hover:bg-blue-600 hover:text-white transition-all group">
+                    <TrendingUp className="w-10 h-10 text-blue-600 group-hover:text-white" /> Relatórios
                   </Button>
                 </Link>
-                <Link href="/perfil">
-                  <Button className="w-full h-24 uppercase font-black flex flex-col gap-2 rounded-2xl shadow-sm border-2 border-muted bg-white text-muted-foreground hover:bg-muted-foreground hover:text-white transition-all">
-                    <ShieldCheck className="w-6 h-6" /> Meu Perfil
+                <Link href="/perfil" className="contents">
+                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-muted hover:bg-muted-foreground hover:text-white transition-all group">
+                    <ShieldCheck className="w-10 h-10 text-muted-foreground group-hover:text-white" /> Meu Perfil
                   </Button>
                 </Link>
               </CardContent>

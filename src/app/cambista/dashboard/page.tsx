@@ -9,6 +9,7 @@ import { TrendingUp, ShoppingCart, DollarSign, Clock, CheckCircle2 } from 'lucid
 import { useAuthStore } from '@/store/use-auth-store';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { supabase } from '@/supabase/client';
 
 export default function CambistaDashboard() {
   const { user } = useAuthStore();
@@ -17,37 +18,56 @@ export default function CambistaDashboard() {
     comissaoAcumulada: 0,
     ultimasVendas: [] as any[]
   });
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const allTickets = JSON.parse(localStorage.getItem('leobet_tickets') || '[]');
-    const mySales = allTickets.filter((t: any) => t.vendedorId === user?.id);
-    
-    const today = new Date().toISOString().split('T')[0];
-    const todaySales = mySales.filter((s: any) => s.data.startsWith(today) && s.status === 'pago');
-    
-    setStats({
-      vendasHoje: todaySales.length,
-      comissaoAcumulada: user?.commissionBalance || 0,
-      ultimasVendas: mySales.slice(0, 5)
-    });
+    setMounted(true);
+    if (user?.id) {
+      loadStats();
+    }
   }, [user]);
 
+  const loadStats = async () => {
+    try {
+      const { data: mySales } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('vendedor_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (mySales) {
+        const today = new Date().toISOString().split('T')[0];
+        const todaySales = mySales.filter((s: any) => s.created_at.startsWith(today) && s.status === 'pago');
+        
+        setStats({
+          vendasHoje: todaySales.length,
+          comissaoAcumulada: Number(user?.commissionBalance || 0),
+          ultimasVendas: mySales.slice(0, 5)
+        });
+      }
+    } catch (err) {
+      console.error("Erro dashboard cambista:", err);
+    }
+  };
+
+  if (!mounted) return null;
+
   return (
-    <div className="flex h-screen bg-muted/30">
+    <div className="flex h-screen bg-muted/30 font-body">
       <SidebarNav />
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div>
-            <h1 className="text-3xl font-black font-headline uppercase text-primary">Painel LEOBET Cambista</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Controle de Vendas e Comissões</p>
+            <h1 className="text-3xl font-black uppercase text-primary leading-tight">Painel Cambista Parceiro</h1>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Controle de Vendas e Comissões</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <BalanceCard />
             
-            <Card className="bg-white border-none shadow-sm">
+            <Card className="bg-white border-none shadow-sm rounded-[2rem]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Vendas Hoje (Aprovadas)</CardTitle>
+                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Vendas Hoje</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -57,9 +77,9 @@ export default function CambistaDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-none shadow-sm">
+            <Card className="bg-white border-none shadow-sm rounded-[2rem]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Minha Comissão Total</CardTitle>
+                <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Minha Comissão</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -71,30 +91,29 @@ export default function CambistaDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-             <Card className="border-none shadow-md">
-                <CardHeader className="flex flex-row items-center justify-between">
+             <Card className="border-none shadow-md rounded-[2.5rem] bg-white overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between bg-muted/20 border-b p-6">
                   <CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-primary">
-                    <Clock className="w-4 h-4" /> Últimos Movimentos
+                    <Clock className="w-4 h-4" /> Movimentos Recentes
                   </CardTitle>
                   <Link href="/admin/venda">
-                    <Badge className="bg-accent hover:bg-accent/90 cursor-pointer font-black uppercase text-[9px]">Nova Venda</Badge>
+                    <Badge className="bg-accent hover:bg-accent/90 cursor-pointer font-black uppercase text-[10px] h-8 px-4 rounded-xl">Nova Venda</Badge>
                   </Link>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {stats.ultimasVendas.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground opacity-30 font-black uppercase text-xs">Aguardando primeira venda</div>
+                    <div className="text-center py-12 text-muted-foreground opacity-30 font-black uppercase text-xs">Aguardando primeira venda...</div>
                   ) : (
                     <div className="space-y-3">
                        {stats.ultimasVendas.map((s, i) => (
-                         <div key={i} className="flex justify-between items-center p-3 border rounded-xl hover:bg-muted/30 transition-all">
+                         <div key={i} className="flex justify-between items-center p-4 border rounded-2xl hover:bg-muted/30 transition-all">
                             <div>
-                               <p className="font-black uppercase text-xs">{s.cliente}</p>
-                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s.eventoNome}</p>
+                               <p className="font-black uppercase text-xs text-primary">{s.cliente}</p>
+                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s.evento_nome}</p>
                             </div>
                             <div className="text-right">
-                               <p className="font-black text-xs">R$ {s.valorTotal.toFixed(2)}</p>
-                               <Badge className={`${s.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase`}>
-                                 {s.status === 'pago' ? <CheckCircle2 className="w-2 h-2 mr-1" /> : null}
+                               <p className="font-black text-xs">R$ {Number(s.valor_total).toFixed(2)}</p>
+                               <Badge className={`${s.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
                                  {s.status === 'pago' ? 'Aprovado' : 'Aguardando'}
                                </Badge>
                             </div>
@@ -105,18 +124,21 @@ export default function CambistaDashboard() {
                 </CardContent>
              </Card>
 
-             <Card className="bg-primary text-white border-none shadow-xl rounded-2xl">
+             <Card className="bg-primary text-white border-none shadow-xl rounded-[2.5rem] p-4 flex flex-col justify-center">
                 <CardHeader>
-                   <CardTitle className="text-xs font-black uppercase text-white/60">Lembrete do Cambista</CardTitle>
+                   <CardTitle className="text-xs font-black uppercase text-white/60">Importante para você</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                     Sua comissão de 10% entra no seu saldo automaticamente assim que a venda é aprovada. 
-                     Você pode usar suas comissões para fazer novas vendas para seus clientes e lucrar ainda mais.
+                     Sua comissão entra no saldo automaticamente assim que o administrador valida a venda. 
+                     Você pode reinvestir suas comissões para emitir novos bilhetes instantaneamente.
                    </p>
-                   <div className="pt-4 border-t border-white/10 flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-xl"><TrendingUp className="w-5 h-5" /></div>
-                      <p className="text-[10px] font-black uppercase">Foco na rede e nas vendas!</p>
+                   <div className="pt-6 border-t border-white/10 flex items-center gap-4">
+                      <div className="bg-accent p-3 rounded-2xl shadow-lg"><TrendingUp className="w-6 h-6 text-white" /></div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Foco total na rede</p>
+                        <p className="text-[8px] font-bold opacity-50 uppercase">Vendas liquidadas via PIX ou Saldo.</p>
+                      </div>
                    </div>
                 </CardContent>
              </Card>
