@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -78,9 +79,9 @@ export default function VendaPage() {
       });
       setNumerosSelecionados([]);
       
-      let pArray = [];
-      if (ev.partidas) {
-        pArray = typeof ev.partidas === 'string' ? JSON.parse(ev.partidas) : ev.partidas;
+      let pArray = ev.partidas || [];
+      if (typeof pArray === 'string') {
+        try { pArray = JSON.parse(pArray); } catch { pArray = []; }
       }
       
       if (Array.isArray(pArray)) {
@@ -96,10 +97,27 @@ export default function VendaPage() {
     }
   };
 
+  const handleToggleNumero = (n: number) => {
+    if (formData.tipo === 'rifa') {
+      setNumerosSelecionados([n]);
+    } else {
+      if (numerosSelecionados.includes(n)) {
+        setNumerosSelecionados(numerosSelecionados.filter(num => num !== n));
+      } else {
+        const limit = formData.tipo === 'mega' ? 15 : (formData.tipo === 'quina' ? 20 : 1);
+        if (numerosSelecionados.length < limit) {
+          setNumerosSelecionados([...numerosSelecionados, n].sort((a,b) => a-b));
+        } else {
+          toast({ variant: "destructive", title: `Limite de ${limit} dezenas.` });
+        }
+      }
+    }
+  };
+
   const finalizeVenda = async () => {
     if (!user || !formData.eventoId) return;
     if (formData.tipo === 'esportivo' && palpitesBolao.some(p => !p)) {
-      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS" });
+      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Marque todos os jogos do bolão." });
     }
 
     setLoading(true);
@@ -108,9 +126,10 @@ export default function VendaPage() {
     const totalVenda = formData.unitario * quantity;
     const currentBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
     
-    // Regra: Pago apenas se tiver saldo OU se for Admin (que não usa manual pending)
+    // REGRA DE OURO: Só marca como 'pago' se for descontar do saldo interno.
+    // Se gerar PIX ou for Venda Pendente Manual, status SEMPRE é 'pendente'.
     const canPayWithBalance = currentBalance >= totalVenda && !isManualPending;
-    const shouldBePaid = canPayWithBalance || (user.role === 'admin' && !isManualPending);
+    const shouldBePaid = canPayWithBalance; 
     
     const ticketId = Math.random().toString(36).substring(7).toUpperCase();
     const ticketsGenerated = [];
@@ -122,7 +141,12 @@ export default function VendaPage() {
       } else if (formData.tipo === 'rifa') {
          n = numerosSelecionados.length > 0 ? [numerosSelecionados[0]] : [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
       } else if (formData.tipo === 'mega' || formData.tipo === 'quina') {
-         n = [...numerosSelecionados];
+         n = numerosSelecionados.length > 0 ? [...numerosSelecionados] : [];
+         if (n.length === 0) {
+           const limit = formData.tipo === 'mega' ? 15 : 20;
+           const max = formData.tipo === 'mega' ? 60 : 80;
+           while(n.length < limit) { const num = Math.floor(Math.random() * max) + 1; if(!n.includes(num)) n.push(num); }
+         }
       } else if (formData.tipo === 'esportivo') {
          p = palpitesBolao.join('-');
       }
@@ -149,33 +173,36 @@ export default function VendaPage() {
     };
 
     try {
-      // Se NÃO tem saldo e NÃO é admin e NÃO é manual pending -> GERA PIX E CRIA TICKET PENDENTE
-      if (!shouldBePaid && !isManualPending && user.role !== 'admin') {
+      // CENÁRIO A: NÃO TEM SALDO E NÃO É MANUAL -> GERA PIX (Ticket fica pendente até cair o dinheiro)
+      if (!shouldBePaid && !isManualPending) {
         const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome }, ticketId);
         if (pix?.qr_code) {
           await supabase.from('tickets').insert([receipt]);
           setCheckoutPix({ ...pix, ticket_id: ticketId } as any);
           setLoading(false);
           return;
-        } else throw new Error("Erro API Pix");
+        } else throw new Error("Erro ao conectar com API Mercado Pago");
       }
 
-      // Se tem saldo, desconta
-      if (canPayWithBalance && user.role !== 'admin') {
+      // CENÁRIO B: TEM SALDO -> DESCONTA E VALIDA NA HORA
+      if (shouldBePaid) {
         const { data: userData } = await supabase.from('users').select('balance, commission_balance').eq('id', user.id).single();
         if (userData) {
-           let rem = totalVenda; let newComm = Number(userData.commission_balance || 0); let newBal = Number(userData.balance || 0);
+           let rem = totalVenda; 
+           let newComm = Number(userData.commission_balance || 0); 
+           let newBal = Number(userData.balance || 0);
            if (newComm >= rem) { newComm -= rem; rem = 0; } else { rem -= newComm; newComm = 0; newBal -= rem; }
            await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
            setUser({ ...user, balance: newBal, commissionBalance: newComm });
         }
       }
 
+      // CENÁRIO C: VENDA PENDENTE MANUAL (SUPERVISOR) -> APENAS SALVA COMO PENDENTE
       await supabase.from('tickets').insert([receipt]);
       setVendaRealizada(receipt);
-      toast({ title: shouldBePaid ? "BILHETE EMITIDO!" : "BILHETE PENDENTE!" });
+      toast({ title: shouldBePaid ? "BILHETE EMITIDO!" : "AGUARDANDO VALIDAÇÃO!" });
     } catch (err: any) { 
-      toast({ variant: "destructive", title: "ERRO AO PROCESSAR", description: err.message }); 
+      toast({ variant: "destructive", title: "ERRO NO PROCESSAMENTO", description: err.message }); 
     } finally { setLoading(false); }
   };
 
@@ -202,20 +229,24 @@ export default function VendaPage() {
               </CardHeader>
               <CardContent className="p-8 pt-0 space-y-6">
                 {checkoutPix ? (
-                   <div className="space-y-6 text-center py-6">
+                   <div className="space-y-6 text-center py-6 animate-in fade-in zoom-in-95">
                       <div className="p-4 bg-orange-50 rounded-2xl border-2 border-orange-200">
                         <p className="text-sm font-black uppercase text-orange-600">Aguardando Pagamento PIX</p>
-                        <p className="text-[10px] font-bold opacity-60">ID DO BILHETE: {checkoutPix.ticket_id}</p>
+                        <p className="text-[10px] font-bold opacity-60">BILHETE #{checkoutPix.ticket_id} (PENDENTE)</p>
                       </div>
-                      <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48 mx-auto" alt="Pix" />
-                      <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs">
+                      {checkoutPix.qr_code_base64 && (
+                        <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48 mx-auto shadow-lg rounded-2xl p-2 bg-white" alt="Pix" />
+                      )}
+                      <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs border-2">
                         <Copy className="w-4 h-4" /> Copiar Código Pix
                       </Button>
                       <div className="flex items-center gap-2 text-green-600 justify-center">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-[10px] font-black uppercase">O bilhete será validado após o pagamento</span>
+                        <span className="text-[10px] font-black uppercase">O bilhete será validado automaticamente</span>
                       </div>
-                      <Button onClick={() => setCheckoutPix(null)} variant="ghost" className="w-full text-[10px] font-black uppercase opacity-60">Fazer outra venda</Button>
+                      <Button onClick={() => setCheckoutPix(null)} variant="ghost" className="w-full text-[10px] font-black uppercase opacity-60 flex items-center justify-center gap-2">
+                        <ArrowLeft className="w-3 h-3" /> Voltar ao Terminal
+                      </Button>
                    </div>
                 ) : (
                   <form onSubmit={(e) => { e.preventDefault(); finalizeVenda(); }} className="space-y-4">
@@ -227,8 +258,8 @@ export default function VendaPage() {
                     
                     <div className="space-y-1">
                       <Label className="text-[10px] font-black uppercase opacity-60">Concurso Disponível</Label>
-                      <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                        <option value="">-- SELECIONE --</option>
+                      <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white focus:border-primary outline-none" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
+                        <option value="">-- SELECIONE O JOGO --</option>
                         {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} - R$ {Number(e.preco || 0).toFixed(2)}</option>)}
                       </select>
                     </div>
@@ -242,7 +273,7 @@ export default function VendaPage() {
                                   <span className="text-[10px] font-black uppercase flex-1 truncate">{p?.time1} vs {p?.time2}</span>
                                   <div className="flex gap-1">
                                      {['1', 'X', '2'].map((c) => (
-                                       <button key={c} type="button" onClick={() => { const nP = [...palpitesBolao]; nP[idx] = c; setPalpitesBolao(nP); }} className={cn("w-9 h-9 rounded-xl font-black text-xs", palpitesBolao[idx] === c ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground opacity-40")}>
+                                       <button key={c} type="button" onClick={() => { const nP = [...palpitesBolao]; nP[idx] = c; setPalpitesBolao(nP); }} className={cn("w-9 h-9 rounded-xl font-black text-xs transition-all", palpitesBolao[idx] === c ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground opacity-40 hover:opacity-100")}>
                                          {c === '1' ? 'M' : c === '2' ? 'V' : 'E'}
                                        </button>
                                      ))}
@@ -255,14 +286,14 @@ export default function VendaPage() {
                         {(formData.tipo === 'mega' || formData.tipo === 'quina' || formData.tipo === 'rifa') && (
                            <div className="space-y-3">
                              <div className="flex justify-between items-center">
-                               <p className="text-[9px] font-black uppercase text-primary">Escolha suas Cotas/Dezenas:</p>
-                               <Badge className="text-[9px] bg-primary">{numerosSelecionados.length} MARCADOS</Badge>
+                               <p className="text-[9px] font-black uppercase text-primary">Selecione suas dezenas/cotas:</p>
+                               <Badge className="text-[9px] bg-primary">{numerosSelecionados.length} ATIVOS</Badge>
                              </div>
                              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 h-48 overflow-y-auto custom-scrollbar p-3 bg-white rounded-2xl border">
                                 {Array.from({ length: formData.tipo === 'mega' ? 60 : (formData.tipo === 'quina' ? 80 : (selectedEventData?.total_numeros || 100)) }).map((_, i) => {
                                   const n = i + 1; const isS = numerosSelecionados.includes(n);
                                   return (
-                                    <button key={n} type="button" onClick={() => handleToggleNumero(n)} className={cn("h-10 rounded-xl font-black text-[10px] transition-all border-2", isS ? "bg-accent text-white border-accent scale-105 shadow-md" : "bg-muted/10 border-transparent text-muted-foreground/40")}>
+                                    <button key={n} type="button" onClick={() => handleToggleNumero(n)} className={cn("h-10 rounded-xl font-black text-[10px] transition-all border-2", isS ? "bg-accent text-white border-accent scale-105 shadow-md" : "bg-muted/10 border-transparent text-muted-foreground/40 hover:bg-muted/30")}>
                                       {formData.tipo === 'rifa' && selectedEventData?.tipo === 'fazendinha' ? ANIMAIS_FAZENDINHA[n-1]?.substring(0,3) : (n < 10 ? `0${n}` : n)}
                                     </button>
                                   );
@@ -282,7 +313,7 @@ export default function VendaPage() {
                     {(user?.role === 'admin' || user?.role === 'gerente') && (
                       <div className="flex items-center space-x-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
                         <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} className="h-5 w-5" />
-                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Venda Pendente (Pagar Depois)</label>
+                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Venda Pendente (Validar Manualmente)</label>
                       </div>
                     )}
 
@@ -300,7 +331,7 @@ export default function VendaPage() {
                    <div className="absolute top-0 left-0 w-full h-3 bg-primary"></div>
                    <p className="text-3xl font-black text-primary tracking-tighter">LEOBET PRO</p>
                    <Badge className={cn("mb-6 font-black uppercase text-[10px] h-8 px-6 rounded-full text-white", vendaRealizada.status === 'pago' ? "bg-green-600" : "bg-orange-600")}>
-                     {vendaRealizada.status === 'pago' ? "VALIDADO" : "PENDENTE VALIDAÇÃO"}
+                     {vendaRealizada.status === 'pago' ? "✅ VALIDADO" : "⚠ AGUARDANDO PAGAMENTO"}
                    </Badge>
                    
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-6 space-y-3 text-xs uppercase font-bold text-left">
@@ -310,7 +341,7 @@ export default function VendaPage() {
                       <p className="flex justify-between font-black border-t-2 border-dashed border-black/10 pt-4 text-xl text-primary"><span>TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                    </div>
                    
-                   <div className="space-y-3 mb-8 text-left">
+                   <div className="space-y-3 mb-8 text-left max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                       {vendaRealizada.tickets_data.map((t: any, idx: number) => (
                         <div key={idx} className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex flex-col gap-1">
                            <div className="flex justify-between border-b border-primary/10 pb-1">
@@ -337,7 +368,7 @@ export default function VendaPage() {
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3.5rem] opacity-20 bg-white p-12 text-center">
                   <Ticket className="w-20 h-20 text-primary mb-6" />
-                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Seleção</h3>
+                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Seleção no Terminal</h3>
                 </div>
               )}
             </div>

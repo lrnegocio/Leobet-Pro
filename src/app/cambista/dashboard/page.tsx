@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -26,30 +27,40 @@ export default function CambistaDashboard() {
   const loadStats = async () => {
     if (!user?.id || !mounted) return;
     try {
+      // Puxa as vendas diretamente do Supabase em vez de localStorage
       const { data: mySales } = await supabase
         .from('tickets')
         .select('*')
         .eq('vendedor_id', user.id)
         .order('created_at', { ascending: false });
 
+      // Busca dados atualizados do usuário para saldo e comissão
+      const { data: userData } = await supabase
+        .from('users')
+        .select('commission_balance, balance')
+        .eq('id', user.id)
+        .single();
+
       const today = new Date().toISOString().split('T')[0];
       const todaySales = (mySales || []).filter((s: any) => s.created_at?.startsWith(today) && s.status === 'pago');
       
       setStats({
         vendasHoje: todaySales.length,
-        comissaoAcumulada: Number(user?.commissionBalance || 0),
+        comissaoAcumulada: Number(userData?.commission_balance || 0),
         ultimasVendas: (mySales || []).slice(0, 5)
       });
     } catch (err) {
-      console.warn("Erro dashboard cambista:", err);
+      console.warn("Erro ao carregar dashboard cambista:", err);
     }
   };
 
   useEffect(() => {
     if (mounted && user?.id) {
       loadStats();
+      const interval = setInterval(loadStats, 15000);
+      return () => clearInterval(interval);
     }
-  }, [mounted, user?.id, user?.commissionBalance]);
+  }, [mounted, user?.id]);
 
   if (!mounted) return null;
 
@@ -60,7 +71,7 @@ export default function CambistaDashboard() {
         <div className="max-w-7xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-tight">Painel Cambista Parceiro</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real</p>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real com a Central</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -72,7 +83,7 @@ export default function CambistaDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <span className="text-3xl font-black">{stats.vendasHoje}</span>
+                  <span className="text-3xl font-black">{stats?.vendasHoje || 0}</span>
                   <div className="bg-green-100 p-3 rounded-2xl"><ShoppingCart className="w-5 h-5 text-green-600" /></div>
                 </div>
               </CardContent>
@@ -84,7 +95,7 @@ export default function CambistaDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <span className="text-3xl font-black text-primary">R$ {(stats.comissaoAcumulada || 0).toFixed(2)}</span>
+                  <span className="text-3xl font-black text-primary">R$ {(stats?.comissaoAcumulada || 0).toFixed(2)}</span>
                   <div className="bg-blue-100 p-3 rounded-2xl"><DollarSign className="w-5 h-5 text-blue-600" /></div>
                 </div>
               </CardContent>
@@ -95,14 +106,14 @@ export default function CambistaDashboard() {
              <Card className="border-none shadow-md rounded-[2.5rem] bg-white overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between bg-muted/20 border-b p-6">
                   <CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-primary">
-                    <Clock className="w-4 h-4" /> Movimentos Recentes
+                    <Clock className="w-4 h-4" /> Minhas Atividades
                   </CardTitle>
                   <Link href="/admin/venda">
                     <Badge className="bg-accent hover:bg-accent/90 cursor-pointer font-black uppercase text-[10px] h-8 px-4 rounded-xl text-white">Nova Venda</Badge>
                   </Link>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {stats.ultimasVendas.length === 0 ? (
+                  {!stats?.ultimasVendas || stats.ultimasVendas.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground opacity-30 font-black uppercase text-xs">Aguardando primeira venda...</div>
                   ) : (
                     <div className="space-y-3">
@@ -114,7 +125,10 @@ export default function CambistaDashboard() {
                             </div>
                             <div className="text-right">
                                <p className="font-black text-xs">R$ {Number(s?.valor_total || 0).toFixed(2)}</p>
-                               <Badge className={`${s?.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
+                               <Badge className={cn(
+                                 "text-[8px] h-4 font-black uppercase text-white",
+                                 s?.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'
+                               )}>
                                  {s?.status === 'pago' ? 'Aprovado' : 'Pendente'}
                                </Badge>
                             </div>
@@ -127,17 +141,17 @@ export default function CambistaDashboard() {
 
              <Card className="bg-primary text-white border-none shadow-xl rounded-[2.5rem] p-4 flex flex-col justify-center">
                 <CardHeader>
-                   <CardTitle className="text-xs font-black uppercase text-white/60">Controle Cambista</CardTitle>
+                   <CardTitle className="text-xs font-black uppercase text-white/60">Controle de Segurança</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                     Suas comissões são creditadas automaticamente assim que a venda é validada pelo administrador.
+                     Suas comissões são liquidadas automaticamente. Vendas via PIX ficam pendentes até a confirmação do pagamento pelo sistema.
                    </p>
                    <div className="pt-6 border-t border-white/10 flex items-center gap-4">
                       <div className="bg-accent p-3 rounded-2xl shadow-lg"><TrendingUp className="w-6 h-6 text-white" /></div>
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest">Sincronizado</p>
-                        <p className="text-[8px] font-bold opacity-50 uppercase">Vendas auditadas digitalmente.</p>
+                        <p className="text-[8px] font-bold opacity-50 uppercase">Base de dados Supabase ativa.</p>
                       </div>
                    </div>
                 </CardContent>
