@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -54,9 +54,9 @@ export default function VendaPage() {
 
   const loadEventos = async () => {
     try {
-      const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
-      const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
-      const { data: rifas } = await supabase.from('rifas').select('*').eq('status', 'aberto');
+      const { data: bingos } = await supabase.from('bingos').select('*').in('status', ['aberto', 'encerrado']);
+      const { data: boloes } = await supabase.from('boloes').select('*').in('status', ['aberto', 'encerrado']);
+      const { data: rifas } = await supabase.from('rifas').select('*').in('status', ['aberto', 'encerrado']);
       
       const validBingos = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
       const validBoloes = (boloes || []).map(b => ({ ...b, tipo: b.tipo || 'esportivo' }));
@@ -79,18 +79,13 @@ export default function VendaPage() {
       });
       setNumerosSelecionados([]);
       
-      // LOGICA ROBUSTA PARA BOLÃO
+      let pArray = [];
       if (ev.partidas) {
-        let pArray = [];
-        try {
-          pArray = typeof ev.partidas === 'string' ? JSON.parse(ev.partidas) : ev.partidas;
-        } catch(e) { pArray = []; }
-        
-        if (Array.isArray(pArray)) {
-          setPalpitesBolao(new Array(pArray.length).fill(''));
-        } else {
-          setPalpitesBolao([]);
-        }
+        pArray = typeof ev.partidas === 'string' ? JSON.parse(ev.partidas) : ev.partidas;
+      }
+      
+      if (Array.isArray(pArray)) {
+        setPalpitesBolao(new Array(pArray.length).fill(''));
       } else {
         setPalpitesBolao([]);
       }
@@ -110,41 +105,33 @@ export default function VendaPage() {
       if (numerosSelecionados.length >= limit && formData.tipo !== 'rifa') {
         return toast({ variant: "destructive", title: "LIMITE ATINGIDO" });
       }
-      if (formData.tipo === 'rifa') {
-        setNumerosSelecionados([num]);
-      } else {
-        setNumerosSelecionados([...numerosSelecionados, num].sort((a,b) => a-b));
-      }
+      if (formData.tipo === 'rifa') setNumerosSelecionados([num]);
+      else setNumerosSelecionados([...numerosSelecionados, num].sort((a,b) => a-b));
     }
   };
 
   const finalizeVenda = async () => {
     if (!user || !formData.eventoId) return;
-    
     if (formData.tipo === 'esportivo' && palpitesBolao.some(p => !p)) {
-      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS", description: "Marque todos os jogos do bolão." });
-    }
-    if ((formData.tipo === 'mega' || formData.tipo === 'quina') && numerosSelecionados.length === 0) {
-      return toast({ variant: "destructive", title: "ESCOLHA OS NÚMEROS" });
+      return toast({ variant: "destructive", title: "PALPITES INCOMPLETOS" });
     }
 
     setLoading(true);
     const totalVenda = formData.unitario * quantity;
-    const totalBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
+    const currentBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
     
-    if (totalBalance < totalVenda && user.role !== 'admin' && !isManualPending) {
+    if (currentBalance < totalVenda && user.role !== 'admin' && !isManualPending) {
       try {
         const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome });
-        if (pix && pix.qr_code) {
-          setCheckoutPix(pix as any);
-        } else { throw new Error("API Indisponível"); }
+        if (pix?.qr_code) setCheckoutPix(pix as any);
+        else throw new Error("API Indisponível");
       } catch (e: any) {
-        toast({ variant: "destructive", title: "ERRO AO GERAR PIX", description: "Tente novamente ou use Saldo." });
+        toast({ variant: "destructive", title: "ERRO AO GERAR PIX" });
       } finally { setLoading(false); }
       return;
     }
 
-    const shouldBePaid = (totalBalance >= totalVenda && !isManualPending) || user.role === 'admin';
+    const shouldBePaid = (currentBalance >= totalVenda && !isManualPending) || user.role === 'admin';
     const ticketsGenerated = [];
 
     for (let i = 0; i < quantity; i++) {
@@ -181,7 +168,7 @@ export default function VendaPage() {
     };
 
     try {
-      if (shouldBePaid && user.role !== 'admin' && user.id !== 'MASTER-ADMIN') {
+      if (shouldBePaid && user.role !== 'admin') {
         const { data: userData } = await supabase.from('users').select('balance, commission_balance').eq('id', user.id).single();
         if (userData) {
            let rem = totalVenda; let newComm = Number(userData.commission_balance || 0); let newBal = Number(userData.balance || 0);
@@ -197,13 +184,17 @@ export default function VendaPage() {
     finally { setLoading(false); }
   };
 
+  const matchesList = useMemo(() => {
+    if (!selectedEventData?.partidas) return [];
+    try {
+      return typeof selectedEventData.partidas === 'string' ? JSON.parse(selectedEventData.partidas) : selectedEventData.partidas;
+    } catch { return []; }
+  }, [selectedEventData]);
+
   if (!mounted) return null;
 
-  // GARANTIA DE ARRAY DE PARTIDAS
-  const partidasParaExibir = selectedEventData?.partidas ? (typeof selectedEventData.partidas === 'string' ? JSON.parse(selectedEventData.partidas) : selectedEventData.partidas) : [];
-
   return (
-    <div className="flex h-screen bg-muted/30 font-body overflow-hidden">
+    <div className="flex h-screen bg-muted/30 font-sans overflow-hidden">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-2 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-6xl mx-auto space-y-6 pb-24">
@@ -219,11 +210,8 @@ export default function VendaPage() {
                    <div className="space-y-6 text-center py-6">
                       <div className="p-4 bg-orange-50 rounded-2xl border-2 border-orange-200">
                         <p className="text-sm font-black uppercase text-orange-600">Saldo Insuficiente</p>
-                        <p className="text-[10px] font-bold text-orange-800 uppercase">Pague o PIX para emitir este bilhete.</p>
                       </div>
-                      <div className="bg-white p-4 rounded-3xl border-2 border-primary/20 inline-block">
-                         <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48" alt="Pix" />
-                      </div>
+                      <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48 mx-auto" alt="Pix" />
                       <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs">
                         <Copy className="w-4 h-4" /> Copiar Código
                       </Button>
@@ -232,10 +220,10 @@ export default function VendaPage() {
                 ) : (
                   <form onSubmit={(e) => { e.preventDefault(); finalizeVenda(); }} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold uppercase" required /></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NUMERO" className="h-12 font-bold" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME" className="h-12 font-bold" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + CEL" className="h-12 font-bold" required /></div>
                     </div>
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CPF/EMAIL/CEL" className="h-12 font-black uppercase border-accent/30" required /></div>
+                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase opacity-60">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CPF/EMAIL/CEL" className="h-12 font-black uppercase" required /></div>
                     
                     <div className="space-y-1">
                       <Label className="text-[10px] font-black uppercase opacity-60">Concurso Disponível</Label>
@@ -247,15 +235,14 @@ export default function VendaPage() {
 
                     {selectedEventData && (
                       <div className="p-4 bg-muted/40 rounded-[2rem] border-2 border-dashed space-y-4">
-                        {formData.tipo === 'esportivo' && Array.isArray(partidasParaExibir) && (
+                        {formData.tipo === 'esportivo' && matchesList.length > 0 && (
                            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
-                             <p className="text-[9px] font-black uppercase text-primary mb-2">Seus Palpites:</p>
-                             {partidasParaExibir.map((p: any, idx: number) => (
+                             {matchesList.map((p: any, idx: number) => (
                                <div key={idx} className="flex items-center justify-between gap-2 bg-white p-3 rounded-2xl border shadow-sm mb-2">
-                                  <span className="text-[10px] font-black uppercase flex-1 truncate">{p?.time1 || 'TIME A'} vs {p?.time2 || 'TIME B'}</span>
+                                  <span className="text-[10px] font-black uppercase flex-1 truncate">{p?.time1} vs {p?.time2}</span>
                                   <div className="flex gap-1">
                                      {['1', 'X', '2'].map((c) => (
-                                       <button key={c} type="button" onClick={() => { const nP = [...palpitesBolao]; nP[idx] = c; setPalpitesBolao(nP); }} className={cn("w-9 h-9 rounded-xl font-black text-xs transition-all", palpitesBolao[idx] === c ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground opacity-40")}>
+                                       <button key={c} type="button" onClick={() => { const nP = [...palpitesBolao]; nP[idx] = c; setPalpitesBolao(nP); }} className={cn("w-9 h-9 rounded-xl font-black text-xs", palpitesBolao[idx] === c ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground opacity-40")}>
                                          {c === '1' ? 'M' : c === '2' ? 'V' : 'E'}
                                        </button>
                                      ))}
@@ -268,10 +255,10 @@ export default function VendaPage() {
                         {(formData.tipo === 'mega' || formData.tipo === 'quina' || formData.tipo === 'rifa') && (
                            <div className="space-y-3">
                              <div className="flex justify-between items-center">
-                               <p className="text-[9px] font-black uppercase text-primary">{formData.tipo === 'rifa' ? 'Escolha sua Cota:' : 'Escolha suas Dezenas:'}</p>
-                               <Badge className="text-[9px] bg-primary h-5">{numerosSelecionados.length} SELECIONADOS</Badge>
+                               <p className="text-[9px] font-black uppercase text-primary">Escolha suas Cotas/Dezenas:</p>
+                               <Badge className="text-[9px] bg-primary">{numerosSelecionados.length} MARCADOS</Badge>
                              </div>
-                             <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-1.5 h-48 overflow-y-auto custom-scrollbar p-3 bg-white rounded-2xl border">
+                             <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 h-48 overflow-y-auto custom-scrollbar p-3 bg-white rounded-2xl border">
                                 {Array.from({ length: formData.tipo === 'mega' ? 60 : (formData.tipo === 'quina' ? 80 : (selectedEventData?.total_numeros || 100)) }).map((_, i) => {
                                   const n = i + 1; const isS = numerosSelecionados.includes(n);
                                   return (
@@ -287,15 +274,15 @@ export default function VendaPage() {
                     )}
 
                     <div className="flex items-center gap-4 bg-muted/20 p-2 rounded-2xl">
-                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl border-2" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus className="w-4 h-4" /></Button>
+                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus className="w-4 h-4" /></Button>
                       <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-2xl border-none bg-transparent shadow-none" />
-                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl border-2" onClick={() => setQuantity(quantity + 1)}><Plus className="w-4 h-4" /></Button>
+                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus className="w-4 h-4" /></Button>
                     </div>
 
                     {(user?.role === 'admin' || user?.role === 'gerente') && (
                       <div className="flex items-center space-x-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
                         <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} className="h-5 w-5" />
-                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Vender a Prazo (Pendente)</label>
+                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Venda Pendente (Vender a Prazo)</label>
                       </div>
                     )}
 
@@ -312,7 +299,6 @@ export default function VendaPage() {
                 <div className="bg-[#FFFFF4] p-8 shadow-2xl border-4 border-dashed border-black/5 font-mono rounded-[3rem] text-center relative overflow-hidden animate-in slide-in-from-right duration-500">
                    <div className="absolute top-0 left-0 w-full h-3 bg-primary"></div>
                    <p className="text-3xl font-black text-primary tracking-tighter">LEOBET PRO</p>
-                   <p className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40 mb-4">Auditoria Digital Cloud</p>
                    <Badge className={cn("mb-6 font-black uppercase text-[10px] h-8 px-6 rounded-full text-white", vendaRealizada.status === 'pago' ? "bg-green-600" : "bg-orange-600")}>
                      {vendaRealizada.status === 'pago' ? "VALIDADO" : "PENDENTE VALIDAÇÃO"}
                    </Badge>
@@ -351,7 +337,7 @@ export default function VendaPage() {
               ) : (
                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed rounded-[3.5rem] opacity-20 bg-white p-12 text-center">
                   <Ticket className="w-20 h-20 text-primary mb-6" />
-                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Venda</h3>
+                  <h3 className="text-xl font-black uppercase text-primary">Aguardando Seleção</h3>
                 </div>
               )}
             </div>

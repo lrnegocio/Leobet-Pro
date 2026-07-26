@@ -33,18 +33,16 @@ export default function CambistaDashboard() {
         .eq('vendedor_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (mySales) {
-        const today = new Date().toISOString().split('T')[0];
-        const todaySales = mySales.filter((s: any) => s.created_at?.startsWith(today) && s.status === 'pago');
-        
-        setStats({
-          vendasHoje: todaySales.length,
-          comissaoAcumulada: Number(user.commissionBalance || 0),
-          ultimasVendas: mySales.slice(0, 5) || []
-        });
-      }
+      const today = new Date().toISOString().split('T')[0];
+      const todaySales = (mySales || []).filter((s: any) => s.created_at?.startsWith(today) && s.status === 'pago');
+      
+      setStats({
+        vendasHoje: todaySales.length,
+        comissaoAcumulada: Number(user.commissionBalance || 0),
+        ultimasVendas: (mySales || []).slice(0, 5)
+      });
     } catch (err) {
-      console.error("Erro dashboard cambista:", err);
+      console.warn("Erro dashboard cambista:", err);
     }
   };
 
@@ -61,13 +59,13 @@ export default function CambistaDashboard() {
   );
 
   return (
-    <div className="flex h-screen bg-muted/30 font-body">
+    <div className="flex h-screen bg-muted/30 font-sans">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-black uppercase text-primary leading-tight">Painel Cambista Parceiro</h1>
-            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Controle de Vendas e Comissões</p>
+            <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest mt-1">Sincronização em Tempo Real</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -109,7 +107,7 @@ export default function CambistaDashboard() {
                   </Link>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {(!stats.ultimasVendas || stats.ultimasVendas.length === 0) ? (
+                  {stats.ultimasVendas.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground opacity-30 font-black uppercase text-xs">Aguardando primeira venda...</div>
                   ) : (
                     <div className="space-y-3">
@@ -122,7 +120,7 @@ export default function CambistaDashboard() {
                             <div className="text-right">
                                <p className="font-black text-xs">R$ {Number(s?.valor_total || 0).toFixed(2)}</p>
                                <Badge className={`${s?.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
-                                 {s?.status === 'pago' ? 'Aprovado' : 'Aguardando'}
+                                 {s?.status === 'pago' ? 'Aprovado' : 'Pendente'}
                                </Badge>
                             </div>
                          </div>
@@ -134,18 +132,17 @@ export default function CambistaDashboard() {
 
              <Card className="bg-primary text-white border-none shadow-xl rounded-[2.5rem] p-4 flex flex-col justify-center">
                 <CardHeader>
-                   <CardTitle className="text-xs font-black uppercase text-white/60">Importante para você</CardTitle>
+                   <CardTitle className="text-xs font-black uppercase text-white/60">Controle Cambista</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                    <p className="text-sm font-bold opacity-80 leading-relaxed">
-                     Sua comissão entra no saldo automaticamente assim que o administrador valida a venda. 
-                     Você pode reinvestir suas comissões para emitir novos bilhetes instantaneamente.
+                     Suas comissões são creditadas automaticamente assim que a venda é validada pelo administrador.
                    </p>
                    <div className="pt-6 border-t border-white/10 flex items-center gap-4">
                       <div className="bg-accent p-3 rounded-2xl shadow-lg"><TrendingUp className="w-6 h-6 text-white" /></div>
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Foco total na rede</p>
-                        <p className="text-[8px] font-bold opacity-50 uppercase">Vendas liquidadas via PIX ou Saldo.</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Sincronizado</p>
+                        <p className="text-[8px] font-bold opacity-50 uppercase">Vendas auditadas digitalmente.</p>
                       </div>
                    </div>
                 </CardContent>

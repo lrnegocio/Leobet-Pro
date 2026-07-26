@@ -1,19 +1,8 @@
+
 import type { Metadata, Viewport } from "next";
-import { PT_Sans, Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SecurityProvider } from "@/components/security/SecurityProvider";
-
-const ptSans = PT_Sans({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-pt-sans",
-});
-
-const sourceCodePro = Source_Code_Pro({
-  subsets: ["latin"],
-  variable: "--font-source-code",
-});
 
 export const metadata: Metadata = {
   title: "LEOBET PRO - Sistema Auditado",
@@ -46,7 +35,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className={`${ptSans.variable} ${sourceCodePro.variable} font-body bg-muted/30 antialiased`}>
+      <body className="font-sans bg-muted/30 antialiased">
         <SecurityProvider>
           {children}
           <Toaster />
