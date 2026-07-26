@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -66,6 +65,20 @@ export default function VendaPage() {
     } catch (err) { console.warn("Erro carregar eventos:", err); }
   };
 
+  const handleCopyCode = (text: string) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      toast({ title: "CÓDIGO COPIADO!" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "ERRO AO COPIAR", description: "Seu navegador bloqueou a cópia automática." });
+    }
+  };
+
   const handleSelectEvento = (eventId: string) => {
     const ev = eventosAtivos.find(e => e.id === eventId);
     if (ev) {
@@ -123,11 +136,9 @@ export default function VendaPage() {
     setLoading(true);
     setVendaRealizada(null);
 
-    const totalVenda = formData.unitario * quantity;
+    const totalVenda = Number((formData.unitario * quantity).toFixed(2));
     const currentBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
     
-    // REGRA DE OURO: Só marca como 'pago' se for descontar do saldo interno.
-    // Se gerar PIX ou for Venda Pendente Manual, status SEMPRE é 'pendente'.
     const canPayWithBalance = currentBalance >= totalVenda && !isManualPending;
     const shouldBePaid = canPayWithBalance; 
     
@@ -173,7 +184,6 @@ export default function VendaPage() {
     };
 
     try {
-      // CENÁRIO A: NÃO TEM SALDO E NÃO É MANUAL -> GERA PIX (Ticket fica pendente até cair o dinheiro)
       if (!shouldBePaid && !isManualPending) {
         const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome }, ticketId);
         if (pix?.qr_code) {
@@ -184,7 +194,6 @@ export default function VendaPage() {
         } else throw new Error("Erro ao conectar com API Mercado Pago");
       }
 
-      // CENÁRIO B: TEM SALDO -> DESCONTA E VALIDA NA HORA
       if (shouldBePaid) {
         const { data: userData } = await supabase.from('users').select('balance, commission_balance').eq('id', user.id).single();
         if (userData) {
@@ -197,7 +206,6 @@ export default function VendaPage() {
         }
       }
 
-      // CENÁRIO C: VENDA PENDENTE MANUAL (SUPERVISOR) -> APENAS SALVA COMO PENDENTE
       await supabase.from('tickets').insert([receipt]);
       setVendaRealizada(receipt);
       toast({ title: shouldBePaid ? "BILHETE EMITIDO!" : "AGUARDANDO VALIDAÇÃO!" });
@@ -234,10 +242,11 @@ export default function VendaPage() {
                         <p className="text-sm font-black uppercase text-orange-600">Aguardando Pagamento PIX</p>
                         <p className="text-[10px] font-bold opacity-60">BILHETE #{checkoutPix.ticket_id} (PENDENTE)</p>
                       </div>
+                      <p className="text-2xl font-black text-primary">R$ {formData.unitario * quantity}</p>
                       {checkoutPix.qr_code_base64 && (
                         <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48 mx-auto shadow-lg rounded-2xl p-2 bg-white" alt="Pix" />
                       )}
-                      <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs border-2">
+                      <Button onClick={() => handleCopyCode(checkoutPix.qr_code)} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs border-2">
                         <Copy className="w-4 h-4" /> Copiar Código Pix
                       </Button>
                       <div className="flex items-center gap-2 text-green-600 justify-center">
@@ -331,11 +340,12 @@ export default function VendaPage() {
                    <div className="absolute top-0 left-0 w-full h-3 bg-primary"></div>
                    <p className="text-3xl font-black text-primary tracking-tighter">LEOBET PRO</p>
                    <Badge className={cn("mb-6 font-black uppercase text-[10px] h-8 px-6 rounded-full text-white", vendaRealizada.status === 'pago' ? "bg-green-600" : "bg-orange-600")}>
-                     {vendaRealizada.status === 'pago' ? "✅ VALIDADO" : "⚠ AGUARDANDO PAGAMENTO"}
+                     {vendaRealizada.status === 'pago' ? "✅ VALIDADO" : "⚠️ AGUARDANDO PAGAMENTO"}
                    </Badge>
                    
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-6 space-y-3 text-xs uppercase font-bold text-left">
                       <p className="flex justify-between items-center"><span>RECIBO:</span> <span className="font-black text-primary">{vendaRealizada.id}</span></p>
+                      <p className="flex justify-between items-center"><span>DATA:</span> <span>{new Date(vendaRealizada.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span></p>
                       <p className="flex justify-between items-center"><span>CLIENTE:</span> <span className="max-w-[150px] truncate">{vendaRealizada.cliente}</span></p>
                       <p className="flex justify-between items-center"><span>JOGO:</span> <span className="text-[10px] text-right">{vendaRealizada.evento_nome}</span></p>
                       <p className="flex justify-between font-black border-t-2 border-dashed border-black/10 pt-4 text-xl text-primary"><span>TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>

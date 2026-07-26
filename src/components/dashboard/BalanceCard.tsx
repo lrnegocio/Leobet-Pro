@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -14,10 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/supabase/client';
 import { createPixPayment } from '@/app/actions/mercadopago';
 
 export function BalanceCard() {
@@ -37,7 +34,7 @@ export function BalanceCard() {
 
   const handleGeneratePix = async () => {
     const amount = Number(depositAmount);
-    if (!amount || amount < 10) return toast({ variant: "destructive", title: "VALOR MÍNIMO R$ 10,00" });
+    if (!amount || amount < 0.01) return toast({ variant: "destructive", title: "VALOR MÍNIMO R$ 0,01" });
 
     setLoading(true);
     setPixData(null);
@@ -62,10 +59,17 @@ export function BalanceCard() {
     }
   };
 
-  const copyPix = () => {
-    if (pixData?.qr_code) {
-      navigator.clipboard.writeText(pixData.qr_code);
+  const handleCopyCode = (text: string) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
       toast({ title: "CÓDIGO PIX COPIADO!" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "ERRO AO COPIAR", description: "Seu navegador bloqueou a cópia automática." });
     }
   };
 
@@ -103,7 +107,7 @@ export function BalanceCard() {
                         className="font-black text-3xl h-20 text-center rounded-2xl border-2 border-primary/20 focus:border-primary" 
                         placeholder="R$ 0,00" 
                       />
-                      <p className="text-[8px] text-center font-bold text-muted-foreground uppercase">Mínimo R$ 10,00 • Crédito na hora via Webhook</p>
+                      <p className="text-[8px] text-center font-bold text-muted-foreground uppercase">Mínimo R$ 0,01 • Crédito na hora via Webhook</p>
                     </div>
                     <Button onClick={handleGeneratePix} disabled={loading} className="w-full h-16 font-black bg-primary rounded-2xl text-white shadow-xl flex items-center justify-center gap-2">
                       {loading ? <Loader2 className="animate-spin" /> : <QrCode className="w-5 h-5" />}
@@ -128,7 +132,7 @@ export function BalanceCard() {
                     
                     <div className="space-y-3">
                       <p className="text-[10px] font-black uppercase text-muted-foreground">Ou use o Copia e Cola</p>
-                      <Button onClick={copyPix} variant="outline" className="w-full h-12 border-2 rounded-xl font-black text-[10px] uppercase gap-2">
+                      <Button onClick={() => handleCopyCode(pixData.qr_code)} variant="outline" className="w-full h-12 border-2 rounded-xl font-black text-[10px] uppercase gap-2">
                         <Copy className="w-4 h-4" /> Copiar Código PIX
                       </Button>
                     </div>

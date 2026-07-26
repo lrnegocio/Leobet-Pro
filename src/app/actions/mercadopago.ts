@@ -10,7 +10,9 @@ const payment = new Payment(client);
 
 export async function createPixPayment(amount: number, user: { id: string, email: string, nome: string }, ticketId?: string) {
   try {
-    const transactionAmount = Math.max(amount, 1);
+    // Mercado Pago exige no mínimo 0.01, removemos o arredondamento para 1.00
+    const transactionAmount = Number(amount.toFixed(2));
+    
     const nameParts = (user.nome || 'Cliente Leobet').trim().split(' ');
     const firstName = nameParts[0] || 'Cliente';
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Pro';
@@ -22,6 +24,7 @@ export async function createPixPayment(amount: number, user: { id: string, email
         transaction_amount: transactionAmount,
         description: ticketId ? `Pagamento Bilhete ${ticketId}` : `Recarga LEOBET PRO - ${user.nome?.substring(0, 15)}`,
         payment_method_id: 'pix',
+        notification_url: 'https://leotv.fun/api/webhooks/mercadopago',
         payer: {
           email: payerEmail,
           first_name: firstName,
@@ -43,6 +46,6 @@ export async function createPixPayment(amount: number, user: { id: string, email
     };
   } catch (error: any) {
     console.error('Erro MP:', error?.message || error);
-    throw new Error('Falha ao gerar PIX. Tente novamente.');
+    throw new Error('Falha ao gerar PIX. O valor mínimo é R$ 0.01.');
   }
 }

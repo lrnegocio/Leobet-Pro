@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -33,21 +32,23 @@ export default function AdminDashboard() {
       const { data: users } = await supabase.from('users').select('role, status');
       const { data: tickets } = await supabase.from('tickets').select('*');
 
-      const pendingTicketsList = tickets?.filter(t => t.status === 'pendente') || [];
-      setPendingTickets(pendingTicketsList);
+      if (tickets) {
+        const pendingTicketsList = tickets.filter(t => t.status === 'pendente') || [];
+        setPendingTickets(pendingTicketsList);
 
-      const paidTickets = tickets?.filter(t => ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status)) || [];
-      const totalArrecadado = paidTickets.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0);
+        const paidTickets = tickets.filter(t => ['pago', 'ganhou', 'premio_pago', 'pendente-resgate'].includes(t.status)) || [];
+        const totalArrecadado = paidTickets.reduce((acc, t) => acc + (Number(t.valor_total) || 0), 0);
 
-      const pendingUsers = users?.filter(u => u.status === 'pending').length || 0;
+        const pendingUsers = users?.filter(u => u.status === 'pending').length || 0;
 
-      setStats({
-        totalClientes: users?.filter(u => u.role === 'cliente').length || 0,
-        totalCambistas: users?.filter(u => u.role === 'cambista').length || 0,
-        pendencias: (pendingTicketsList.length) + pendingUsers,
-        totalVendasPagas: paidTickets.length,
-        totalArrecadado: totalArrecadado
-      });
+        setStats({
+          totalClientes: users?.filter(u => u.role === 'cliente').length || 0,
+          totalCambistas: users?.filter(u => u.role === 'cambista').length || 0,
+          pendencias: (pendingTicketsList.length) + pendingUsers,
+          totalVendasPagas: paidTickets.length,
+          totalArrecadado: totalArrecadado
+        });
+      }
     } catch (err) {
       console.warn("Erro ao carregar estatísticas dashboard:", err);
     }
