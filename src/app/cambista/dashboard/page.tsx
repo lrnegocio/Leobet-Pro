@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, ShoppingCart, DollarSign, Clock, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, DollarSign, Clock } from 'lucide-react';
 import { useAuthStore } from '@/store/use-auth-store';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -22,26 +22,24 @@ export default function CambistaDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    if (user?.id) {
-      loadStats();
-    }
-  }, [user]);
+  }, []);
 
   const loadStats = async () => {
+    if (!user?.id) return;
     try {
       const { data: mySales } = await supabase
         .from('tickets')
         .select('*')
-        .eq('vendedor_id', user?.id)
+        .eq('vendedor_id', user.id)
         .order('created_at', { ascending: false });
 
       if (mySales) {
         const today = new Date().toISOString().split('T')[0];
-        const todaySales = mySales.filter((s: any) => s.created_at.startsWith(today) && s.status === 'pago');
+        const todaySales = mySales.filter((s: any) => s.created_at?.startsWith(today) && s.status === 'pago');
         
         setStats({
           vendasHoje: todaySales.length,
-          comissaoAcumulada: Number(user?.commissionBalance || 0),
+          comissaoAcumulada: Number(user.commissionBalance || 0),
           ultimasVendas: mySales.slice(0, 5)
         });
       }
@@ -49,6 +47,12 @@ export default function CambistaDashboard() {
       console.error("Erro dashboard cambista:", err);
     }
   };
+
+  useEffect(() => {
+    if (mounted && user?.id) {
+      loadStats();
+    }
+  }, [mounted, user]);
 
   if (!mounted) return null;
 
@@ -83,7 +87,7 @@ export default function CambistaDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <span className="text-3xl font-black text-primary">R$ {stats.comissaoAcumulada.toFixed(2)}</span>
+                  <span className="text-3xl font-black text-primary">R$ {(stats.comissaoAcumulada || 0).toFixed(2)}</span>
                   <div className="bg-blue-100 p-3 rounded-2xl"><DollarSign className="w-5 h-5 text-blue-600" /></div>
                 </div>
               </CardContent>
@@ -108,11 +112,11 @@ export default function CambistaDashboard() {
                        {stats.ultimasVendas.map((s, i) => (
                          <div key={i} className="flex justify-between items-center p-4 border rounded-2xl hover:bg-muted/30 transition-all">
                             <div>
-                               <p className="font-black uppercase text-xs text-primary">{s.cliente}</p>
-                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s.evento_nome}</p>
+                               <p className="font-black uppercase text-xs text-primary">{s.cliente || 'CLIENTE'}</p>
+                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s.evento_nome || 'CONCURSO'}</p>
                             </div>
                             <div className="text-right">
-                               <p className="font-black text-xs">R$ {Number(s.valor_total).toFixed(2)}</p>
+                               <p className="font-black text-xs">R$ {Number(s.valor_total || 0).toFixed(2)}</p>
                                <Badge className={`${s.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
                                  {s.status === 'pago' ? 'Aprovado' : 'Aguardando'}
                                </Badge>

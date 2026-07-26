@@ -1,14 +1,14 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -57,19 +57,10 @@ export default function VendaPage() {
       const { data: bingos } = await supabase.from('bingos').select('*').eq('status', 'aberto');
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       const { data: rifas } = await supabase.from('rifas').select('*').eq('status', 'aberto');
-      const now = new Date();
       
-      // Filtro de tempo mais robusto (aceita até 30 segundos antes do sorteio)
-      const validBingos = (bingos || []).filter(item => {
-          const d = item.data_sorteio ? new Date(item.data_sorteio) : null;
-          return d && now < new Date(d.getTime() - 30000);
-      }).map(b => ({ ...b, tipo: 'bingo' }));
-
-      const validBoloes = (boloes || []).filter(item => {
-          const d = item.data_fim ? new Date(item.data_fim) : null;
-          return d && now < new Date(d.getTime() - 30000);
-      }).map(b => ({ ...b, tipo: b.tipo || 'esportivo' }));
-
+      // Filtro de tempo mais flexível para evitar erros de fuso horário na VPS
+      const validBingos = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
+      const validBoloes = (boloes || []).map(b => ({ ...b, tipo: b.tipo || 'esportivo' }));
       const validRifas = (rifas || []).map(r => ({ ...r, tipo: 'rifa' }));
       
       setEventosAtivos([...validBingos, ...validBoloes, ...validRifas]);
@@ -243,12 +234,12 @@ export default function VendaPage() {
 
                     {selectedEventData && (
                       <div className="p-4 bg-muted/40 rounded-[2rem] border-2 border-dashed space-y-4">
-                        {formData.tipo === 'esportivo' && selectedEventData.partidas && (
+                        {formData.tipo === 'esportivo' && selectedEventData.partidas && Array.isArray(selectedEventData.partidas) && (
                            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                              <p className="text-[9px] font-black uppercase text-primary mb-2">Seus Palpites:</p>
                              {selectedEventData.partidas.map((p: any, idx: number) => (
                                <div key={idx} className="flex items-center justify-between gap-2 bg-white p-3 rounded-2xl border shadow-sm mb-2">
-                                  <span className="text-[10px] font-black uppercase flex-1 truncate">{p.time1} vs {p.time2}</span>
+                                  <span className="text-[10px] font-black uppercase flex-1 truncate">{p?.time1 || 'TIME A'} vs {p?.time2 || 'TIME B'}</span>
                                   <div className="flex gap-1">
                                      {['1', 'X', '2'].map((c) => (
                                        <button key={c} type="button" onClick={() => { const nP = [...palpitesBolao]; nP[idx] = c; setPalpitesBolao(nP); }} className={cn("w-9 h-9 rounded-xl font-black text-xs transition-all", palpitesBolao[idx] === c ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground opacity-40")}>

@@ -23,31 +23,37 @@ export default function GerenteDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    if (user?.id) loadData();
-  }, [user]);
+  }, []);
 
   const loadData = async () => {
+    if (!user?.id) return;
     try {
       const { data: allUsers } = await supabase.from('users').select('*');
       const { data: allTickets } = await supabase.from('tickets').select('*');
       
-      const mine = allUsers?.filter((u: any) => u.gerente_id === user?.id) || [];
+      const mine = allUsers?.filter((u: any) => u.gerente_id === user.id) || [];
       setMyCambistas(mine);
       
       const myNetworkSales = allTickets?.filter((t: any) => 
-        (t.vendedor_id === user?.id || mine.some(c => c.id === t.vendedor_id)) && 
+        (t.vendedor_id === user.id || mine.some(c => c.id === t.vendedor_id)) && 
         t.status === 'pago'
       ) || [];
       
       setStats({
         cambistas: mine.length,
         vendas: myNetworkSales.length,
-        comissao: Number(user?.commissionBalance || 0)
+        comissao: Number(user.commissionBalance || 0)
       });
     } catch (err) {
       console.error("Erro dashboard gerente:", err);
     }
   };
+
+  useEffect(() => {
+    if (mounted && user?.id) {
+      loadData();
+    }
+  }, [mounted, user]);
 
   const handleTransfer = async () => {
     const amount = Number(transferAmount);
@@ -61,7 +67,6 @@ export default function GerenteDashboard() {
     }
 
     try {
-      // 1. Deduz do gerente
       let rem = amount;
       let newComm = Number(user.commissionBalance || 0);
       let newBal = Number(user.balance || 0);
@@ -70,7 +75,6 @@ export default function GerenteDashboard() {
       
       await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
       
-      // 2. Adiciona ao cambista
       const target = myCambistas.find(c => c.id === targetCambista);
       const targetNewBal = (Number(target?.balance) || 0) + amount;
       await supabase.from('users').update({ balance: targetNewBal }).eq('id', targetCambista);
@@ -135,7 +139,7 @@ export default function GerenteDashboard() {
                     onChange={e => setTargetCambista(e.target.value)}
                   >
                     <option value="">-- SELECIONE NA LISTA --</option>
-                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome} (Saldo: R$ {((Number(c.balance) || 0) + (Number(c.commission_balance) || 0)).toFixed(2)})</option>)}
+                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome || 'SEM NOME'} (Saldo: R$ {((Number(c.balance) || 0) + (Number(c.commission_balance) || 0)).toFixed(2)})</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -145,7 +149,6 @@ export default function GerenteDashboard() {
                 <Button onClick={handleTransfer} className="w-full bg-accent hover:bg-accent/90 text-white font-black h-16 uppercase rounded-2xl shadow-xl transition-all active:scale-95 text-lg">
                   <Send className="w-5 h-5 mr-2" /> Transferir Saldo
                 </Button>
-                <p className="text-[9px] font-bold text-center text-muted-foreground uppercase">O valor será retirado da sua comissão/depósito e enviado ao cambista.</p>
               </CardContent>
             </Card>
 
@@ -160,16 +163,6 @@ export default function GerenteDashboard() {
                 <Link href="/admin/venda" className="contents">
                   <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-accent/10 hover:bg-accent hover:text-white transition-all group">
                     <Send className="w-10 h-10 text-accent group-hover:text-white" /> Nova Venda
-                  </Button>
-                </Link>
-                <Link href="/relatorios" className="contents">
-                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-blue-100 hover:bg-blue-600 hover:text-white transition-all group">
-                    <TrendingUp className="w-10 h-10 text-blue-600 group-hover:text-white" /> Relatórios
-                  </Button>
-                </Link>
-                <Link href="/perfil" className="contents">
-                  <Button variant="outline" className="h-32 uppercase font-black flex flex-col gap-3 rounded-3xl border-2 border-muted hover:bg-muted-foreground hover:text-white transition-all group">
-                    <ShieldCheck className="w-10 h-10 text-muted-foreground group-hover:text-white" /> Meu Perfil
                   </Button>
                 </Link>
               </CardContent>
