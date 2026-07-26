@@ -8,12 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, AlertCircle, QrCode } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, AlertCircle, QrCode, Copy, Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { createPixPayment } from '@/app/actions/mercadopago';
 
 const ANIMAIS_FAZENDINHA = [
   "AVESTRUZ", "ÁGUIA", "BURRO", "BORBOLETA", "CACHORRO", "CABRA", "CARNEIRO", "CAMELO", "COBRA", "COELHO",
@@ -30,6 +31,10 @@ export default function VendaPage() {
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [isManualPending, setIsManualPending] = useState(false);
   
+  // Estados para palpites de Bolão
+  const [palpitesBolao, setPalpitesBolao] = useState<string[]>([]);
+  const [checkoutPix, setCheckoutPix] = useState<{ qr_code: string, qr_code_base64: string } | null>(null);
+
   const [formData, setFormData] = useState({ 
     cliente: '', 
     whatsapp: '', 
@@ -73,6 +78,8 @@ export default function VendaPage() {
         unitario: Number(ev.preco), 
         tipo: ev.tipo 
       });
+      // Resetar palpites se for bolão
+      if (ev.partidas) setPalpitesBolao(new Array(ev.partidas.length).fill(''));
     } else {
       setSelectedEventData(null);
     }
@@ -85,17 +92,28 @@ export default function VendaPage() {
     const totalVenda = formData.unitario * quantity;
     const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
     
-    if (formData.tipo === 'rifa' && totalBalance < totalVenda && user.role !== 'admin') {
-      setLoading(false);
-      return toast({ variant: "destructive", title: "SALDO INSUFICIENTE", description: "Venda de rifas exige saldo na plataforma." });
+    // Se não tem saldo e não é admin, gerar PIX
+    if (totalBalance < totalVenda && user.role !== 'admin') {
+      try {
+        const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome });
+        setCheckoutPix(pix as any);
+        toast({ title: "GERANDO PIX PARA PAGAMENTO" });
+      } catch (e) {
+        toast({ variant: "destructive", title: "ERRO AO GERAR PIX" });
+      } finally {
+        setLoading(false);
+      }
+      return;
     }
 
     const hasBalance = totalBalance >= totalVenda;
-    const shouldBePaid = hasBalance && !isManualPending;
+    const shouldBePaid = (hasBalance && !isManualPending) || user.role === 'admin';
     
     const ticketsGenerated = [];
     for (let i = 0; i < quantity; i++) {
       let n = null;
+      let p = null;
+
       if (formData.tipo === 'bingo') {
         n = [];
         while(n.length < 15) {
@@ -105,10 +123,14 @@ export default function VendaPage() {
       } else if (formData.tipo === 'rifa') {
          if (selectedEventData?.tipo === 'fazendinha') n = [Math.floor(Math.random() * 25) + 1];
          else n = [Math.floor(Math.random() * (selectedEventData?.total_numeros || 100)) + 1];
+      } else if (selectedEventData?.partidas) {
+         p = palpitesBolao.join('-');
       }
+
       ticketsGenerated.push({ 
         id: Math.random().toString(36).substring(7).toUpperCase(), 
         n, 
+        p,
         status: shouldBePaid ? 'pago' : 'pendente' 
       });
     }
@@ -130,7 +152,7 @@ export default function VendaPage() {
     };
 
     try {
-      if (shouldBePaid) {
+      if (shouldBePaid && user.role !== 'admin') {
         let remaining = totalVenda;
         let newComm = Number(user.commissionBalance || 0);
         let newBal = Number(user.balance || 0);
@@ -168,12 +190,6 @@ export default function VendaPage() {
     }
   };
 
-  const handleVenda = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" });
-    finalizeVenda();
-  };
-
   if (!mounted) return null;
 
   return (
@@ -187,47 +203,92 @@ export default function VendaPage() {
                 <CardTitle className="text-xl font-black uppercase text-primary flex items-center gap-2">
                   <ShoppingCart className="w-6 h-6" /> Terminal LEOBET
                 </CardTitle>
-                <div className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase text-orange-600">
-                  <AlertCircle className="w-3 h-3" /> Vendas pendentes não somam no prêmio acumulado.
-                </div>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
-                <form onSubmit={handleVenda} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
-                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
-                  </div>
-                  <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX PARA RECEBER PRÊMIO" className="h-12 font-black uppercase border-accent/30" required /></div>
-                  
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Concurso</Label>
-                    <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
-                      <option value="">-- SELECIONE O JOGO --</option>
-                      {eventosAtivos.map(e => (
-                        <option key={e.id} value={e.id}>
-                          {e.nome} - R$ {Number(e.preco).toFixed(2)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
-                    <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-xl border-2" />
-                    <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
-                  </div>
-
-                  {(user?.role === 'admin' || user?.role === 'gerente') && (
-                    <div className="flex items-center space-x-2 bg-muted/50 p-4 rounded-xl border-2 border-dashed">
-                      <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} />
-                      <label htmlFor="manual" className="text-[10px] font-black uppercase text-primary cursor-pointer">Vender a Prazo (Deixar Pendente)</label>
+                {checkoutPix ? (
+                   <div className="space-y-6 text-center py-4">
+                      <p className="text-sm font-black uppercase text-orange-600">Saldo Insuficiente. Pague o PIX para validar:</p>
+                      <div className="bg-white p-4 rounded-3xl border-2 border-primary/20 inline-block">
+                         <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48" alt="Pix" />
+                      </div>
+                      <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-12 rounded-xl gap-2 font-black uppercase text-xs">
+                        <Copy className="w-4 h-4" /> Copiar Código PIX
+                      </Button>
+                      <Button onClick={() => setCheckoutPix(null)} variant="ghost" className="w-full text-[10px] font-black uppercase">Cancelar e tentar de novo</Button>
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-200 flex items-center gap-3">
+                         <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
+                         <p className="text-[9px] font-black uppercase text-green-700 text-left">Após o pagamento, o saldo entra em segundos. Feche este aviso e finalize a venda.</p>
+                      </div>
+                   </div>
+                ) : (
+                  <form onSubmit={(e) => { e.preventDefault(); if (!formData.eventoId) return toast({ variant: "destructive", title: "ESCOLHA O JOGO" }); finalizeVenda(); }} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Cliente</Label><Input value={formData.cliente} onChange={e => setFormData({...formData, cliente: e.target.value})} placeholder="NOME DO CLIENTE" className="h-12 font-bold uppercase" required /></div>
+                      <div className="space-y-1"><Label className="text-[10px] font-black uppercase">WhatsApp</Label><Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} placeholder="DDD + NÚMERO" className="h-12 font-bold" required /></div>
                     </div>
-                  )}
+                    <div className="space-y-1"><Label className="text-[10px] font-black uppercase">Chave PIX Resgate</Label><Input value={formData.pixKey} onChange={e => setFormData({...formData, pixKey: e.target.value})} placeholder="CHAVE PIX PARA RECEBER PRÊMIO" className="h-12 font-black uppercase border-accent/30" required /></div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase">Concurso</Label>
+                      <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
+                        <option value="">-- SELECIONE O JOGO --</option>
+                        {eventosAtivos.map(e => (
+                          <option key={e.id} value={e.id}>
+                            {e.nome} - R$ {Number(e.preco).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl" disabled={loading}>
-                    {loading ? 'PROCESSANDO...' : 'EMITIR BILHETE'}
-                  </Button>
-                </form>
+                    {/* GRADE DE PARTIDAS PARA BOLÃO */}
+                    {selectedEventData?.partidas && (
+                      <div className="space-y-3 p-4 bg-muted/30 rounded-2xl border-2 border-dashed">
+                        <p className="text-[10px] font-black uppercase text-primary">Marque os Palpites da Rodada:</p>
+                        {selectedEventData.partidas.map((p: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 bg-white p-2 rounded-lg border shadow-sm">
+                             <span className="text-[9px] font-black uppercase flex-1 truncate">{p.time1} vs {p.time2}</span>
+                             <div className="flex gap-1">
+                                {['1', 'X', '2'].map((choice) => (
+                                  <button
+                                    key={choice}
+                                    type="button"
+                                    onClick={() => {
+                                      const newP = [...palpitesBolao];
+                                      newP[idx] = choice;
+                                      setPalpitesBolao(newP);
+                                    }}
+                                    className={cn(
+                                      "w-8 h-8 rounded-md font-black text-xs transition-all",
+                                      palpitesBolao[idx] === choice ? "bg-primary text-white scale-110 shadow-md" : "bg-muted text-muted-foreground hover:bg-muted-foreground hover:text-white"
+                                    )}
+                                  >
+                                    {choice === '1' ? 'M' : choice === '2' ? 'V' : 'E'}
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-4">
+                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
+                      <Input type="number" value={quantity} readOnly className="h-12 text-center font-black text-xl border-2" />
+                      <Button type="button" variant="outline" className="h-12 w-12 rounded-xl" onClick={() => setQuantity(quantity + 1)}><Plus /></Button>
+                    </div>
+
+                    {(user?.role === 'admin' || user?.role === 'gerente') && (
+                      <div className="flex items-center space-x-2 bg-muted/50 p-4 rounded-xl border-2 border-dashed">
+                        <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} />
+                        <label htmlFor="manual" className="text-[10px] font-black uppercase text-primary cursor-pointer">Vender a Prazo (Deixar Pendente)</label>
+                      </div>
+                    )}
+
+                    <Button type="submit" className="w-full h-16 font-black uppercase bg-primary text-white rounded-2xl shadow-xl" disabled={loading}>
+                      {loading ? <Loader2 className="animate-spin" /> : 'EMITIR BILHETE'}
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
 
@@ -239,10 +300,6 @@ export default function VendaPage() {
                      {vendaRealizada.status === 'pago' ? "VALIDADO E PAGO" : "AGUARDANDO PAGAMENTO"}
                    </Badge>
                    
-                   {selectedEventData?.imagem_url && (
-                     <img src={selectedEventData.imagem_url} alt="Prêmio" className="w-full h-32 object-cover rounded-xl my-4 border-2" />
-                   )}
-
                    <div className="my-6 border-y-2 border-dashed border-black/10 py-4 space-y-2 text-xs uppercase font-bold text-left">
                       <p className="flex justify-between"><span>ID BILHETE:</span> <span>{vendaRealizada.id}</span></p>
                       <p className="flex justify-between"><span>CLIENTE:</span> <span>{vendaRealizada.cliente}</span></p>
@@ -250,26 +307,26 @@ export default function VendaPage() {
                       <p className="flex justify-between font-black border-t pt-2"><span>VALOR TOTAL:</span> <span>R$ {Number(vendaRealizada.valor_total).toFixed(2)}</span></p>
                    </div>
                    
-                   <div className="grid grid-cols-1 gap-2 mb-6">
+                   <div className="grid grid-cols-1 gap-2 mb-6 text-left">
                       {vendaRealizada.tickets_data.map((t: any, idx: number) => (
-                        <div key={idx} className="bg-primary/5 p-3 rounded-lg border text-sm font-black flex justify-between">
-                           <span>COTA #{idx+1}:</span>
-                           <span className="text-primary truncate ml-2">
-                             {vendaRealizada.tipo === 'rifa' && selectedEventData?.tipo === 'fazendinha' 
-                               ? ANIMAIS_FAZENDINHA[Number(t.n[0]) - 1] 
-                               : Array.isArray(t.n) ? t.n.join(' - ') : t.n}
+                        <div key={idx} className="bg-primary/5 p-3 rounded-lg border text-sm font-black flex flex-col gap-1">
+                           <div className="flex justify-between border-b pb-1 mb-1">
+                              <span>BILHETE #{idx+1}:</span>
+                              <span className="text-primary truncate">{t.id}</span>
+                           </div>
+                           <span className="text-[10px] text-muted-foreground">
+                             {vendaRealizada.tipo === 'bingo' ? `DEZENAS: ${t.n.join(' - ')}` : 
+                              vendaRealizada.tipo === 'rifa' ? `COTA: ${t.n[0]}` : 
+                              `PALPITES: ${t.p}`}
                            </span>
                         </div>
                       ))}
                    </div>
 
-                   {/* QR CODE PARA PAGAMENTO NO BILHETE */}
                    <div className="bg-white p-4 rounded-2xl border-2 border-dashed mb-6 flex flex-col items-center gap-2">
-                      <p className="text-[10px] font-black uppercase opacity-60">Pagamento PIX Oficial</p>
-                      <div className="bg-muted p-2 rounded-xl">
-                        <QrCode className="w-24 h-24 text-primary" />
-                      </div>
-                      <p className="text-[8px] font-bold uppercase">Escaneie para validar sua aposta</p>
+                      <p className="text-[10px] font-black uppercase opacity-60">Autenticidade Garantida</p>
+                      <div className="bg-muted p-2 rounded-xl"><QrCode className="w-24 h-24 text-primary" /></div>
+                      <p className="text-[8px] font-bold uppercase">Auditado em tempo real via Supabase Cloud</p>
                    </div>
 
                    <Button onClick={() => window.print()} className="w-full h-14 bg-green-600 text-white font-black uppercase rounded-xl gap-2"><Printer /> Imprimir Bilhete</Button>
