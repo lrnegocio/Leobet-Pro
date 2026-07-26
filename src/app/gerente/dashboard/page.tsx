@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -26,7 +25,7 @@ export default function GerenteDashboard() {
   }, []);
 
   const loadData = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !mounted) return;
     try {
       const { data: allUsers } = await supabase.from('users').select('*');
       const { data: allTickets } = await supabase.from('tickets').select('*');
@@ -42,10 +41,10 @@ export default function GerenteDashboard() {
       setStats({
         cambistas: mine.length,
         vendas: myNetworkSales.length,
-        comissao: Number(user.commissionBalance || 0)
+        comissao: Number(user?.commissionBalance || 0)
       });
     } catch (err) {
-      console.error("Erro dashboard gerente:", err);
+      console.warn("Erro dashboard gerente:", err);
     }
   };
 
@@ -53,13 +52,13 @@ export default function GerenteDashboard() {
     if (mounted && user?.id) {
       loadData();
     }
-  }, [mounted, user]);
+  }, [mounted, user?.id, user?.commissionBalance]);
 
   const handleTransfer = async () => {
     const amount = Number(transferAmount);
     if (amount <= 0 || !targetCambista || !user) return;
     
-    const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
+    const totalBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
 
     if (totalBalance < amount) {
       toast({ variant: "destructive", title: "SALDO INSUFICIENTE" });
@@ -76,7 +75,7 @@ export default function GerenteDashboard() {
       await supabase.from('users').update({ balance: newBal, commission_balance: newComm }).eq('id', user.id);
       
       const target = myCambistas.find(c => c.id === targetCambista);
-      const targetNewBal = (Number(target?.balance) || 0) + amount;
+      const targetNewBal = (Number(target?.balance || 0)) + amount;
       await supabase.from('users').update({ balance: targetNewBal }).eq('id', targetCambista);
 
       setUser({ ...user, balance: newBal, commissionBalance: newComm });
@@ -91,7 +90,7 @@ export default function GerenteDashboard() {
   if (!mounted) return null;
 
   return (
-    <div className="flex h-screen bg-muted/30 font-body">
+    <div className="flex h-screen bg-muted/30 font-sans">
       <SidebarNav />
       <main className="flex-1 overflow-auto p-4 md:p-8 pt-20 lg:pt-8">
         <div className="max-w-7xl mx-auto space-y-8">
@@ -104,7 +103,7 @@ export default function GerenteDashboard() {
             </div>
             <Card className="bg-primary text-white p-6 rounded-[2rem] shadow-xl border-none w-full md:w-auto">
               <p className="text-[10px] font-black uppercase opacity-60">Meu Saldo Disponível</p>
-              <p className="text-3xl font-black">R$ {((Number(user?.balance) || 0) + (Number(user?.commissionBalance) || 0)).toFixed(2)}</p>
+              <p className="text-3xl font-black">R$ {((Number(user?.balance || 0)) + (Number(user?.commissionBalance || 0))).toFixed(2)}</p>
             </Card>
           </div>
 
@@ -139,7 +138,7 @@ export default function GerenteDashboard() {
                     onChange={e => setTargetCambista(e.target.value)}
                   >
                     <option value="">-- SELECIONE NA LISTA --</option>
-                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome || 'SEM NOME'} (Saldo: R$ {((Number(c.balance) || 0) + (Number(c.commission_balance) || 0)).toFixed(2)})</option>)}
+                    {myCambistas.map(c => <option key={c.id} value={c.id}>{c.nome || 'SEM NOME'} (Saldo: R$ {((Number(c.balance || 0)) + (Number(c.commission_balance || 0))).toFixed(2)})</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">

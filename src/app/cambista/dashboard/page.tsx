@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -38,7 +37,7 @@ export default function CambistaDashboard() {
       
       setStats({
         vendasHoje: todaySales.length,
-        comissaoAcumulada: Number(user.commissionBalance || 0),
+        comissaoAcumulada: Number(user?.commissionBalance || 0),
         ultimasVendas: (mySales || []).slice(0, 5)
       });
     } catch (err) {
@@ -50,13 +49,9 @@ export default function CambistaDashboard() {
     if (mounted && user?.id) {
       loadStats();
     }
-  }, [mounted, user?.id]);
+  }, [mounted, user?.id, user?.commissionBalance]);
 
-  if (!mounted) return (
-    <div className="h-screen flex items-center justify-center bg-primary">
-       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-    </div>
-  );
+  if (!mounted) return null;
 
   return (
     <div className="flex h-screen bg-muted/30 font-sans">

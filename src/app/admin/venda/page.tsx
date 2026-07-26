@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -8,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2 } from 'lucide-react';
+import { ShoppingCart, Printer, Plus, Minus, Ticket, QrCode, Copy, Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/use-auth-store';
 import { supabase } from '@/supabase/client';
@@ -33,7 +32,7 @@ export default function VendaPage() {
   
   const [palpitesBolao, setPalpitesBolao] = useState<string[]>([]);
   const [numerosSelecionados, setNumerosSelecionados] = useState<number[]>([]);
-  const [checkoutPix, setCheckoutPix] = useState<{ qr_code: string, qr_code_base64: string } | null>(null);
+  const [checkoutPix, setCheckoutPix] = useState<{ qr_code: string, qr_code_base64: string, ticket_id: string } | null>(null);
 
   const [formData, setFormData] = useState({ 
     cliente: '', 
@@ -97,19 +96,6 @@ export default function VendaPage() {
     }
   };
 
-  const handleToggleNumero = (num: number) => {
-    if (numerosSelecionados.includes(num)) {
-      setNumerosSelecionados(numerosSelecionados.filter(n => n !== num));
-    } else {
-      const limit = formData.tipo === 'mega' ? 15 : (formData.tipo === 'quina' ? 20 : 1);
-      if (numerosSelecionados.length >= limit && formData.tipo !== 'rifa') {
-        return toast({ variant: "destructive", title: "LIMITE ATINGIDO" });
-      }
-      if (formData.tipo === 'rifa') setNumerosSelecionados([num]);
-      else setNumerosSelecionados([...numerosSelecionados, num].sort((a,b) => a-b));
-    }
-  };
-
   const finalizeVenda = async () => {
     if (!user || !formData.eventoId) return;
     if (formData.tipo === 'esportivo' && palpitesBolao.some(p => !p)) {
@@ -117,21 +103,16 @@ export default function VendaPage() {
     }
 
     setLoading(true);
+    setVendaRealizada(null);
+
     const totalVenda = formData.unitario * quantity;
     const currentBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
     
-    if (currentBalance < totalVenda && user.role !== 'admin' && !isManualPending) {
-      try {
-        const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome });
-        if (pix?.qr_code) setCheckoutPix(pix as any);
-        else throw new Error("API Indisponível");
-      } catch (e: any) {
-        toast({ variant: "destructive", title: "ERRO AO GERAR PIX" });
-      } finally { setLoading(false); }
-      return;
-    }
-
-    const shouldBePaid = (currentBalance >= totalVenda && !isManualPending) || user.role === 'admin';
+    // Regra: Pago apenas se tiver saldo OU se for Admin (que não usa manual pending)
+    const canPayWithBalance = currentBalance >= totalVenda && !isManualPending;
+    const shouldBePaid = canPayWithBalance || (user.role === 'admin' && !isManualPending);
+    
+    const ticketId = Math.random().toString(36).substring(7).toUpperCase();
     const ticketsGenerated = [];
 
     for (let i = 0; i < quantity; i++) {
@@ -152,7 +133,7 @@ export default function VendaPage() {
     }
 
     const receipt = {
-      id: Math.random().toString(36).substring(7).toUpperCase(),
+      id: ticketId,
       evento_id: String(formData.eventoId),
       evento_nome: formData.eventoNome,
       tipo: formData.tipo,
@@ -168,7 +149,19 @@ export default function VendaPage() {
     };
 
     try {
-      if (shouldBePaid && user.role !== 'admin') {
+      // Se NÃO tem saldo e NÃO é admin e NÃO é manual pending -> GERA PIX E CRIA TICKET PENDENTE
+      if (!shouldBePaid && !isManualPending && user.role !== 'admin') {
+        const pix = await createPixPayment(totalVenda, { id: user.id, email: user.email, nome: user.nome }, ticketId);
+        if (pix?.qr_code) {
+          await supabase.from('tickets').insert([receipt]);
+          setCheckoutPix({ ...pix, ticket_id: ticketId } as any);
+          setLoading(false);
+          return;
+        } else throw new Error("Erro API Pix");
+      }
+
+      // Se tem saldo, desconta
+      if (canPayWithBalance && user.role !== 'admin') {
         const { data: userData } = await supabase.from('users').select('balance, commission_balance').eq('id', user.id).single();
         if (userData) {
            let rem = totalVenda; let newComm = Number(userData.commission_balance || 0); let newBal = Number(userData.balance || 0);
@@ -177,11 +170,13 @@ export default function VendaPage() {
            setUser({ ...user, balance: newBal, commissionBalance: newComm });
         }
       }
+
       await supabase.from('tickets').insert([receipt]);
       setVendaRealizada(receipt);
       toast({ title: shouldBePaid ? "BILHETE EMITIDO!" : "BILHETE PENDENTE!" });
-    } catch (err: any) { toast({ variant: "destructive", title: "ERRO AO SALVAR" }); } 
-    finally { setLoading(false); }
+    } catch (err: any) { 
+      toast({ variant: "destructive", title: "ERRO AO PROCESSAR", description: err.message }); 
+    } finally { setLoading(false); }
   };
 
   const matchesList = useMemo(() => {
@@ -209,13 +204,18 @@ export default function VendaPage() {
                 {checkoutPix ? (
                    <div className="space-y-6 text-center py-6">
                       <div className="p-4 bg-orange-50 rounded-2xl border-2 border-orange-200">
-                        <p className="text-sm font-black uppercase text-orange-600">Saldo Insuficiente</p>
+                        <p className="text-sm font-black uppercase text-orange-600">Aguardando Pagamento PIX</p>
+                        <p className="text-[10px] font-bold opacity-60">ID DO BILHETE: {checkoutPix.ticket_id}</p>
                       </div>
                       <img src={`data:image/png;base64,${checkoutPix.qr_code_base64}`} className="w-48 h-48 mx-auto" alt="Pix" />
                       <Button onClick={() => { navigator.clipboard.writeText(checkoutPix.qr_code); toast({ title: "COPIADO!" }); }} variant="outline" className="w-full h-14 rounded-2xl gap-2 font-black uppercase text-xs">
-                        <Copy className="w-4 h-4" /> Copiar Código
+                        <Copy className="w-4 h-4" /> Copiar Código Pix
                       </Button>
-                      <Button onClick={() => setCheckoutPix(null)} variant="ghost" className="w-full text-[10px] font-black uppercase opacity-60">Voltar</Button>
+                      <div className="flex items-center gap-2 text-green-600 justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-[10px] font-black uppercase">O bilhete será validado após o pagamento</span>
+                      </div>
+                      <Button onClick={() => setCheckoutPix(null)} variant="ghost" className="w-full text-[10px] font-black uppercase opacity-60">Fazer outra venda</Button>
                    </div>
                 ) : (
                   <form onSubmit={(e) => { e.preventDefault(); finalizeVenda(); }} className="space-y-4">
@@ -282,7 +282,7 @@ export default function VendaPage() {
                     {(user?.role === 'admin' || user?.role === 'gerente') && (
                       <div className="flex items-center space-x-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
                         <Checkbox id="manual" checked={isManualPending} onCheckedChange={(v) => setIsManualPending(v as boolean)} className="h-5 w-5" />
-                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Venda Pendente (Vender a Prazo)</label>
+                        <label htmlFor="manual" className="text-[11px] font-black uppercase text-primary cursor-pointer">Venda Pendente (Pagar Depois)</label>
                       </div>
                     )}
 

@@ -2,30 +2,25 @@
 
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 
-// Credenciais oficiais fornecidas pelo usuário
 const client = new MercadoPagoConfig({
   accessToken: 'APP_USR-5125321872252102-123010-1e5de53b8331371d32f7aab5ea2a2bd0-38477053',
 });
 
 const payment = new Payment(client);
 
-export async function createPixPayment(amount: number, user: { id: string, email: string, nome: string }) {
+export async function createPixPayment(amount: number, user: { id: string, email: string, nome: string }, ticketId?: string) {
   try {
-    // Garantir que o valor seja no mínimo 1.00 para evitar erros em alguns ambientes
     const transactionAmount = Math.max(amount, 1);
-    
-    // Tratamento de nome para evitar erro de falta de sobrenome na API do MP
-    const nameParts = user.nome.trim().split(' ');
+    const nameParts = (user.nome || 'Cliente Leobet').trim().split(' ');
     const firstName = nameParts[0] || 'Cliente';
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Leobet';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Pro';
 
-    // Garantir e-mail válido (caso o usuário use apenas login)
-    const payerEmail = user.email.includes('@') ? user.email : `${user.id.toLowerCase()}@leotv.fun`;
+    const payerEmail = (user.email && user.email.includes('@')) ? user.email : `${user.id.toLowerCase()}@leobet.pro`;
 
     const response = await payment.create({
       body: {
         transaction_amount: transactionAmount,
-        description: `Recarga LEOBET PRO - ${user.nome.substring(0, 20)}`,
+        description: ticketId ? `Pagamento Bilhete ${ticketId}` : `Recarga LEOBET PRO - ${user.nome?.substring(0, 15)}`,
         payment_method_id: 'pix',
         payer: {
           email: payerEmail,
@@ -34,11 +29,9 @@ export async function createPixPayment(amount: number, user: { id: string, email
         },
         metadata: {
           user_id: user.id,
+          ticket_id: ticketId || null,
+          type: ticketId ? 'ticket_payment' : 'deposit'
         },
-        // Removemos a notification_url se for IP fixo sem SSL para evitar bloqueio da API em testes
-        notification_url: process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') 
-          ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago` 
-          : undefined,
       },
     });
 
@@ -49,7 +42,7 @@ export async function createPixPayment(amount: number, user: { id: string, email
       status: response.status,
     };
   } catch (error: any) {
-    console.error('Erro detalhado MP:', error?.message || error);
-    throw new Error('Falha ao gerar o PIX. Verifique se o valor é válido e tente novamente.');
+    console.error('Erro MP:', error?.message || error);
+    throw new Error('Falha ao gerar PIX. Tente novamente.');
   }
 }
