@@ -58,7 +58,6 @@ export default function VendaPage() {
       const { data: boloes } = await supabase.from('boloes').select('*').eq('status', 'aberto');
       const { data: rifas } = await supabase.from('rifas').select('*').eq('status', 'aberto');
       
-      // Filtro de tempo mais flexível para evitar erros de fuso horário na VPS
       const validBingos = (bingos || []).map(b => ({ ...b, tipo: 'bingo' }));
       const validBoloes = (boloes || []).map(b => ({ ...b, tipo: b.tipo || 'esportivo' }));
       const validRifas = (rifas || []).map(r => ({ ...r, tipo: 'rifa' }));
@@ -75,12 +74,23 @@ export default function VendaPage() {
         ...formData, 
         eventoId: ev.id, 
         eventoNome: ev.nome, 
-        unitario: Number(ev.preco), 
+        unitario: Number(ev.preco || 0), 
         tipo: ev.tipo 
       });
       setNumerosSelecionados([]);
-      if (ev.partidas && Array.isArray(ev.partidas)) {
-        setPalpitesBolao(new Array(ev.partidas.length).fill(''));
+      
+      // LOGICA ROBUSTA PARA BOLÃO
+      if (ev.partidas) {
+        let pArray = [];
+        try {
+          pArray = typeof ev.partidas === 'string' ? JSON.parse(ev.partidas) : ev.partidas;
+        } catch(e) { pArray = []; }
+        
+        if (Array.isArray(pArray)) {
+          setPalpitesBolao(new Array(pArray.length).fill(''));
+        } else {
+          setPalpitesBolao([]);
+        }
       } else {
         setPalpitesBolao([]);
       }
@@ -120,7 +130,7 @@ export default function VendaPage() {
 
     setLoading(true);
     const totalVenda = formData.unitario * quantity;
-    const totalBalance = (Number(user.balance) || 0) + (Number(user.commissionBalance) || 0);
+    const totalBalance = (Number(user.balance || 0)) + (Number(user.commissionBalance || 0));
     
     if (totalBalance < totalVenda && user.role !== 'admin' && !isManualPending) {
       try {
@@ -171,7 +181,7 @@ export default function VendaPage() {
     };
 
     try {
-      if (shouldBePaid && user.id !== 'MASTER-ADMIN' && user.role !== 'admin') {
+      if (shouldBePaid && user.role !== 'admin' && user.id !== 'MASTER-ADMIN') {
         const { data: userData } = await supabase.from('users').select('balance, commission_balance').eq('id', user.id).single();
         if (userData) {
            let rem = totalVenda; let newComm = Number(userData.commission_balance || 0); let newBal = Number(userData.balance || 0);
@@ -188,6 +198,9 @@ export default function VendaPage() {
   };
 
   if (!mounted) return null;
+
+  // GARANTIA DE ARRAY DE PARTIDAS
+  const partidasParaExibir = selectedEventData?.partidas ? (typeof selectedEventData.partidas === 'string' ? JSON.parse(selectedEventData.partidas) : selectedEventData.partidas) : [];
 
   return (
     <div className="flex h-screen bg-muted/30 font-body overflow-hidden">
@@ -228,16 +241,16 @@ export default function VendaPage() {
                       <Label className="text-[10px] font-black uppercase opacity-60">Concurso Disponível</Label>
                       <select className="w-full h-14 border-2 rounded-xl px-4 font-black text-xs bg-white" value={formData.eventoId} onChange={e => handleSelectEvento(e.target.value)} required>
                         <option value="">-- SELECIONE --</option>
-                        {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} - R$ {Number(e.preco).toFixed(2)}</option>)}
+                        {eventosAtivos.map(e => <option key={e.id} value={e.id}>{e.nome} - R$ {Number(e.preco || 0).toFixed(2)}</option>)}
                       </select>
                     </div>
 
                     {selectedEventData && (
                       <div className="p-4 bg-muted/40 rounded-[2rem] border-2 border-dashed space-y-4">
-                        {formData.tipo === 'esportivo' && selectedEventData.partidas && Array.isArray(selectedEventData.partidas) && (
+                        {formData.tipo === 'esportivo' && Array.isArray(partidasParaExibir) && (
                            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                              <p className="text-[9px] font-black uppercase text-primary mb-2">Seus Palpites:</p>
-                             {selectedEventData.partidas.map((p: any, idx: number) => (
+                             {partidasParaExibir.map((p: any, idx: number) => (
                                <div key={idx} className="flex items-center justify-between gap-2 bg-white p-3 rounded-2xl border shadow-sm mb-2">
                                   <span className="text-[10px] font-black uppercase flex-1 truncate">{p?.time1 || 'TIME A'} vs {p?.time2 || 'TIME B'}</span>
                                   <div className="flex gap-1">

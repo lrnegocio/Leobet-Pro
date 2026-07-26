@@ -25,7 +25,7 @@ export default function CambistaDashboard() {
   }, []);
 
   const loadStats = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !mounted) return;
     try {
       const { data: mySales } = await supabase
         .from('tickets')
@@ -40,7 +40,7 @@ export default function CambistaDashboard() {
         setStats({
           vendasHoje: todaySales.length,
           comissaoAcumulada: Number(user.commissionBalance || 0),
-          ultimasVendas: mySales.slice(0, 5)
+          ultimasVendas: mySales.slice(0, 5) || []
         });
       }
     } catch (err) {
@@ -52,9 +52,13 @@ export default function CambistaDashboard() {
     if (mounted && user?.id) {
       loadStats();
     }
-  }, [mounted, user]);
+  }, [mounted, user?.id]);
 
-  if (!mounted) return null;
+  if (!mounted) return (
+    <div className="h-screen flex items-center justify-center bg-primary">
+       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-muted/30 font-body">
@@ -101,24 +105,24 @@ export default function CambistaDashboard() {
                     <Clock className="w-4 h-4" /> Movimentos Recentes
                   </CardTitle>
                   <Link href="/admin/venda">
-                    <Badge className="bg-accent hover:bg-accent/90 cursor-pointer font-black uppercase text-[10px] h-8 px-4 rounded-xl">Nova Venda</Badge>
+                    <Badge className="bg-accent hover:bg-accent/90 cursor-pointer font-black uppercase text-[10px] h-8 px-4 rounded-xl text-white">Nova Venda</Badge>
                   </Link>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {stats.ultimasVendas.length === 0 ? (
+                  {(!stats.ultimasVendas || stats.ultimasVendas.length === 0) ? (
                     <div className="text-center py-12 text-muted-foreground opacity-30 font-black uppercase text-xs">Aguardando primeira venda...</div>
                   ) : (
                     <div className="space-y-3">
                        {stats.ultimasVendas.map((s, i) => (
                          <div key={i} className="flex justify-between items-center p-4 border rounded-2xl hover:bg-muted/30 transition-all">
                             <div>
-                               <p className="font-black uppercase text-xs text-primary">{s.cliente || 'CLIENTE'}</p>
-                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s.evento_nome || 'CONCURSO'}</p>
+                               <p className="font-black uppercase text-xs text-primary">{s?.cliente || 'CLIENTE'}</p>
+                               <p className="text-[9px] font-bold text-muted-foreground uppercase">{s?.evento_nome || 'CONCURSO'}</p>
                             </div>
                             <div className="text-right">
-                               <p className="font-black text-xs">R$ {Number(s.valor_total || 0).toFixed(2)}</p>
-                               <Badge className={`${s.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
-                                 {s.status === 'pago' ? 'Aprovado' : 'Aguardando'}
+                               <p className="font-black text-xs">R$ {Number(s?.valor_total || 0).toFixed(2)}</p>
+                               <Badge className={`${s?.status === 'pago' ? 'bg-green-600' : 'bg-orange-600'} text-[8px] h-4 font-black uppercase text-white`}>
+                                 {s?.status === 'pago' ? 'Aprovado' : 'Aguardando'}
                                </Badge>
                             </div>
                          </div>
